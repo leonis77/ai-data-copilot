@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(fileData, "base64");
-    const parsed = parseFile(buffer.buffer as ArrayBuffer, fileName);
+    const parsed = parseFile(new Uint8Array(buffer), fileName);
 
     const id = `ds_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     saveDataset({
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     if (latest === "true") {
       const ds = getLatestDataset();
       if (!ds) return NextResponse.json(null);
-      const full = getDataset(ds.id as string);
+      const full = getDataset(ds.id);
       return NextResponse.json(full);
     }
 

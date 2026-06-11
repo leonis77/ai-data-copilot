@@ -40,3 +40,4 @@ next-env.d.ts
 
 # data (runtime)
 /data/*.json
+.vercel

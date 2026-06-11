@@ -7,8 +7,18 @@ export interface ParsedData {
   summary: string;
 }
 
-export function parseFile(buffer: ArrayBuffer, fileName: string): ParsedData {
-  const workbook = XLSX.read(buffer, { type: "array" });
+export function parseFile(data: Uint8Array, fileName: string): ParsedData {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+
+  // Strip BOM from CSV before passing to xlsx
+  let bytes: Uint8Array;
+  if (ext === "csv" && data.length >= 3 && data[0] === 0xEF && data[1] === 0xBB && data[2] === 0xBF) {
+    bytes = data.slice(3);
+  } else {
+    bytes = data;
+  }
+
+  const workbook = XLSX.read(bytes, { type: "array" });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });

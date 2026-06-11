@@ -8,6 +8,20 @@ import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle, ArrowRight
 import { GlassCard } from "@/components/ui/glass-card";
 import { CountUp } from "@/components/ui/count-up";
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data:...;base64, prefix
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -48,10 +62,7 @@ export default function UploadPage() {
     setError("");
 
     try {
-      const buffer = await file.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-      );
+      const base64 = await fileToBase64(file);
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -62,7 +73,10 @@ export default function UploadPage() {
         }),
       });
 
-      if (!res.ok) throw new Error((await res.json()).error || "上传失败");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "上传失败");
+      }
 
       const data = await res.json();
       setResult(data);
