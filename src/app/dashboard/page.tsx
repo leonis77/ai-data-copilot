@@ -11,6 +11,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
 import { AnalysisPanel } from "@/components/ui/../ai/analysis-panel";
+import { getApiBase } from "@/lib/api";
 import { CardSkeleton, ChartSkeleton, AnalysisSkeleton } from "@/components/ui/skeleton";
 import { computeStats, buildSummary } from "@/lib/parser";
 import type { AnalysisResult, DataStats } from "@/types";
@@ -28,44 +29,36 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = () => {
     try {
-      const res = await fetch("/api/upload?latest=true");
-      if (!res.ok) { setLoading(false); return; }
-      const data = await res.json();
+      const stored = localStorage.getItem("currentDataset");
+      if (!stored) { setLoading(false); return; }
+      const data = JSON.parse(stored);
       if (!data || !data.columns) { setLoading(false); return; }
-
-      const parsed = computeStats(data.rows, data.columns);
+      const parsed = computeStats(data.rows || [], data.columns);
+      setDatasetData(data);
       setStats(parsed);
       setHasData(true);
-      setDatasetName(data.original_name || data.name);
+      setDatasetName(data.fileName || "");
       setLoading(false);
-
-      const analysisRes = await fetch(`/api/analyze?datasetId=${data.id}`);
-      if (analysisRes.ok) {
-        const analysisData = await analysisRes.json();
-        if (analysisData.summary) setAnalysis(analysisData);
-      }
-    } catch {
-      setLoading(false);
-    }
+    } catch { setLoading(false); }
   };
-
   const runAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const res = await fetch("/api/analyze", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysis(data);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setAnalyzing(false);
-    }
+      const apiBase = getApiBase();
+      const stored = localStorage.getItem("currentDataset");
+      if (!stored) { setAnalyzing(false); return; }
+      const dataset = JSON.parse(stored);
+      const summary = buildSummary(dataset.columns, dataset.rows || []);
+      const res = await fetch(apiBase + "/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataSummary: summary, question: "" }),
+      });
+      if (res.ok) { const ad = await res.json(); setAnalysis(ad); }
+    } catch {} finally { setAnalyzing(false); }
   };
-
   if (loading) {
     return (
       <div className="min-h-screen py-12">

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { FileText, Download, Upload, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
+import { getApiBase } from "@/lib/api";
 import { GlassCard } from "@/components/ui/glass-card";
 
 export default function ReportPage() {
@@ -17,46 +18,42 @@ export default function ReportPage() {
     checkData();
   }, []);
 
-  const checkData = async () => {
+  const checkData = () => {
     try {
-      const res = await fetch("/api/upload?latest=true");
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.id) {
+      const stored = localStorage.getItem("currentDataset");
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data && data.columns) {
           setHasData(true);
-          setDatasetName(data.original_name || data.name);
+          setDatasetName(data.fileName || data.original_name || "???");
         }
       }
-    } catch {
-      // empty
-    } finally {
-      setChecking(false);
-    }
+    } catch {} finally { setChecking(false); }
   };
-
   const generateReport = async () => {
     setGenerating(true);
     try {
-      const res = await fetch("/api/report", { method: "POST" });
-      if (!res.ok) throw new Error("生成失败");
-
+      const apiBase = getApiBase();
+      const stored = localStorage.getItem("currentDataset");
+      if (!stored) { setGenerating(false); return; }
+      const dataset = JSON.parse(stored);
+      const res = await fetch(apiBase + "/api/report", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ columns: dataset.columns || [], rows: dataset.rows || [], datasetName: dataset.fileName || "???" }),
+      });
+      if (!res.ok) throw new Error("");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `AI_Data_Copilot_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = "AI_Data_Copilot_Report_" + new Date().toISOString().slice(0, 10) + ".pdf";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       setGenerated(true);
-    } catch {
-      // silently handle
-    } finally {
-      setGenerating(false);
-    }
+    } catch {} finally { setGenerating(false); }
   };
-
   if (checking) {
     return (
       <div className="min-h-screen py-12">
