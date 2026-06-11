@@ -1,18 +1,45 @@
-export const dynamic = "force-static";
 import { NextRequest, NextResponse } from "next/server";
+import { getLatestDataset, saveChatMessage } from "@/lib/db";
 import { chatWithData } from "@/lib/ai";
+import { computeStats } from "@/lib/parser";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const messages = body.messages || [];
-    const dataContext = body.dataContext || "暂无数据上下文。";
 
     if (messages.length === 0) {
       return NextResponse.json({ error: "消息不能为空" }, { status: 400 });
     }
 
+    const ds = await getLatestDataset();
+    if (!ds) {
+      return NextResponse.json(
+        { reply: "请先上传数据文件，我才能帮你分析。" }
+      );
+    }
+
+    const columns = ds.columns;
+    const rows = ds.rows;
+    const stats = computeStats(rows, columns);
+
+    let dataContext = `数据集: ${ds.originalName}\n`;
+    dataContext += `共 ${stats.rowCount} 条记录, ${stats.columnCount} 个字段\n\n`;
+
+    for (const [col, s] of Object.entries(stats.stats).slice(0, 5)) {
+      dataContext += `${col}: 平均 ${s.avg.toFixed(2)}, 最小 ${s.min}, 最大 ${s.max}, 共 ${s.count} 条\n`;
+    }
+
+    for (const [col, dist] of Object.entries(stats.distributions).slice(0, 3)) {
+      const top5 = Object.entries(dist).slice(0, 5).map(([k, v]) => `${k}(${v})`).join(", ");
+      dataContext += `${col} 分布: ${top5}\n`;
+    }
+
     const reply = await chatWithData(dataContext, messages);
+
+    saveChatMessage(ds.id, "user", messages[messages.length - 1].content);
+    saveChatMessage(ds.id, "assistant", reply);
+
     return NextResponse.json({ reply });
   } catch (error) {
     console.error("Chat error:", error);

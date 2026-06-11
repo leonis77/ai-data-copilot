@@ -5,20 +5,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { MessageSquare, Upload, ArrowRight } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { getApiBase } from "@/lib/api";
 import { ChatPanel } from "@/components/ai/chat-panel";
 import type { ChatMessage } from "@/types";
-
-
-function buildChatContext(dataset: any): string {
-  let ctx = `???: ${dataset.fileName || dataset.original_name || "??"}\n`;
-  ctx += `? ${dataset.rowCount} ???, ${dataset.columns.length} ???\n`;
-  ctx += `??: ${dataset.columns.join(", ")}\n\n`;
-  if (dataset.summary) {
-    ctx += `??: ${dataset.summary}\n`;
-  }
-  return ctx;
-}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,46 +19,57 @@ export default function ChatPage() {
     checkData();
   }, []);
 
-  const checkData = () => {
+  const checkData = async () => {
     try {
-      const stored = localStorage.getItem("currentDataset");
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (data && data.columns) {
+      const res = await fetch("/api/upload?latest=true");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.id) {
           setHasData(true);
           if (!loadedRef.current) {
             loadedRef.current = true;
-            const dsName = data.fileName || "??";
-            setMessages([{ role: "assistant", content: "????????? **" + dsName + "**?" + data.rowCount + " ? x " + data.columns.length + " ???\n\n??????????????" }]);
+            setMessages([
+              {
+                role: "assistant",
+                content: `你好！我已加载了数据集 **${data.original_name || data.name}**（${data.row_count} 行 x ${Array.isArray(data.columns) ? data.columns.length : 0} 列）。\n\n你可以直接问我关于这些数据的问题，例如：\n- 哪些商品销量最好？\n- 数据中有什么异常？\n- 帮我分析一下趋势`,
+              },
+            ]);
           }
         }
       }
-    } catch {} finally { setChecking(false); }
+    } catch {
+      // empty
+    } finally {
+      setChecking(false);
+    }
   };
+
   const handleSend = async (content: string) => {
     const userMsg: ChatMessage = { role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
+
     try {
-      const apiBase = getApiBase();
-      const stored = localStorage.getItem("currentDataset");
-      let dataContext = "";
-      if (stored) {
-        const dataset = JSON.parse(stored);
-        dataContext = "???: " + (dataset.fileName || "??") + "\n? " + dataset.rowCount + " ?, " + dataset.columns.length + " ??\n??: " + dataset.columns.join(", ") + "\n";
-        if (dataset.summary) dataContext += "??: " + dataset.summary;
-      }
-      const res = await fetch(apiBase + "/api/chat", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataContext, messages: [...messages, userMsg] }),
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMsg] }),
       });
-      if (!res.ok) throw new Error("");
+
+      if (!res.ok) throw new Error("请求失败");
+
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "???AI ????????" }]);
-    } finally { setLoading(false); }
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "抱歉，AI 服务暂时不可用，请稍后重试。" },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
+
   if (checking) {
     return (
       <div className="min-h-screen py-12">

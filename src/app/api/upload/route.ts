@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     if (latest === "true") {
       const ds = await getLatestDataset();
       if (!ds) return NextResponse.json(null);
-      const full = getDataset(ds.id);
+      const full = await getDataset(ds.id as string);
       return NextResponse.json(full);
     }
 
