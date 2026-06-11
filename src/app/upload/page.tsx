@@ -80,7 +80,7 @@ export default function UploadPage() {
 
       const data = await res.json();
       setResult(data);
-      localStorage.setItem("currentDatasetId", data.id);
+      localStorage.setItem("currentDataset", JSON.stringify({ ...data, fileName: file.name }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {

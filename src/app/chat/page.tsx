@@ -8,6 +8,17 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ChatPanel } from "@/components/ai/chat-panel";
 import type { ChatMessage } from "@/types";
 
+
+function buildChatContext(dataset: any): string {
+  let ctx = `???: ${dataset.fileName || dataset.original_name || "??"}\n`;
+  ctx += `? ${dataset.rowCount} ???, ${dataset.columns.length} ???\n`;
+  ctx += `??: ${dataset.columns.join(", ")}\n\n`;
+  if (dataset.summary) {
+    ctx += `??: ${dataset.summary}\n`;
+  }
+  return ctx;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);

@@ -12,7 +12,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
 import { AnalysisPanel } from "@/components/ui/../ai/analysis-panel";
 import { CardSkeleton, ChartSkeleton, AnalysisSkeleton } from "@/components/ui/skeleton";
-import { computeStats } from "@/lib/parser";
+import { computeStats, buildSummary } from "@/lib/parser";
 import type { AnalysisResult, DataStats } from "@/types";
 
 export default function DashboardPage() {
@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [datasetName, setDatasetName] = useState("");
+  const [datasetData, setDatasetData] = useState<any>(null);
 
   useEffect(() => {
     loadData();

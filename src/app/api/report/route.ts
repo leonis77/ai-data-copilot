@@ -1,27 +1,19 @@
+export const dynamic = "force-static";
 import { NextRequest, NextResponse } from "next/server";
-import { getLatestDataset, getAnalysis } from "@/lib/db";
-import { computeStats } from "@/lib/parser";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 
 export async function POST(request: NextRequest) {
   try {
-    const ds = getLatestDataset();
-    if (!ds) {
-      return NextResponse.json({ error: "未找到数据" }, { status: 400 });
-    }
-
-    const columns = ds.columns;
-    const rows = ds.rows;
-    const stats = computeStats(rows, columns);
-    const analysis = getAnalysis(ds.id);
+    const body = await request.json();
+    const columns = body.columns || [];
+    const rows = body.rows || [];
+    const analysis = body.analysis || null;
+    const datasetName = body.datasetName || "数据集";
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    const rowToArray = (row: Record<string, unknown>, cols: string[]) =>
-      cols.map((c) => String(row[c] ?? ""));
-
-    // Title page
+    // Cover page
     doc.setFillColor(11, 15, 23);
     doc.rect(0, 0, 210, 297, "F");
 
@@ -36,11 +28,11 @@ export async function POST(request: NextRequest) {
     doc.text("智能数据分析报告", 105, 98, { align: "center" });
 
     doc.setFontSize(10);
-    doc.text(`数据集: ${ds.originalName}`, 105, 120, { align: "center" });
+    doc.text(`数据集: ${datasetName}`, 105, 120, { align: "center" });
     doc.text(`生成时间: ${new Date().toLocaleString("zh-CN")}`, 105, 130, { align: "center" });
-    doc.text(`记录数: ${stats.rowCount} | 字段数: ${stats.columnCount}`, 105, 140, { align: "center" });
+    doc.text(`记录数: ${rows.length} | 字段数: ${columns.length}`, 105, 140, { align: "center" });
 
-    // Page 2: Data Summary
+    // Page 2: Data preview (first 50 rows)
     doc.addPage();
     doc.setFillColor(11, 15, 23);
     doc.rect(0, 0, 210, 297, "F");
@@ -48,20 +40,31 @@ export async function POST(request: NextRequest) {
     doc.setTextColor(99, 102, 241);
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("数据概览", 15, 25);
+    doc.text("数据明细（前50条）", 15, 25);
 
-    doc.setTextColor(148, 163, 184);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
+    const displayRows = rows.slice(0, 50).map((row: Record<string, unknown>) =>
+      columns.map((c: string) => String(row[c] ?? ""))
+    );
 
-    let y = 40;
-    for (const [col, s] of Object.entries(stats.stats)) {
-      doc.text(
-        `${col}: 平均 ${s.avg.toFixed(2)}, 最小 ${s.min}, 最大 ${s.max}, 总计 ${s.sum.toFixed(2)}`,
-        15, y
-      );
-      y += 8;
-    }
+    (doc as any).autoTable({
+      startY: 35,
+      head: [columns],
+      body: displayRows,
+      theme: "grid",
+      styles: {
+        fontSize: 7,
+        cellPadding: 2,
+        textColor: [148, 163, 184],
+        fillColor: [17, 24, 39],
+        lineColor: [30, 41, 59],
+      },
+      headStyles: {
+        fillColor: [99, 102, 241],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [20, 28, 44] },
+    });
 
     // Page 3: AI Analysis
     if (analysis) {
@@ -78,93 +81,40 @@ export async function POST(request: NextRequest) {
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
 
-      y = 40;
-      doc.setFont("helvetica", "bold");
-      doc.text("总结", 15, y);
-      doc.setFont("helvetica", "normal");
-      y += 10;
+      let y = 40;
+      const a = analysis as Record<string, unknown>;
 
-      const summaryLines = doc.splitTextToSize(analysis.summary || "", 180);
-      for (const line of summaryLines) {
-        doc.text(line, 15, y);
-        y += 7;
-        if (y > 280) { doc.addPage(); y = 25; }
-      }
-
-      y += 8;
-      const insights = JSON.parse(analysis.insights || "[]");
-      if (insights.length > 0) {
+      if (a.summary) {
         doc.setFont("helvetica", "bold");
-        doc.text("洞察", 15, y);
+        doc.text("总结", 15, y);
         doc.setFont("helvetica", "normal");
         y += 10;
-        for (const insight of insights) {
-          doc.text(`\u2022 ${insight}`, 20, y);
-          y += 7;
-        }
+        const lines = doc.splitTextToSize(a.summary as string, 180);
+        for (const line of lines) { doc.text(line, 15, y); y += 7; }
+        y += 5;
       }
 
-      y += 5;
-      const risks = JSON.parse(analysis.risks || "[]");
-      if (risks.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.text("风险", 15, y);
-        doc.setFont("helvetica", "normal");
-        y += 10;
-        for (const risk of risks) {
-          doc.text(`\u2022 ${risk}`, 20, y);
-          y += 7;
-        }
-      }
+      const sections = [
+        { title: "洞察", key: "insights" },
+        { title: "风险", key: "risks" },
+        { title: "建议", key: "suggestions" },
+      ];
 
-      y += 5;
-      const suggestions = JSON.parse(analysis.suggestions || "[]");
-      if (suggestions.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.text("建议", 15, y);
-        doc.setFont("helvetica", "normal");
-        y += 10;
-        for (const suggestion of suggestions) {
-          doc.text(`\u2022 ${suggestion}`, 20, y);
-          y += 7;
+      for (const sec of sections) {
+        const items = a[sec.key];
+        if (Array.isArray(items) && items.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(sec.title, 15, y);
+          doc.setFont("helvetica", "normal");
+          y += 10;
+          for (const item of items) {
+            doc.text(`\u2022 ${item}`, 20, y);
+            y += 7;
+          }
+          y += 3;
         }
       }
     }
-
-    // Page 4+: Data Table (first 50 rows)
-    doc.addPage();
-    doc.setFillColor(11, 15, 23);
-    doc.rect(0, 0, 210, 297, "F");
-
-    doc.setTextColor(99, 102, 241);
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("数据明细（前50条）", 15, 25);
-
-    const displayRows = rows.slice(0, 50);
-    const tableData = displayRows.map((row) => rowToArray(row, columns));
-
-    (doc as any).autoTable({
-      startY: 35,
-      head: [columns],
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 7,
-        cellPadding: 2,
-        textColor: [148, 163, 184],
-        fillColor: [17, 24, 39],
-        lineColor: [30, 41, 59],
-      },
-      headStyles: {
-        fillColor: [99, 102, 241],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [20, 28, 44],
-      },
-    });
 
     const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 

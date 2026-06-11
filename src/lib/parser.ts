@@ -40,7 +40,7 @@ export function parseFile(data: Uint8Array, fileName: string): ParsedData {
   };
 }
 
-function buildSummary(columns: string[], rows: Record<string, unknown>[]): string {
+export function buildSummary(columns: string[], rows: Record<string, unknown>[]): string {
   const numericColumns: string[] = [];
   for (const col of columns) {
     const hasNumeric = rows.some((r) => typeof r[col] === "number" && !isNaN(r[col] as number));
