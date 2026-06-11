@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       id,
       columns: parsed.columns,
+      rows: parsed.rows,
       rowCount: parsed.rowCount,
       summary: parsed.summary,
     });
