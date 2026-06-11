@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const parsed = parseFile(new Uint8Array(buffer), fileName);
 
     const id = `ds_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    saveDataset({
+    await saveDataset({
       id,
       name: `dataset_${Date.now()}`,
       originalName: fileName,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (latest === "true") {
-      const ds = getLatestDataset();
+      const ds = await getLatestDataset();
       if (!ds) return NextResponse.json(null);
       const full = getDataset(ds.id);
       return NextResponse.json(full);
