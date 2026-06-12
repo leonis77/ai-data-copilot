@@ -11,18 +11,6 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(fileData, "base64");
 
     // Preview mode: return sheet names + row counts only
-    if (action === "preview" && (ext === "xlsx" || ext === "xls")) {
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(new Uint8Array(buffer), { type: "array" });
-      const sheets = wb.SheetNames.map(function(sn) {
-        const s = wb.Sheets[sn];
-        const ref = s["!ref"] || "A1";
-        const range = XLSX.utils.decode_range(ref);
-        return { name: sn, rowCount: range.e.r - range.s.r };
-      });
-      return NextResponse.json({ sheets });
-    }
-
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
     // Ensure Chinese characters are correctly decoded
     parsed.rows = parsed.rows.map(function(row: any): any {
