@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { FileText, Printer, Upload, ArrowRight, CheckCircle } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { TableSelector, getSavedDatasets } from "@/components/ui/table-selector";
+import { TableSelector } from "@/components/ui/table-selector";
+import { getStore } from "@/lib/store";
 
 export default function ReportPage() {
   var [hasData, setHasData] = useState(false);
@@ -16,11 +17,11 @@ export default function ReportPage() {
   useEffect(function() { check(); }, []);
 
   function check() {
-    try { var saved = getSavedDatasets(); if (saved.activeId) { setHasData(true); setDsId(saved.activeId); var item = saved.list.find(function(d) { return d.id === saved.activeId; }); if (item) setDatasetName(item.originalName); } }
+    try { var saved = getStore(); if (saved.activeId) { setHasData(true); setDsId(saved.activeId); var item = saved.datasets.find(function(d) { return d.id === saved.activeId; }); if (item) setDatasetName(item.originalName); } }
     catch {} finally { setChecking(false); }
   }
 
-  function handleSelect(id: string) { setDsId(id); var saved = getSavedDatasets(); var item = saved.list.find(function(d) { return d.id === id; }); if (item) setDatasetName(item.originalName); }
+  function handleSelect(id: string) { setDsId(id); var saved = getStore(); var item = saved.datasets.find(function(d) { return d.id === id; }); if (item) setDatasetName(item.originalName); }
 
   function printReport() {
     if (!dsId) return;

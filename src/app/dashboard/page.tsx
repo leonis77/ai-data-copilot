@@ -9,6 +9,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
 import { AnalysisPanel } from "@/components/ai/analysis-panel";
 import { CardSkeleton, ChartSkeleton, AnalysisSkeleton } from "@/components/ui/skeleton";
+import { getStore } from "@/lib/store";
 import { TableSelector } from "@/components/ui/table-selector";
 import { computeStats, buildSummary } from "@/lib/parser";
 import type { AnalysisResult, DataStats } from "@/types";
