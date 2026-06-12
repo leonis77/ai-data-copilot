@@ -1,97 +1,97 @@
 # AI Data Copilot
 
-AI-driven data Agent platform. **Query**, **Report**, **Interpret** --- turn raw data into decisions.
+AI 驱动的数据 Agent 平台 — **问数**、**报告**、**解读**，将原始数据转化为决策。
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/leonis77/ai-data-copilot)
 
-## Stack
+## 技术栈
 
-| Layer | Tech |
+| 层 | 技术 |
 |---|---|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript (strict) |
-| Styling | TailwindCSS, Glassmorphism dark theme |
-| Components | Radix UI, Lucide Icons |
-| Animation | Framer Motion |
-| Charts | ECharts |
+| 框架 | Next.js 15 (App Router) |
+| 语言 | TypeScript (strict) |
+| 样式 | TailwindCSS, Glassmorphism 暗黑主题 |
+| 组件 | Radix UI, Lucide Icons |
+| 动效 | Framer Motion |
+| 图表 | ECharts |
 | AI | DeepSeek Chat API |
-| Storage | Supabase (PostgreSQL) |
-| Hosting | Vercel |
+| 存储 | Supabase (PostgreSQL) |
+| 部署 | Vercel |
 
-## Architecture
+## 架构
 
 ```
 Browser (Next.js 15 + React 19)
   |
-  +-- /               Landing page
-  +-- /upload         Drag-drop Excel/CSV parser
-  +-- /dashboard      ECharts + Glassmorphism stats
-  +-- /chat           AI Agent (query / report / interpret)
-  +-- /report         Browser print -> PDF
+  +-- /               首页, Hero + 功能展示
+  +-- /upload         拖拽上传 Excel/CSV
+  +-- /dashboard      仪表盘, ECharts 图表
+  +-- /chat           AI Agent 对话 (问数/报告/解读)
+  +-- /report         浏览器打印 -> PDF
   |
-  +-- /api/upload     File ingestion -> Supabase
-  +-- /api/analyze    DeepSeek insight generation
-  +-- /api/agent      Intent routing -> specialized agents
-  +-- /api/chat       Context-aware conversation
+  +-- /api/upload     文件解析 -> Supabase
+  +-- /api/analyze    DeepSeek 数据分析
+  +-- /api/agent      Agent 路由分发
+  +-- /api/chat       上下文对话
 ```
 
-## AI Agent System
+## AI Agent 系统
 
-Three specialized agents behind a unified chat interface:
+三个专用 Agent 共享统一对话入口，前端正则匹配意图后路由分发：
 
-| Agent | Trigger | Capability |
+| Agent | 触发词 | 能力 |
 |---|---|---|
-| `query-agent` | "which", "how many", "top N", find, rank | Precise data lookup + chart suggestions |
-| `report-agent` | "report", "summary", "analyze" | Multi-section structured report |
-| `interpret-agent` | "why", "insight", "trend", "interpret" | Narrative insights + anomaly detection |
+| `query-agent` | "查询""哪个""多少""排名" | 精确数据查询 + 图表建议 |
+| `report-agent` | "报告""总结""分析一下" | 多段结构化报告 |
+| `interpret-agent` | "解读""为什么""趋势""洞察" | 叙事分析 + 异常检测 + 机会点 |
 
-Requests fall through to `general-agent` when no intent matches.
+未命中意图时由 `general-agent` 兜底处理。
 
 ```typescript
 // src/lib/agent/
-router.ts          // intent detection + dispatch
-query-agent.ts     // NL data queries
-report-agent.ts    // structured report generation
-interpret-agent.ts  // deep narrative analysis
-general-agent.ts   // fallback conversation
-llm.ts             // OpenAI-compatible client
+router.ts          // 意图检测 + 路由分发
+query-agent.ts     // 数据查询
+report-agent.ts    // 报告生成
+interpret-agent.ts // 深度解读
+general-agent.ts   // 通用兜底
+llm.ts             // OpenAI 兼容客户端
 types.ts           // AgentContext, AgentResponse
 ```
 
-## Project layout
+## 目录结构
 
 ```
 src/
   app/                         # Next.js App Router
-    page.tsx                   # Landing
-    layout.tsx                  # Root layout + navbar
-    globals.css                 # Theme, glass, animations
-    upload/page.tsx             # File upload (react-dropzone)
-    dashboard/page.tsx          # Analytics dashboard
-    chat/page.tsx               # Agent chat UI
-    report/page.tsx             # Print-to-PDF
+    page.tsx                   # 首页
+    layout.tsx                  # 根布局 + 导航栏
+    globals.css                 # 主题, 玻璃效果, 动效
+    upload/page.tsx             # 上传页 (react-dropzone)
+    dashboard/page.tsx          # 仪表盘
+    chat/page.tsx               # Agent 对话
+    report/page.tsx             # 打印 PDF
     api/
-      agent/route.ts            # Agent dispatch API
-      upload/route.ts           # File ingestion
-      analyze/route.ts          # DeepSeek analysis
-      chat/route.ts             # Context chat
-      report/route.ts           # PDF generation
+      agent/route.ts            # Agent 分发 API
+      upload/route.ts           # 文件解析
+      analyze/route.ts          # DeepSeek 分析
+      chat/route.ts             # 上下文对话
+      report/route.ts           # PDF 生成
   components/
     ui/         # GlassCard, CountUp, Typewriter, Skeleton
-    charts/     # Pie, Bar, Line (ECharts wrappers)
+    charts/     # 饼图, 柱状图, 折线图 (ECharts)
     ai/         # AnalysisPanel, ChatPanel
     layout/     # Navbar, PageTransition
   lib/
-    parser.ts   # xlsx-based Excel/CSV parser
-    db.ts       # Supabase client + CRUD
-    ai.ts       # DeepSeek API client
-    utils.ts    # cn(), formatNumber, formatCurrency
-    agent/      # Agent framework (see above)
+    parser.ts   # Excel/CSV 解析 (xlsx)
+    db.ts       # Supabase 客户端
+    ai.ts       # DeepSeek API 封装
+    utils.ts    # cn(), formatNumber
+    agent/      # Agent 框架
   types/
-    index.ts    # Shared type definitions
+    index.ts    # 公共类型定义
 ```
 
-## Quick start
+## 快速开始
 
 ```bash
 git clone https://github.com/leonis77/ai-data-copilot.git
@@ -99,7 +99,7 @@ cd ai-data-copilot
 npm install
 ```
 
-Create `.env.local`:
+创建 `.env.local`:
 
 ```env
 DEEPSEEK_API_KEY=sk-xxx
@@ -111,9 +111,9 @@ SUPABASE_SERVICE_ROLE_KEY=xxx
 npm run dev     # http://localhost:3000
 ```
 
-## Database
+## 数据库
 
-Run this in Supabase SQL Editor:
+在 Supabase SQL Editor 中执行：
 
 ```sql
 CREATE TABLE datasets (
@@ -141,15 +141,15 @@ ALTER TABLE datasets DISABLE ROW LEVEL SECURITY;
 ALTER TABLE analysis_results DISABLE ROW LEVEL SECURITY;
 ```
 
-## Design
+## 设计规范
 
-| Token | Value |
+| Token | 值 |
 |---|---|
-| Background | `#0B0F17` |
-| Surface | `#111827` |
-| Primary | `#6366F1` -> `#A855F7` gradient |
-| Accent | `#06B6D4` (cyan), `#A855F7` (purple) |
-| Font | Inter, system-ui |
-| Radius | 12-16px |
-| Grid | 8px |
-| Effects | `backdrop-blur-xl`, `shadow-lg` |
+| 背景 | `#0B0F17` |
+| 卡片 | `#111827` |
+| 主色 | `#6366F1` -> `#A855F7` 渐变 |
+| 辅色 | `#06B6D4` (cyan), `#A855F7` (purple) |
+| 字体 | Inter, system-ui |
+| 圆角 | 12-16px |
+| 网格 | 8px |
+| 效果 | `backdrop-blur-xl`, `shadow-lg` |
