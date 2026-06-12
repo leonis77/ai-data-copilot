@@ -9,8 +9,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { CountUp } from "@/components/ui/count-up";
 import { TemplateBadge } from "@/components/ui/template-badge";
 import { ColumnSelector } from "@/components/ui/column-selector";
-import { getSavedDatasets, saveDatasets } from "@/components/ui/table-selector";
 import { SheetPicker } from "@/components/ui/sheet-picker";
+import { getSavedDatasets, saveDatasets } from "@/components/ui/table-selector";
 import { matchTemplate, applyTemplate, templates } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 
@@ -67,29 +67,15 @@ export default function UploadPage() {
     if (!file) return; setUploading(true); setError("");
     try {
       var b64 = await fileToBase64(file);
-      setFileData(b64);
-      // First: preview to check for multi-sheet
-      var ext = file.name.split(".").pop()?.toLowerCase();
-      var isXls = ext === "xlsx" || ext === "xls";
-      var body: any = { fileName: file.name, fileData: b64, action: isXls ? "preview" : undefined };
-      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileData: b64 }) });
       if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "失败"); }
-      var data = await res.json();
-
-      // Check for multi-sheet
-      if (data.sheets && data.sheets.length > 1) {
-        setSheets(data.sheets);
-        setSelectedSheet(data.sheets[0].name);
-        setUploading(false);
-        return;
-      }
+      var data = await res.json(); setResult(data);
 
       // Template detection
       var tmpl = matchTemplate(data.columns);
       setTemplate(tmpl);
       var meta = applyTemplate(data.columns, tmpl);
       setCols(meta);
-      setResult(data);
 
       // Save to dataset list
       var saved = getSavedDatasets();
@@ -122,7 +108,6 @@ export default function UploadPage() {
       </motion.div>
 
       {sheets.length > 1 && !result ? (
-        // Sheet picker step
         <motion.div key="sheets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <GlassCard gradient>
             <div className="flex items-center gap-3 mb-6">
@@ -131,7 +116,7 @@ export default function UploadPage() {
             </div>
             <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={function(s) { setSelectedSheet(s); }} />
             <div className="mt-6 flex justify-center gap-4">
-              <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">取消</button>
+              <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); setFileData(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">取消</button>
               <button onClick={function() { doUploadWithSheet(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
             </div>
           </GlassCard>
