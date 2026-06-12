@@ -7,7 +7,7 @@ export interface ParsedData {
   summary: string;
 }
 
-export function parseFile(data: Uint8Array, fileName: string): ParsedData {
+export function parseFile(data: Uint8Array, fileName: string, sheetName?: string): ParsedData {
   var ext = fileName.split(".").pop()?.toLowerCase();
   var workbook;
   if (ext === "csv") {
@@ -19,11 +19,12 @@ export function parseFile(data: Uint8Array, fileName: string): ParsedData {
     workbook = XLSX.read(data, { type: "array", cellDates: true });
   }
 
+  var activeSheets: string[] = sheetName ? [sheetName] : workbook.SheetNames;
   var allRows: Record<string, unknown>[] = [];
   var allColumns: string[] = [];
   var firstSheet = true;
 
-  for (var sn of workbook.SheetNames) {
+  for (var sn of activeSheets) {
     var sheet = workbook.Sheets[sn];
     var merges = sheet["!merges"] || [];
     for (var m of merges) {
@@ -38,8 +39,8 @@ export function parseFile(data: Uint8Array, fileName: string): ParsedData {
     }
   }
 
-  for (var sheetName of workbook.SheetNames) {
-    var sheet = workbook.Sheets[sheetName];
+  for (var sht of activeSheets) {
+    var sheet = workbook.Sheets[sht];
     if (!sheet["!ref"]) continue;
     var range = XLSX.utils.decode_range(sheet["!ref"]);
     var headerRow = range.s.r, best = -1;

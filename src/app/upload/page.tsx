@@ -10,6 +10,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { TemplateBadge } from "@/components/ui/template-badge";
 import { ColumnSelector } from "@/components/ui/column-selector";
 import { getSavedDatasets, saveDatasets } from "@/components/ui/table-selector";
+import { SheetPicker } from "@/components/ui/sheet-picker";
 import { matchTemplate, applyTemplate, templates } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 
@@ -29,6 +30,8 @@ export default function UploadPage() {
   var [result, setResult] = useState<any>(null);
   var [error, setError] = useState("");
   var [cols, setCols] = useState<ColumnMeta[]>([]);
+  var [sheets, setSheets] = useState<{name:string;rowCount:number}[]>([]);
+  var [selectedSheet, setSelectedSheet] = useState("");
   var [template, setTemplate] = useState<any>(null);
 
   var onDrop = useCallback(function(files: File[]) {
@@ -46,13 +49,23 @@ export default function UploadPage() {
       var b64 = await fileToBase64(file);
       var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileData: b64 }) });
       if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "失败"); }
-      var data = await res.json(); setResult(data);
+      var data = await res.json();
+
+      // Check for multi-sheet
+      if (data.sheets && data.sheets.length > 1) {
+        setSheets(data.sheets);
+        setSelectedSheet(data.sheets[0].name);
+        setResult(null);
+        setUploading(false);
+        return;
+      }
 
       // Template detection
       var tmpl = matchTemplate(data.columns);
       setTemplate(tmpl);
       var meta = applyTemplate(data.columns, tmpl);
       setCols(meta);
+      setResult(data);
 
       // Save to dataset list
       var saved = getSavedDatasets();
@@ -84,7 +97,23 @@ export default function UploadPage() {
         <p className="text-white/40 text-lg">支持 Excel (.xlsx/.xls) 和 CSV，拖拽或点击上传</p>
       </motion.div>
 
-      {!result ? (
+      {sheets.length > 1 && !result ? (
+        // Sheet picker step
+        <motion.div key="sheets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <GlassCard gradient>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-accent-cyan/20 flex items-center justify-center"><Layers className="w-5 h-5 text-accent-cyan" /></div>
+              <div><h3 className="font-semibold text-lg">{file?.name || ""}</h3><p className="text-sm text-white/40">包含 {sheets.length} 个工作表，请选择分析哪一个</p></div>
+            </div>
+            <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={function(s) { setSelectedSheet(s); }} />
+            <div className="mt-6 flex justify-center gap-4">
+              <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">取消</button>
+              <button onClick={function() { result = null; setResult(null); handleUpload(); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
+            </div>
+          </GlassCard>
+        </motion.div>
+      ) : null}
+      {!result && !(sheets.length > 1) ? (
         <motion.div key="upload" exit={{ opacity: 0, y: -20 }}>
           <GlassCard gradient className="p-10">
             <div {...getRootProps()} className={"relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all " + (isDragActive ? "border-primary bg-primary/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
