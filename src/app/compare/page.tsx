@@ -5,18 +5,17 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { GitCompare, Upload, ArrowRight, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { TableSelector } from "@/components/ui/table-selector";
-import { getStore } from "@/lib/store";
+import { TableSelector, getSavedDatasets } from "@/components/ui/table-selector";
 import { CompareCard } from "@/components/ai/compare-card";
 
 export default function ComparePage() {
-  var [hasData, setHasData] = useState(function() { var s = getStore(); return s.datasets.length >= 2; });
-  var [idA, setIdA] = useState(function() { var s = getStore(); return s.datasets.length >= 2 ? s.datasets[0].id : ""; });
-  var [idB, setIdB] = useState(function() { var s = getStore(); return s.datasets.length >= 2 ? s.datasets[1].id : ""; });
+  var [hasData, setHasData] = useState(function() { var s = getSavedDatasets(); return s.list.length >= 2; });
+  var [idA, setIdA] = useState(function() { var s = getSavedDatasets(); return s.list.length >= 2 ? s.list[0].id : ""; });
+  var [idB, setIdB] = useState(function() { var s = getSavedDatasets(); return s.list.length >= 2 ? s.list[1].id : ""; });
   var [comparing, setComparing] = useState(false);
   var [result, setResult] = useState<any>(null);
 
-  function refresh() { var s = getStore(); setHasData(s.datasets.length >= 2); if (s.datasets.length >= 2) { if (!s.datasets.find(function(d: any) { return d.id === idA; })) setIdA(s.datasets[0].id); if (!s.datasets.find(function(d: any) { return d.id === idB; })) setIdB(s.datasets[1].id); } }
+  function refresh() { var s = getSavedDatasets(); setHasData(s.list.length >= 2); if (s.list.length >= 2) { if (!s.list.find(function(d: any) { return d.id === idA; })) setIdA(s.list[0].id); if (!s.list.find(function(d: any) { return d.id === idB; })) setIdB(s.list[1].id); } }
 
   async function doCompare() {
     if (!idA || !idB) return; setComparing(true); setResult(null);

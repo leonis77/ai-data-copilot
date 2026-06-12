@@ -5,8 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbulb } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { TableSelector } from "@/components/ui/table-selector";
-import { getStore } from "@/lib/store";
+import { TableSelector, getSavedDatasets } from "@/components/ui/table-selector";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
@@ -27,8 +26,8 @@ export default function ChatPage() {
 
   function checkData() {
     try {
-      var saved = getStore();
-      if (saved.activeId && saved.datasets.length > 0) {
+      var saved = getSavedDatasets();
+      if (saved.activeId && saved.list.length > 0) {
         setHasData(true);
         setMsgs([{ role: "assistant", content: WELCOME, agentType: "general", suggestions: ["查询销量最高的产品","生成一份数据分析报告","帮我解读这份数据"] }]);
       }
@@ -39,7 +38,7 @@ export default function ChatPage() {
     if (!msg.trim() || loading) return; setInp("");
     setMsgs(function(p: Msg[]) { return [...p, { role: "user", content: msg }]; }); setLoading(true);
     try {
-      var saved = getStore(); var dsId = saved.activeId || "";
+      var saved = getSavedDatasets(); var dsId = saved.activeId || "";
       var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId }) });
       if (!res.ok) throw new Error("fail");
       var data = await res.json();

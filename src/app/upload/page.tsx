@@ -10,7 +10,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { TemplateBadge } from "@/components/ui/template-badge";
 import { ColumnSelector } from "@/components/ui/column-selector";
 import { SheetPicker } from "@/components/ui/sheet-picker";
-import { getStore, addDataset, clearStore, saveColumnConfig } from "@/lib/store";
+import { getSavedDatasets, saveDatasets } from "@/components/ui/table-selector";
 import { matchTemplate, applyTemplate, templates } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 
@@ -35,9 +35,9 @@ export default function UploadPage() {
   var [fileData, setFileData] = useState("");
 
   var clearAll = function() {
-    clearStore();
-    localStorage.removeItem("currentDataset");
     localStorage.removeItem("datasets");
+    localStorage.removeItem("currentDataset");
+    localStorage.removeItem("columnConfig");
     setFile(null); setResult(null); setCols([]); setSheets([]); setSelectedSheet(""); setFileData(""); setTemplate(null);
   };
   var [template, setTemplate] = useState<any>(null);
@@ -59,7 +59,12 @@ export default function UploadPage() {
       var data = await res.json(); setResult(data);
       var tmpl = matchTemplate(data.columns); setTemplate(tmpl);
       var meta = applyTemplate(data.columns, tmpl); setCols(meta);
-      addDataset(data.id, file!.name, data.rowCount, data.columns);
+      var saved = getSavedDatasets();
+      saved.activeId = data.id;
+      saved.list = saved.list.filter(function(d: any) { return d.id !== data.id; });
+      saved.list.unshift({ id: data.id, originalName: file!.name, rowCount: data.rowCount, columns: data.columns, createdAt: new Date().toISOString() });
+      if (saved.list.length > 5) saved.list = saved.list.slice(0, 5);
+      saveDatasets(saved);
       setSheets([]);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
@@ -90,17 +95,24 @@ export default function UploadPage() {
       var meta = applyTemplate(data.columns, tmpl);
       setCols(meta);
 
-      addDataset(data.id, file.name, data.rowCount, data.columns);
+      var saved = getSavedDatasets();
+      saved.activeId = data.id;
+      saved.list = saved.list.filter(function(d) { return d.id !== data.id; });
+      saved.list.unshift({ id: data.id, originalName: file.name, rowCount: data.rowCount, columns: data.columns, createdAt: new Date().toISOString() });
+      if (saved.list.length > 5) saved.list = saved.list.slice(0, 5);
+      saveDatasets(saved);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
   };
 
   var handleConfirm = function() {
-    saveColumnConfig({
+    // Save column config
+    localStorage.setItem("columnConfig", JSON.stringify({
       datasetId: result.id,
       templateId: template ? template.id : null,
       selectedColumns: cols.filter(function(c) { return c.selected; }).map(function(c) { return c.name; }),
-    });
+      columnMeta: cols,
+    }));
     router.push("/dashboard");
   };
 

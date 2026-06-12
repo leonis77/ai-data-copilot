@@ -7,6 +7,15 @@ import { getStore, setStore, removeDataset } from "@/lib/store";
 
 interface DatasetSummary { id: string; originalName: string; rowCount: number; columns: string[]; createdAt: string }
 
+
+export function getSavedDatasets() {
+  const s = getStore();
+  return { activeId: s.activeId, list: s.datasets };
+}
+export function saveDatasets(data: { activeId: string; list: any[] }) {
+  setStore({ activeId: data.activeId, datasets: data.list });
+}
+
 export function TableSelector({ onSelect, className }: { onSelect?: (id: string) => void; className?: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<DatasetSummary[]>([]);
