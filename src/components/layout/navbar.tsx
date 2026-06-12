@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, Upload, MessageSquare, FileText, Sparkles, GitCompare } from "lucide-react";
+import { BarChart3, Upload, MessageSquare, FileText, Sparkles, GitCompare, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 var navItems = [
   { href: "/", label: "首页", icon: Sparkles },
   { href: "/upload", label: "上传", icon: Upload },
   { href: "/dashboard", label: "仪表盘", icon: BarChart3 },
+  { href: "/workspace", label: "工作台", icon: TrendingUp },
   { href: "/chat", label: "Agent", icon: MessageSquare },
   { href: "/compare", label: "对比", icon: GitCompare },
   { href: "/report", label: "报告", icon: FileText },
