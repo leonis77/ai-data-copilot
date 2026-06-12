@@ -3,134 +3,100 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { MessageSquare, Upload, ArrowRight } from "lucide-react";
+import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbulb } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { ChatPanel } from "@/components/ai/chat-panel";
-import type { ChatMessage } from "@/types";
+
+const AI: Record<string, React.ComponentType<any>> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
+const AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
+
+const WELCOME = "????? AI \u6570\u636E\u5206\u6790 Agent\u3002\u6211\u53EF\u4EE5\uFF1A\n\n- \u{1F50D} **\u95EE\u6570** - \u67E5\u8BE2\u4EFB\u4F55\u6570\u636E\u6307\u6807\n- \u{1F4CA} **\u62A5\u544A** - \u81EA\u52A8\u751F\u6210\u5206\u6790\u62A5\u544A\n- \u{1F4A1} **\u89E3\u8BFB** - \u6DF1\u5EA6\u53D1\u73B0\u6570\u636E\u6545\u4E8B\n\n\u8BF7\u76F4\u63A5\u544A\u8BC9\u6211\u4F60\u60F3\u8981\u4EC0\u4E48\u3002";
+
+interface Msg {
+  role: string; content: string; agentType?: string;
+  chart?: { type: string; data: { name: string; value: number }[]; title: string };
+  table?: { columns: string[]; rows: Record<string, unknown>[] };
+  suggestions?: string[];
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [inp, setInp] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasData, setHasData] = useState(false);
   const [checking, setChecking] = useState(true);
-  const loadedRef = useRef(false);
+  const sr = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    checkData();
-  }, []);
+  useEffect(function() { checkData(); }, []);
+  useEffect(function() { if (sr.current) sr.current.scrollTop = sr.current.scrollHeight; }, [msgs]);
 
-  const checkData = async () => {
+  function checkData() {
     try {
-      const res = await fetch("/api/upload?latest=true");
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.id) {
+      const r = localStorage.getItem("currentDataset");
+      if (r) {
+        const d = JSON.parse(r);
+        if (d && d.columns && d.columns.length > 0) {
           setHasData(true);
-          if (!loadedRef.current) {
-            loadedRef.current = true;
-            setMessages([
-              {
-                role: "assistant",
-                content: `你好！我已加载了数据集 **${data.original_name || data.name}**（${data.row_count} 行 x ${Array.isArray(data.columns) ? data.columns.length : 0} 列）。\n\n你可以直接问我关于这些数据的问题，例如：\n- 哪些商品销量最好？\n- 数据中有什么异常？\n- 帮我分析一下趋势`,
-              },
-            ]);
-          }
+          setMsgs([{ role: "assistant", content: WELCOME, agentType: "general",
+            suggestions: ["?????????", "??????????", "????????"] }]);
         }
       }
-    } catch {
-      // empty
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const handleSend = async (content: string) => {
-    const userMsg: ChatMessage = { role: "user", content };
-    setMessages((prev) => [...prev, userMsg]);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      });
-
-      if (!res.ok) throw new Error("请求失败");
-
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "抱歉，AI 服务暂时不可用，请稍后重试。" },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (checking) {
-    return (
-      <div className="min-h-screen py-12">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="h-8 w-48 skeleton rounded-lg mb-2" />
-          <div className="h-[60vh] glass mt-6" />
-        </div>
-      </div>
-    );
+    } catch (e) {} finally { setChecking(false); }
   }
 
-  return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-5xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-accent-cyan/20 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-accent-cyan" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">
-                <span className="gradient-text">AI 对话</span>
-              </h1>
-              <p className="text-sm text-white/40">基于数据集的自然语言交互</p>
-            </div>
-          </div>
-        </motion.div>
+  async function send(msg: string) {
+    if (!msg.trim() || loading) return;
+    setInp("");
+    setMsgs(function(p) { return [...p, { role: "user", content: msg }]; });
+    setLoading(true);
+    try {
+      var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg }) });
+      if (!res.ok) throw new Error("fail");
+      var data = await res.json();
+      setMsgs(function(p) { return [...p, { role: "assistant", content: data.content || "", agentType: data.type, chart: data.chart, table: data.table, suggestions: data.followUp }]; });
+    } catch {
+      setMsgs(function(p) { return [...p, { role: "assistant", content: "Agent ??????????????" }]; });
+    } finally { setLoading(false); }
+  }
 
-        {!hasData ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-20"
-          >
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-accent-cyan/10 flex items-center justify-center mb-6">
-              <MessageSquare className="w-10 h-10 text-accent-cyan/50" />
-            </div>
-            <h2 className="text-2xl font-bold mb-3">暂无数据可对话</h2>
-            <p className="text-white/40 mb-8">请先上传数据，AI 才能基于数据回答你的问题</p>
-            <Link href="/upload">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25"
-              >
-                <Upload className="w-5 h-5" />
-                上传数据
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </motion.button>
-            </Link>
-          </motion.div>
-        ) : (
-          <GlassCard className="p-4">
-            <ChatPanel messages={messages} onSend={handleSend} loading={loading} />
-          </GlassCard>
-        )}
-      </div>
-    </div>
+  if (checking) return <div className="min-h-screen py-12"><div className="max-w-4xl mx-auto px-6"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[60vh] glass mt-6" /></div></div>;
+
+  return (
+    <div className="min-h-screen py-12"><div className="max-w-4xl mx-auto px-6">
+      <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center"><Sparkles className="w-5 h-5 text-white" /></div>
+          <div><h1 className="text-3xl font-bold"><span className="gradient-text">AI Agent</span></h1><p className="text-sm text-white/40">?? ? ?? ? ?? ? ?????????</p></div>
+        </div>
+      </motion.div>
+      {!hasData ? (<motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="text-center py-20">
+        <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6"><Sparkles className="w-10 h-10 text-primary-light/50" /></div>
+        <h2 className="text-2xl font-bold mb-3">??????</h2><p className="text-white/40 mb-8">Agent ????????</p>
+        <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25"><Upload className="w-5 h-5" />????<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
+      </motion.div>) : (<GlassCard className="flex flex-col h-[calc(100vh-12rem)]">
+        <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
+          {msgs.map(function(m,i) {
+            var isUser = m.role === "user";
+            var Icon = AI[m.agentType || "general"] || Sparkles;
+            var iconColor = AC[m.agentType || "general"] || "text-primary-light";
+            return (
+              <motion.div key={i} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
+                {!isUser && <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 mt-0.5"><Icon className={"w-4 h-4 " + iconColor} /></div>}
+                <div className="max-w-[85%] space-y-2">
+                  <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap " + (isUser ? "bg-primary/20 text-white/90 rounded-br-md" : "glass text-white/80 rounded-bl-md")}>{m.content}</div>
+                  {m.chart && <div className="glass p-3 rounded-xl text-xs text-white/60">????: {m.chart.title} ({m.chart.type}), {m.chart.data.length} records</div>}
+                  {m.table && <div className="glass p-3 rounded-xl text-xs text-white/60">???: {m.table.columns.length} cols x {m.table.rows.length} rows</div>}
+                  {m.suggestions && m.suggestions.length > 0 && <div className="flex flex-wrap gap-2">{m.suggestions.map(function(s,j) { return <button key={j} onClick={function() { send(s); }} className="px-3 py-1.5 rounded-xl glass text-xs text-white/50 hover:text-white/80 hover:bg-white/10 transition-all">{s}</button>; })}</div>}
+                </div>
+                {isUser && <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5"><MessageSquare className="w-4 h-4 text-accent-cyan" /></div>}
+              </motion.div>);
+          })}
+          {loading && (<div className="flex gap-3"><div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4 text-primary-light animate-pulse" /></div><div className="glass rounded-2xl rounded-bl-md px-4 py-3"><div className="flex gap-1.5"><span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{animationDelay:"0ms"}} /><span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{animationDelay:"150ms"}} /><span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{animationDelay:"300ms"}} /></div></div></div>)}
+        </div>
+        <div className="p-4 border-t border-white/5 flex gap-3">
+          <input value={inp} onChange={function(e) { setInp(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") send(inp); }} placeholder="?? Agent ?????..." className="flex-1 glass px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 outline-none focus:border-primary/50 transition-all" />
+          <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-primary to-accent-purple flex items-center justify-center disabled:opacity-30 transition-opacity"><ArrowRight className="w-5 h-5 text-white" /></motion.button>
+        </div>
+      </GlassCard>)}
+    </div></div>
   );
 }
