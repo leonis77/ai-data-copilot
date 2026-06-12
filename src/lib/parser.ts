@@ -8,63 +8,67 @@ export interface ParsedData {
 }
 
 export function parseFile(data: Uint8Array, fileName: string): ParsedData {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  let bytes: Uint8Array = data;
-  if (ext === "csv" && data.length >= 3 && data[0] === 0xEF && data[1] === 0xBB && data[2] === 0xBF) bytes = data.slice(3);
-  const workbook = XLSX.read(bytes, { type: "array", cellDates: true });
-  // Expand merged cells
-  for (const sn of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sn];
-    const merges = sheet["!merges"] || [];
-    for (const m of merges) {
-      const src = sheet[XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })];
+  var ext = fileName.split(".").pop()?.toLowerCase();
+  var workbook;
+  if (ext === "csv") {
+    // CSV: read as UTF-8 string to correctly handle Chinese characters
+    var text = Buffer.from(data).toString("utf8");
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    workbook = XLSX.read(text, { type: "string" });
+  } else {
+    workbook = XLSX.read(data, { type: "array", cellDates: true });
+  }
+
+  var allRows: Record<string, unknown>[] = [];
+  var allColumns: string[] = [];
+  var firstSheet = true;
+
+  for (var sn of workbook.SheetNames) {
+    var sheet = workbook.Sheets[sn];
+    var merges = sheet["!merges"] || [];
+    for (var m of merges) {
+      var src = sheet[XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })];
       if (!src) continue;
-      for (let rr = m.s.r; rr <= m.e.r; rr++)
-        for (let cc = m.s.c; cc <= m.e.c; cc++) {
+      for (var rr = m.s.r; rr <= m.e.r; rr++)
+        for (var cc = m.s.c; cc <= m.e.c; cc++) {
           if (rr === m.s.r && cc === m.s.c) continue;
-          const a = XLSX.utils.encode_cell({ r: rr, c: cc });
+          var a = XLSX.utils.encode_cell({ r: rr, c: cc });
           if (!sheet[a]) sheet[a] = { t: src.t || "s", v: src.v };
         }
     }
   }
-  // Multi-sheet support with auto header detection
-  const allRows: Record<string, unknown>[] = [];
-  let allColumns: string[] = [];
-  let firstSheet = true;
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
+
+  for (var sheetName of workbook.SheetNames) {
+    var sheet = workbook.Sheets[sheetName];
     if (!sheet["!ref"]) continue;
-    const range = XLSX.utils.decode_range(sheet["!ref"]);
-    // Find best header row
-    let headerRow = range.s.r, best = -1;
-    for (let r = range.s.r; r <= Math.min(range.s.r + 30, range.e.r); r++) {
-      let n = 0;
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const cl = sheet[XLSX.utils.encode_cell({ r, c })];
+    var range = XLSX.utils.decode_range(sheet["!ref"]);
+    var headerRow = range.s.r, best = -1;
+    for (var r = range.s.r; r <= Math.min(range.s.r + 30, range.e.r); r++) {
+      var n = 0;
+      for (var c = range.s.c; c <= range.e.c; c++) {
+        var cl = sheet[XLSX.utils.encode_cell({ r: r, c: c })];
         if (cl && cl.v !== undefined && cl.v !== null && String(cl.v).trim()) n++;
       }
       if (n > best) { best = n; headerRow = r; }
     }
-    // Extract columns
-    const cols: string[] = [];
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cl = sheet[XLSX.utils.encode_cell({ r: headerRow, c })];
+    var cols: string[] = [];
+    for (var c = range.s.c; c <= range.e.c; c++) {
+      var cl = sheet[XLSX.utils.encode_cell({ r: headerRow, c: c })];
       cols.push(cl ? String(cl.v ?? "").trim() : "");
     }
     while (cols.length > 0 && !cols[cols.length - 1]) cols.pop();
     if (cols.length < 2) continue;
     if (firstSheet) {
       allColumns = cols;
-      if (workbook.SheetNames.length > 1) allColumns = ["sheet_name", ...allColumns];
+      if (workbook.SheetNames.length > 1) allColumns = ["sheet_name"].concat(allColumns);
       firstSheet = false;
     }
-    // Parse rows
-    for (let r = headerRow + 1; r <= range.e.r; r++) {
-      let hasData = false;
-      const rd: Record<string, unknown> = {};
-      for (let c = 0; c < cols.length; c++) {
-        const cl = sheet[XLSX.utils.encode_cell({ r, c })];
-        const val = cl ? cl.v : undefined;
+    for (var r = headerRow + 1; r <= range.e.r; r++) {
+      var hasData = false;
+      var rd: Record<string, unknown> = {};
+      for (var c = 0; c < cols.length; c++) {
+        var cl = sheet[XLSX.utils.encode_cell({ r: r, c: c })];
+        var val = cl ? cl.v : undefined;
         rd[cols[c]] = val !== undefined && val !== null ? val : "";
         if (val !== undefined && val !== null && String(val).trim()) hasData = true;
       }
@@ -74,13 +78,14 @@ export function parseFile(data: Uint8Array, fileName: string): ParsedData {
       }
     }
   }
-  if (allRows.length === 0) throw new Error("?????????????");
-  const finalColumns = [...new Set(allColumns)];
-  const activeColumns = finalColumns.filter(col => allRows.some(r => { const v = r[col]; return v !== undefined && v !== null && String(v).trim() !== ""; }));
-  const rows = allRows.slice(0, 5000).map(row => { const fixed: Record<string, unknown> = {}; for (const k of Object.keys(row)) { fixed[k] = fixEncoding(row[k]); } return fixed; });
-  const summary = buildSummary(activeColumns, rows);
-  return { columns: activeColumns, rows, rowCount: rows.length, summary };
+  if (allRows.length === 0) throw new Error("文件为空");
+  var finalColumns = Array.from(new Set(allColumns));
+  var activeColumns = finalColumns.filter(function(col: string) { return allRows.some(function(r: any) { var v = r[col]; return v !== undefined && v !== null && String(v).trim() !== ""; }); });
+  var rows = allRows.slice(0, 5000);
+  var summary = buildSummary(activeColumns, rows);
+  return { columns: activeColumns, rows: rows, rowCount: rows.length, summary: summary };
 }
+
 export function buildSummary(columns: string[], rows: Record<string, unknown>[]): string {
   const numericColumns: string[] = [];
   for (const col of columns) {
