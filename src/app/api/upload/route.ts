@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
     const parsed = parseFile(new Uint8Array(buffer), fileName);
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
-    var fr = parsed.rows.map(function(r) { var o = {}; for (var k in r) { var v = r[k]; o[k] = typeof v === "string" ? Buffer.from(Buffer.from(v, "latin1").toString("utf8"), "latin1").toString("utf8") : v; } return o; });
+    var fr = parsed.rows.map(function(row: Record<string, unknown>): Record<string, unknown> {
+      var o: Record<string, unknown> = {};
+      for (var k in row) { var v: unknown = row[k]; o[k] = v; }
+      return o;
+    });
     return NextResponse.json({ id, columns: parsed.columns, rows: fr, rowCount: parsed.rowCount, summary: parsed.summary });
   } catch (error) {
     console.error("Upload error:", error);
