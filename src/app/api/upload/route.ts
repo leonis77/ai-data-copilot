@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseFile } from "@/lib/parser";
-import { saveDataset, getLatestDataset, getDataset, listDatasets } from "@/lib/db";
+import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +10,18 @@ export async function POST(request: NextRequest) {
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
     const buffer = Buffer.from(fileData, "base64");
     const parsed = parseFile(new Uint8Array(buffer), fileName);
+    // Ensure Chinese characters are correctly decoded
+    parsed.rows = parsed.rows.map(function(row: any): any {
+      var fixed: any = {};
+      for (var k in row) {
+        var v = row[k];
+        if (typeof v === "string" && v.length > 0 && !/[一-鿿]/.test(v)) {
+          try { var d = Buffer.from(v, "latin1").toString("utf8"); if (/[一-鿿]/.test(d)) v = d; } catch (e) {}
+        }
+        fixed[k] = v;
+      }
+      return fixed;
+    });
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
     var fr = parsed.rows.map(function(row: Record<string, unknown>): Record<string, unknown> {
@@ -22,6 +34,16 @@ export async function POST(request: NextRequest) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    var { searchParams } = new URL(request.url);
+    var id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "missing id" }, { status: 400 });
+    await deleteDataset(id);
+    return NextResponse.json({ ok: true });
+  } catch (e) { return NextResponse.json({ error: "delete failed" }, { status: 500 }); }
 }
 
 export async function GET(request: NextRequest) {
