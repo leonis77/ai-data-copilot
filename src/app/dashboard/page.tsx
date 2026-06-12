@@ -22,6 +22,7 @@ export default function DashboardPage() {
   var [datasetName, setDatasetName] = useState("");
   var [datasetId, setDatasetId] = useState("");
   var [datasetData, setDatasetData] = useState<any>(null);
+  var [selectedCols, setSelectedCols] = useState<string[]>([]);
 
   useEffect(function() { loadData(""); }, []);
 
@@ -40,8 +41,19 @@ export default function DashboardPage() {
       if (!res.ok) { setLoading(false); return; }
       var data = await res.json();
       if (!data || !data.columns) { setLoading(false); return; }
-      var parsed = computeStats(data.rows, data.columns);
-      setDatasetData(data);
+      // Read column config - only analyze selected columns
+      var cfg: any = {}; try { cfg = JSON.parse(localStorage.getItem("columnConfig") || "{}"); } catch (e) {}
+      var selCols: string[] = cfg.selectedColumns || data.columns || [];
+      if (selCols.length === 0) selCols = data.columns || [];
+      setSelectedCols(selCols);
+      // Filter rows to selected columns
+      var filteredRows = data.rows.map(function(r: any) {
+        var o: Record<string, unknown> = {};
+        for (var i = 0; i < selCols.length; i++) { o[selCols[i]] = r[selCols[i]]; }
+        return o;
+      });
+      var parsed = computeStats(filteredRows, selCols);
+      setDatasetData({ ...data, rows: filteredRows, columns: selCols });
       setStats(parsed);
       setHasData(true);
       setDatasetName(data.original_name || "");
@@ -55,7 +67,13 @@ export default function DashboardPage() {
     if (!datasetId) return; setAnalyzing(true);
     try {
       if (!datasetData) return;
-      var summary = buildSummary(datasetData.columns, datasetData.rows);
+      var selCols = selectedCols.length > 0 ? selectedCols : (datasetData.columns || []);
+      var filteredRows = datasetData.rows.map(function(r: any) {
+        var o: Record<string, unknown> = {};
+        for (var i = 0; i < selCols.length; i++) { o[selCols[i]] = r[selCols[i]]; }
+        return o;
+      });
+      var summary = buildSummary(selCols, filteredRows);
       var res = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataSummary: summary, question: "" }) });
       if (res.ok) { var ad = await res.json(); setAnalysis(ad); }
     } catch {} finally { setAnalyzing(false); }
@@ -88,7 +106,7 @@ export default function DashboardPage() {
           <div><h1 className="text-3xl font-bold"><span className="gradient-text">数据仪表盘</span></h1></div>
           <TableSelector onSelect={handleSelect} className="ml-auto" />
         </div>
-        {datasetName && <p className="text-sm text-white/40 ml-14">{datasetName}</p>}
+        {datasetName && <p className="text-sm text-white/40 ml-14">{datasetName}{selectedCols.length > 0 && selectedCols.length !== (datasetData?.columns?.length || 99) ? " · 已选 " + selectedCols.length + " 列" : ""}</p>}
       </motion.div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[{ label: "数据总量", value: stats?.rowCount || 0, icon: Package },{ label: "字段数量", value: stats?.columnCount || 0, icon: BarChart3 },{ label: "平均值", value: ns ? Math.round(ns.avg) : 0, icon: DollarSign, prefix: "\u00A5" },{ label: "完整度", value: 98, icon: TrendingUp, suffix: "%" }].map(function(card, i) {
