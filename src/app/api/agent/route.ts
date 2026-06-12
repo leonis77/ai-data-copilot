@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLatestDataset } from "@/lib/db";
+import { getDataset } from "@/lib/db";
 import { computeStats } from "@/lib/parser";
 import { routeAgent } from "@/lib/agent";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const input = body.input || "";
-    const ds = await getLatestDataset();
+    var body = await request.json();
+    var input = body.input || "";
+    var datasetId = body.datasetId || "";
 
-    if (!ds) return NextResponse.json({ error: "??????" }, { status: 400 });
+    var ds = await getDataset(datasetId);
+    if (!ds) return NextResponse.json({ error: "dataset not found" }, { status: 400 });
 
-    const columns = Array.isArray(ds.columns) ? ds.columns : JSON.parse(ds.columns as string);
-    const rows = Array.isArray(ds.rows) ? ds.rows : [];
-    const stats = computeStats(rows, columns);
-    const dataSummary = Object.entries(stats.stats).map(([k, v]) =>
-      k + ": avg=" + v.avg.toFixed(2) + ", min=" + v.min + ", max=" + v.max
-    ).join("; ");
+    var columns = Array.isArray(ds.columns) ? ds.columns : JSON.parse(ds.columns as string);
+    var rows = Array.isArray(ds.rows) ? ds.rows : [];
+    var stats = computeStats(rows, columns);
+    var dataSummary = Object.entries(stats.stats).map(function(e) { return e[0] + ": avg=" + e[1].avg.toFixed(2) + ", min=" + e[1].min + ", max=" + e[1].max; }).join("; ");
 
-    const ctx = { dataSummary, columns, rowCount: rows.length, stats, datasetName: ds.original_name || ds.name };
-    const result = await routeAgent(input || "??????", ctx);
+    var ctx = { dataSummary: dataSummary, columns: columns, rowCount: rows.length, stats: stats, datasetName: ds.original_name || ds.name };
+    var result = await routeAgent(input || "help", ctx);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Agent error:", error);
-    return NextResponse.json({ error: "Agent ????" }, { status: 500 });
+    return NextResponse.json({ error: "agent failed" }, { status: 500 });
   }
 }
