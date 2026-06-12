@@ -41,7 +41,7 @@ export default function ReportPage() {
       }).join("");
       var title = "<div style='text-align:center;padding:60px 0'><h1 style='font-size:32px;color:#4F46E5'>AI Data Copilot</h1><p>" + datasetName + "</p><p>" + now + "</p><p>" + rows.length + " x " + cols.length + "</p></div>";
       var table = "<table><thead><tr>" + hc + "</tr></thead><tbody>" + dc + "</tbody></table>";
-      var html = "<!doctype html><html lang=zh-CN><head><meta charset=utf-8><style>*{margin:0;padding:0}body{font-family:sans-serif;font-size:11px;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:5px}th{background:#4F46E5;color:#fff}</style></head><body>" + title + "<h2>Data</h2>" + table + "</body></html>";
+      var html = "<!doctype html><html lang=zh-CN><head><meta charset=utf-8><style>*{margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif;font-size:11px;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:5px}th{background:#4F46E5;color:#fff}</style></head><body>" + title + "<h2>Data</h2>" + table + "</body></html>";
       win.document.write(html);
       win.document.close();
       setTimeout(function() { win.print(); }, 400);

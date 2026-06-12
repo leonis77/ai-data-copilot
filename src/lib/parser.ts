@@ -107,20 +107,24 @@ export function buildSummary(columns: string[], rows: Record<string, unknown>[])
 }
 
 function fixEncoding(val: unknown): unknown {
-  if (typeof val !== 'string') return val;
-  // Check for double-encoding pattern: UTF-8 bytes interpreted as Latin-1 then re-encoded
-  // Common indicators: strings containing 'Ã' (0xC3) followed by other high bytes
-  if (/[\u00C0-\u00FF]{2,}/.test(val)) {
-    try {
-      const fixed = Buffer.from(val, 'latin1').toString('utf8');
-      // Only use the fix if it produces valid text (has CJK or ASCII)
-      if (/[\u4e00-\u9fff]/.test(fixed) || /^[\x20-\x7E]+$/.test(fixed)) {
-        return fixed;
-      }
-    } catch {}
-  }
+  if (typeof val !== "string") return val;
+  if (!val) return val;
+  // If already contains valid CJK, return as-is
+  if (/[一-鿿]/.test(val)) return val;
+  // Multi-pass Latin1 -> UTF8 decode until we get CJK or no change
+  try {
+    var fixed: string = val;
+    for (var i = 0; i < 4; i++) {
+      var bytes = Buffer.from(fixed, "latin1");
+      var decoded = bytes.toString("utf8");
+      if (/[一-鿿]/.test(decoded)) return decoded;
+      if (decoded === fixed) break;
+      fixed = decoded;
+    }
+  } catch (e) {}
   return val;
 }
+
 export function computeStats(rows: Record<string, unknown>[], columns: string[]) {
   const numericColumns = columns.filter((col) =>
     rows.some((r) => typeof r[col] === "number" && !isNaN(r[col] as number))
