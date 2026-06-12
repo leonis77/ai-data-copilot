@@ -14,7 +14,7 @@ export function parseFile(data: Uint8Array, fileName: string): ParsedData {
     // CSV: read as UTF-8 string to correctly handle Chinese characters
     var text = Buffer.from(data).toString("utf8");
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    workbook = XLSX.read(text, { type: "string" });
+    workbook = XLSX.read(text, { type: "string", codepage: 65001 });
   } else {
     workbook = XLSX.read(data, { type: "array", cellDates: true });
   }

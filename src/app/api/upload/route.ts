@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
     const parsed = parseFile(new Uint8Array(buffer), fileName);
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
-    return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary });
+    var fr = parsed.rows.map(function(r) { var o = {}; for (var k in r) { var v = r[k]; o[k] = typeof v === "string" ? Buffer.from(Buffer.from(v, "latin1").toString("utf8"), "latin1").toString("utf8") : v; } return o; });
+    return NextResponse.json({ id, columns: parsed.columns, rows: fr, rowCount: parsed.rowCount, summary: parsed.summary });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
