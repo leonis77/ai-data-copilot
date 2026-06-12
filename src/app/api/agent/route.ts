@@ -15,7 +15,23 @@ export async function POST(request: NextRequest) {
     var columns = Array.isArray(ds.columns) ? ds.columns : JSON.parse(ds.columns as string);
     var rows = Array.isArray(ds.rows) ? ds.rows : [];
     var stats = computeStats(rows, columns);
-    var dataSummary = Object.entries(stats.stats).map(function(e) { return e[0] + ": avg=" + e[1].avg.toFixed(2) + ", min=" + e[1].min + ", max=" + e[1].max; }).join("; ");
+    var dataSummary = "DS: " + (ds.original_name || "") + "\n";
+    dataSummary += "Rows: " + rows.length + " Cols: " + columns.length + "\n";
+    // Numeric stats
+    dataSummary += "Stats: " + Object.entries(stats.stats).map(function(e) { return e[0] + " avg=" + e[1].avg.toFixed(2); }).join(", ") + "\n";
+    // Category distributions (top values)
+    for (var _i = 0; _i < 3; _i++) {
+      var dk = Object.keys(stats.distributions)[_i];
+      if (dk) {
+        var top5 = Object.entries(stats.distributions[dk]).slice(0, 5).map(function(e) { return e[0] + "(" + e[1] + ")"; }).join(", ");
+        dataSummary += dk + ": " + top5 + "\n";
+      }
+    }
+    // Sample rows
+    if (rows.length > 0) {
+      var sample = rows.slice(0, 3);
+      dataSummary += "Sample: " + JSON.stringify(sample).substring(0, 500);
+    }
 
     var ctx = { dataSummary: dataSummary, columns: columns, rowCount: rows.length, stats: stats, datasetName: ds.original_name || ds.name };
     var result = await routeAgent(input || "help", ctx);
