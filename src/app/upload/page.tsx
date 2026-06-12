@@ -32,6 +32,7 @@ export default function UploadPage() {
   var [cols, setCols] = useState<ColumnMeta[]>([]);
   var [sheets, setSheets] = useState<{name:string;rowCount:number}[]>([]);
   var [selectedSheet, setSelectedSheet] = useState("");
+  var [fileData, setFileData] = useState("");
   var [template, setTemplate] = useState<any>(null);
 
   var onDrop = useCallback(function(files: File[]) {
@@ -43,11 +44,35 @@ export default function UploadPage() {
 
   var { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "application/vnd.ms-excel": [".xls"], "text/csv": [".csv"] }, maxFiles: 1 });
 
+  var doUploadWithSheet = async function(sheet: string) {
+    if (!file || !fileData) return; setUploading(true);
+    try {
+      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file!.name, fileData: fileData, sheetName: sheet }) });
+      if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "失败"); }
+      var data = await res.json(); setResult(data);
+      var tmpl = matchTemplate(data.columns); setTemplate(tmpl);
+      var meta = applyTemplate(data.columns, tmpl); setCols(meta);
+      var saved = getSavedDatasets();
+      saved.activeId = data.id;
+      saved.list = saved.list.filter(function(d: any) { return d.id !== data.id; });
+      saved.list.unshift({ id: data.id, originalName: file!.name, rowCount: data.rowCount, columns: data.columns, createdAt: new Date().toISOString() });
+      if (saved.list.length > 5) saved.list = saved.list.slice(0, 5);
+      saveDatasets(saved);
+      setSheets([]);
+    } catch (e: any) { setError(e.message); }
+    finally { setUploading(false); }
+  };
+
   var handleUpload = async function() {
     if (!file) return; setUploading(true); setError("");
     try {
       var b64 = await fileToBase64(file);
-      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileData: b64 }) });
+      setFileData(b64);
+      // First: preview to check for multi-sheet
+      var ext = file.name.split(".").pop()?.toLowerCase();
+      var isXls = ext === "xlsx" || ext === "xls";
+      var body: any = { fileName: file.name, fileData: b64, action: isXls ? "preview" : undefined };
+      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "失败"); }
       var data = await res.json();
 
@@ -55,7 +80,6 @@ export default function UploadPage() {
       if (data.sheets && data.sheets.length > 1) {
         setSheets(data.sheets);
         setSelectedSheet(data.sheets[0].name);
-        setResult(null);
         setUploading(false);
         return;
       }
@@ -108,7 +132,7 @@ export default function UploadPage() {
             <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={function(s) { setSelectedSheet(s); }} />
             <div className="mt-6 flex justify-center gap-4">
               <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">取消</button>
-              <button onClick={function() { result = null; setResult(null); handleUpload(); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
+              <button onClick={function() { doUploadWithSheet(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
             </div>
           </GlassCard>
         </motion.div>
