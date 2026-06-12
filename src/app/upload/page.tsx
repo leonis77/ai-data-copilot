@@ -107,7 +107,7 @@ export default function UploadPage() {
         <p className="text-white/40 text-lg">支持 Excel (.xlsx/.xls) 和 CSV，拖拽或点击上传</p>
       </motion.div>
 
-      {sheets.length > 1 && !result ? (
+      {sheets.length > 1 && !result && cols.length === 0 ? (
         <motion.div key="sheets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <GlassCard gradient>
             <div className="flex items-center gap-3 mb-6">
@@ -122,7 +122,7 @@ export default function UploadPage() {
           </GlassCard>
         </motion.div>
       ) : null}
-      {!result && !(sheets.length > 1) ? (
+      {!result && cols.length === 0 ? (
         <motion.div key="upload" exit={{ opacity: 0, y: -20 }}>
           <GlassCard gradient className="p-10">
             <div {...getRootProps()} className={"relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all " + (isDragActive ? "border-primary bg-primary/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
