@@ -27,6 +27,7 @@ export function addDataset(id: string, name: string, rowCount: number, columns: 
   s.datasets.unshift({ id, originalName: name, rowCount, columns, createdAt: new Date().toISOString() });
   if (s.datasets.length > 5) s.datasets = s.datasets.slice(0, 5);
   s.activeId = id;
+  s.columnConfig = null;
   setStore(s);
   return s;
 }

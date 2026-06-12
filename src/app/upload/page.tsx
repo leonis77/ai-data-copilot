@@ -36,6 +36,8 @@ export default function UploadPage() {
 
   var clearAll = function() {
     clearStore();
+    localStorage.removeItem("currentDataset");
+    localStorage.removeItem("datasets");
     setFile(null); setResult(null); setCols([]); setSheets([]); setSelectedSheet(""); setFileData(""); setTemplate(null);
   };
   var [template, setTemplate] = useState<any>(null);
