@@ -70,21 +70,31 @@ export default function UploadPage() {
     finally { setUploading(false); }
   };
 
-  var handleUpload = async function() {
+  var handleUpload = async function(sheet?: string) {
     if (!file) return; setUploading(true); setError("");
     try {
       var b64 = await fileToBase64(file);
-      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: file.name, fileData: b64 }) });
+      if (!sheet) setFileData(b64);
+      var body: any = { fileName: file.name, fileData: sheet ? fileData : b64 };
+      if (sheet) body.sheetName = sheet;
+      var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "失败"); }
-      var data = await res.json(); setResult(data);
+      var data = await res.json();
 
-      // Template detection
+      // Multi-sheet detection
+      if (data.sheets && data.sheets.length > 1 && !sheet) {
+        setSheets(data.sheets);
+        setSelectedSheet(data.sheets[0].name);
+        setUploading(false);
+        return;
+      }
+
+      setResult(data);
       var tmpl = matchTemplate(data.columns);
       setTemplate(tmpl);
       var meta = applyTemplate(data.columns, tmpl);
       setCols(meta);
 
-      // Save to dataset list
       var saved = getSavedDatasets();
       saved.activeId = data.id;
       saved.list = saved.list.filter(function(d) { return d.id !== data.id; });
@@ -125,7 +135,7 @@ export default function UploadPage() {
             <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={function(s) { setSelectedSheet(s); }} />
             <div className="mt-6 flex justify-center gap-4">
               <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); setFileData(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">取消</button>
-              <button onClick={function() { doUploadWithSheet(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
+              <button onClick={function() { handleUpload(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
             </div>
           </GlassCard>
         </motion.div>
@@ -149,7 +159,7 @@ export default function UploadPage() {
             </div>
             {error && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20"><AlertCircle className="w-4 h-4 text-red-400 shrink-0" /><p className="text-sm text-red-400">{error}</p></motion.div>}
             {file && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 flex justify-center">
-              <button onClick={handleUpload} disabled={uploading} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">
+              <button onClick={function() { handleUpload(); }} disabled={uploading} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">
                 {uploading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />解析中</> : <><Sparkles className="w-5 h-5" />开始解析</>}
               </button>
             </motion.div>}
