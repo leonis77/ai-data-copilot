@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
-import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle, ArrowRight, Sparkles, Layers } from "lucide-react";
+import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle, ArrowRight, Sparkles, Layers, Trash2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { CountUp } from "@/components/ui/count-up";
 import { TemplateBadge } from "@/components/ui/template-badge";
@@ -33,6 +33,13 @@ export default function UploadPage() {
   var [sheets, setSheets] = useState<{name:string;rowCount:number}[]>([]);
   var [selectedSheet, setSelectedSheet] = useState("");
   var [fileData, setFileData] = useState("");
+
+  var clearAll = function() {
+    localStorage.removeItem("datasets");
+    localStorage.removeItem("currentDataset");
+    localStorage.removeItem("columnConfig");
+    setFile(null); setResult(null); setCols([]); setSheets([]); setSelectedSheet(""); setFileData(""); setTemplate(null);
+  };
   var [template, setTemplate] = useState<any>(null);
 
   var onDrop = useCallback(function(files: File[]) {
@@ -105,6 +112,7 @@ export default function UploadPage() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"><Upload className="w-4 h-4 text-primary-light" /><span className="text-sm text-white/60">数据上传</span></div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4"><span className="gradient-text">上传数据</span><span className="text-white/90">，开始分析</span></h1>
         <p className="text-white/40 text-lg">支持 Excel (.xlsx/.xls) 和 CSV，拖拽或点击上传</p>
+      <button onClick={clearAll} className="absolute top-0 right-0 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1"><Trash2 className="w-3 h-3" />清除缓存</button>
       </motion.div>
 
       {sheets.length > 1 && !result && cols.length === 0 ? (
