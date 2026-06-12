@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { parseFile } from "@/lib/parser";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
@@ -32,22 +31,7 @@ export async function POST(request: NextRequest) {
       for (var k in row) { var v: unknown = row[k]; o[k] = v; }
       return o;
     });
-        // Detect multi-sheet files
-    var sheetList = null;
-    if (!sheetName && (ext === "xlsx" || ext === "xls")) {
-      try {
-        var wb2 = XLSX.read(new Uint8Array(buffer), { type: "array" });
-        if (wb2.SheetNames.length > 1) {
-          sheetList = wb2.SheetNames.map(function(sn) {
-            var s = wb2.Sheets[sn];
-            var ref = s["!ref"] || "A1";
-            var range = XLSX.utils.decode_range(ref);
-            return { name: sn, rowCount: range.e.r - range.s.r };
-          });
-        }
-      } catch (e) {}
-    }
-    return NextResponse.json({ id, columns: parsed.columns, rows: fr, rowCount: parsed.rowCount, summary: parsed.summary, sheets: sheetList });
+    return NextResponse.json({ id, columns: parsed.columns, rows: fr, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });

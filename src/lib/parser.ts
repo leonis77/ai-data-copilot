@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 
 export interface ParsedData {
+  sheets?: { name: string; rowCount: number }[] | null;
   columns: string[];
   rows: Record<string, unknown>[];
   rowCount: number;
@@ -9,7 +10,7 @@ export interface ParsedData {
 
 export function parseFile(data: Uint8Array, fileName: string, sheetName?: string): ParsedData {
   var ext = fileName.split(".").pop()?.toLowerCase();
-  var workbook;
+  var workbook: any;
   if (ext === "csv") {
     // CSV: read as UTF-8 string to correctly handle Chinese characters
     var text = Buffer.from(data).toString("utf8");
@@ -20,6 +21,12 @@ export function parseFile(data: Uint8Array, fileName: string, sheetName?: string
   }
 
   var activeSheets: string[] = sheetName ? [sheetName] : workbook.SheetNames;
+  var sheetMeta = workbook.SheetNames.map(function(sn: string) {
+    var s: any = workbook.Sheets[sn];
+    var ref2 = s["!ref"] || "A1";
+    var rng = XLSX.utils.decode_range(ref2);
+    return { name: sn, rowCount: rng.e.r - rng.s.r };
+  });
   var allRows: Record<string, unknown>[] = [];
   var allColumns: string[] = [];
   var firstSheet = true;
@@ -84,7 +91,7 @@ export function parseFile(data: Uint8Array, fileName: string, sheetName?: string
   var activeColumns = finalColumns.filter(function(col: string) { return allRows.some(function(r: any) { var v = r[col]; return v !== undefined && v !== null && String(v).trim() !== ""; }); });
   var rows = allRows.slice(0, 5000);
   var summary = buildSummary(activeColumns, rows);
-  return { columns: activeColumns, rows: rows, rowCount: rows.length, summary: summary };
+  return { columns: activeColumns, rows: rows, rowCount: rows.length, summary: summary, sheets: sheetMeta.length > 1 ? sheetMeta : null };
 }
 
 export function buildSummary(columns: string[], rows: Record<string, unknown>[]): string {
