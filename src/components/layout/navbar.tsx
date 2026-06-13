@@ -5,14 +5,15 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { BarChart3, Upload, MessageSquare, FileText, Sparkles, TrendingUp, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 const navItems = [
-  { href: "/", label: "\u9996\u9875", icon: Home },
-  { href: "/upload", label: "\u4e0a\u4f20", icon: Upload },
-  { href: "/dashboard", label: "\u8bca\u65ad", icon: BarChart3 },
-  { href: "/workspace", label: "\u5de5\u4f5c\u53f0", icon: TrendingUp },
-  { href: "/chat", label: "AI \u5bf9\u8bdd", icon: MessageSquare },
-  { href: "/report", label: "\u62a5\u544a", icon: FileText },
+  { href: "/", label: t.nav.home, icon: Home },
+  { href: "/upload", label: t.nav.upload, icon: Upload },
+  { href: "/dashboard", label: t.nav.diagnosis, icon: BarChart3 },
+  { href: "/workspace", label: t.nav.workspace, icon: TrendingUp },
+  { href: "/chat", label: t.nav.chat, icon: MessageSquare },
+  { href: "/report", label: t.nav.report, icon: FileText },
 ];
 
 export function Navbar() {
@@ -32,7 +33,7 @@ export function Navbar() {
             <Sparkles className="w-4 h-4 text-white" />
           </motion.div>
           <span className="font-bold text-lg bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            Commerce Copilot
+            {t.nav.brand}
           </span>
         </Link>
         <div className="flex items-center gap-1">

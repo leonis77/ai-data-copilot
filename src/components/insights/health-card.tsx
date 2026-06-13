@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Shield, TrendingUp, Package, DollarSign } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 interface HealthCardProps {
   score: number;
@@ -15,14 +16,14 @@ function scoreColor(score: number): string {
 }
 
 const rings = [
-  { key: "inventory", label: "\u5e93\u5b58", icon: Package, color: "bg-sky-400" },
-  { key: "sales", label: "\u9500\u91cf", icon: TrendingUp, color: "bg-violet-400" },
-  { key: "structure", label: "\u7ed3\u6784", icon: Shield, color: "bg-emerald-400" },
-  { key: "pricing", label: "\u4ef7\u683c", icon: DollarSign, color: "bg-amber-400" },
+  { key: "inventory", label: t.health.inventory, icon: Package, color: "bg-sky-400" },
+  { key: "sales", label: t.health.sales, icon: TrendingUp, color: "bg-violet-400" },
+  { key: "structure", label: t.health.structure, icon: Shield, color: "bg-emerald-400" },
+  { key: "pricing", label: t.health.pricing, icon: DollarSign, color: "bg-amber-400" },
 ];
 
 export function HealthCard({ score, breakdown }: HealthCardProps) {
-  const label = score >= 80 ? "\u5065\u5eb7" : score >= 60 ? "\u5173\u6ce8" : "\u9884\u8b66";
+  const label = score >= 80 ? t.health.healthy : score >= 60 ? t.health.attention : t.health.alert;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -34,8 +35,8 @@ export function HealthCard({ score, breakdown }: HealthCardProps) {
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-xs text-white/30 uppercase tracking-widest mb-1">{"\u7ecf\u8425\u5065\u5eb7\u8bc4\u5206"}</p>
-            <p className="text-sm text-white/40">Business Health Score</p>
+            <p className="text-xs text-white/30 uppercase tracking-widest mb-1">{t.health.label}</p>
+            <p className="text-sm text-white/40">{t.health.subtitle}</p>
           </div>
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}
             className="w-10 h-10 rounded-xl bg-white/[0.05] flex items-center justify-center">

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, Zap } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 interface DecisionCardProps {
   title: string;
@@ -12,9 +13,9 @@ interface DecisionCardProps {
 }
 
 const priorityConfig = {
-  P0: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", label: "\u7acb\u5373\u6267\u884c" },
-  P1: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", label: "\u672c\u5468\u6267\u884c" },
-  P2: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", label: "\u8ba1\u5212\u6267\u884c" },
+  P0: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", label: t.decision.p0 },
+  P1: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", label: t.decision.p1 },
+  P2: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", label: t.decision.p2 },
 };
 
 export function DecisionCard({ title, description, impact, priority, index = 0 }: DecisionCardProps) {
@@ -32,7 +33,6 @@ export function DecisionCard({ title, description, impact, priority, index = 0 }
     >
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{ background: `radial-gradient(ellipse at 0% 50%, ${glowColor} 0%, transparent 60%)` }} />
-
       <div className="relative z-10 flex items-start gap-4">
         <div className={`w-10 h-10 rounded-xl ${config.bg} flex items-center justify-center shrink-0 mt-0.5`}>
           <Zap className={`w-5 h-5 ${config.text}`} />
@@ -41,7 +41,7 @@ export function DecisionCard({ title, description, impact, priority, index = 0 }
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-sm text-white/90">{title}</h3>
             <span className={`text-[10px] px-2 py-0.5 rounded-full ${config.bg} ${config.text} font-medium`}>
-              {priority} {"\u00b7"} {config.label}
+              {priority} {"·"} {config.label}
             </span>
           </div>
           <p className="text-xs text-white/50 leading-relaxed mb-2">{description}</p>
