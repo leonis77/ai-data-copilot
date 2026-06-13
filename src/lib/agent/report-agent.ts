@@ -14,7 +14,7 @@ export async function reportAgent(input: string, ctx: AgentContext): Promise<Age
   try {
     var cleaned = text.replace(/```json|```/g, "").trim();
     var p = JSON.parse(cleaned);
-    var secs = (p.sections || []).map(function(s) { return "## " + s.heading + "\n" + s.content + "\n> Key data: " + (s.keyMetric || "N/A"); }).join("\n\n");
+    var secs = (p.sections || []).map(function(s: any) { return "## " + s.heading + "\n" + s.content + "\n> Key data: " + (s.keyMetric || "N/A"); }).join("\n\n");
     return { type: "report", content: "# " + (p.title || "Business Analysis Report") + "\n\n" + (p.summary || "") + "\n\n" + secs + "\n\n**Action Recommendations**: " + (p.conclusion || ""), followUp: p.followUp || [] };
   } catch {
     return { type: "report", content: text, followUp: ["Which products sell best?", "What are the risks?", "Export PDF report"] };
