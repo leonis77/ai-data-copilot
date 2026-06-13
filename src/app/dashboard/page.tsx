@@ -118,8 +118,8 @@ export default function DashboardPage() {
           </GlassCard>;
         })}
       </div>
-      <ChartsSection isEcommerce={!!(getStore().columnConfig?.templateId && getStore().columnConfig?.templateId !== 'generic')} d0={d0} d1={d1} distCols={distCols} datasetData={datasetData} />
-      <TrendSection isEcommerce={!!(getStore().columnConfig?.templateId && getStore().columnConfig?.templateId !== 'generic')} nk={nk} ns={ns} datasetData={datasetData} />
+      <ChartsSection d0={d0} d1={d1} distCols={distCols} datasetData={datasetData} />
+      <TrendSection nk={nk} ns={ns} datasetData={datasetData} />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold"><span className="gradient-text">AI 智能分析</span></h2>
@@ -132,18 +132,71 @@ export default function DashboardPage() {
 }
 
 
-function KpiCards({ stats, rows, ns, isEcommerce }: any) {
-  const hasAmount = rows?.length > 0 && rows[0].hasOwnProperty("amount");
-  const hasPrice = rows?.length > 0 && rows[0].hasOwnProperty("price");
-  const salesField = hasAmount ? "amount" : (hasPrice ? "price" : null);
-  const isBiz = isEcommerce || !!salesField;
 
-  const cards: any[] = isBiz && rows?.length > 0 && salesField ? (function() {
-    const sales = computeSalesSummary(rows || [], salesField);
-    const refundAmt = (rows||[]).filter(function(r:any){return /退款|退货/.test(String(r.status||''))}).reduce(function(s:number,r:any){return s+(Number(r[salesField])||0)},0);
+function cleanRow(row: any): any {
+  const o: any = {};
+  for (const k in row) {
+    let v: any = row[k];
+    if (typeof v === "string") {
+      // Strip currency symbols and commas: "¥128.00" -> 128.00
+      const cleaned = v.replace(/[^0-9.\-]/g, "");
+      const n = Number(cleaned);
+      if (!isNaN(n) && cleaned.length > 0) v = n;
+    }
+    o[k] = v;
+  }
+  return o;
+}
+
+function findMoneyColumn(row: any): string | null {
+  if (!row) return null;
+  const candidates: { col: string; score: number }[] = [];
+  for (const k in row) {
+    const v = Number(row[k]);
+    if (isNaN(v)) continue;
+    let score = 0;
+    // Prioritize columns named like amount/price/money
+    const lk = k.toLowerCase();
+    if (/price|amount|total|金额|价格|总额|实付|售价/.test(lk)) score += 10;
+    if (/数量|quantity|qty|num/.test(lk)) score -= 5;
+    if (v > 0) score += 1;
+    if (score > 0) candidates.push({ col: k, score });
+  }
+  candidates.sort(function(a,b){return b.score-a.score});
+  return candidates.length > 0 ? candidates[0].col : null;
+}
+
+
+function findNameColumn(row: any): string {
+  if (!row) return Object.keys(row)[0]||"";
+  for (const k in row) {
+    const lk = k.toLowerCase();
+    if (/name|名称|商品|产品|title/.test(lk)) return k;
+  }
+  return Object.keys(row)[0]||"";
+}
+
+function findDateColumn(row: any): string | null {
+  if (!row) return null;
+  for (const k in row) {
+    const lk = k.toLowerCase();
+    if (/date|time|时间|日期|order_time|下单/.test(lk)) return k;
+  }
+  return null;
+}
+
+function KpiCards({ stats, rows, ns, isEcommerce }: any) {
+  const cleanedRows = (rows||[]).map(cleanRow);
+  const recalcStats = computeStats(cleanedRows, Object.keys(cleanedRows[0]||{}));
+  const moneyCol = findMoneyColumn(cleanedRows[0]);
+  const isBiz = !!moneyCol;
+
+  const cards: any[] = isBiz && cleanedRows.length > 0 ? (function() {
+    const sales = computeSalesSummary(cleanedRows, moneyCol);
+    const refundAmt = (cleanedRows||[]).filter(function(r:any){return /退款|退货/.test(String(r.备注||r.note||r.remark||''))}).reduce(function(s:number,r:any){return s+(Number(r[moneyCol])||0)},0);
     return [
       { label: "总销售额", value: Math.round(sales.total), icon: TrendingUp, prefix: "¥" },
-      { label: "订单数", value: rows?.length||0, icon: Package },
+      { label: "订单数", value: cleanedRows.length, icon: Package },
       { label: "客单价", value: Math.round(sales.avg), icon: DollarSign, prefix: "¥" },
       { label: "退款金额", value: Math.round(refundAmt), icon: BarChart3, prefix: "¥" },
     ];
@@ -156,12 +209,15 @@ function KpiCards({ stats, rows, ns, isEcommerce }: any) {
   return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">{cards.map(function(card,i){return <GlassCard key={i} delay={i*0.1}><div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><card.icon className="w-5 h-5 text-white/80" /></div></div><CountUp end={card.value} prefix={card.prefix||""} suffix={card.suffix||""} className="text-2xl font-bold block mb-1" /><p className="text-xs text-white/40">{card.label}</p></GlassCard>;})}</div>;
 }
 
-function ChartsSection({ isEcommerce, d0, d1, distCols, datasetData }: any) {
-  if (isEcommerce && datasetData?.rows?.length > 0) {
-    const top5 = rankByField(datasetData.rows, "product_name", "amount", 5);
+function ChartsSection({ d0, d1, distCols, datasetData }: any) {
+  const rows = datasetData?.rows || [];
+  const cleanedRows = rows.map(cleanRow);
+  const moneyCol = rows.length > 0 ? findMoneyColumn(cleanedRows[0]) : null;
+  if (moneyCol && cleanedRows.length > 0) {
+    const top5 = rankByField(cleanedRows, findNameColumn(cleanedRows[0]), moneyCol, 5);
     return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <GlassCard><LineChart title="近日销售额趋势" data={aggregateByDate(datasetData.rows, "order_time", "amount")} height={300} /></GlassCard>
-      <GlassCard><BarChart title="TOP5 商品" data={top5} height={300} /></GlassCard>
+      <GlassCard><LineChart title="数值趋势" data={aggregateByDate(cleanedRows, findDateColumn(cleanedRows[0])||Object.keys(cleanedRows[0])[0], moneyCol)} height={300} /></GlassCard>
+      <GlassCard><BarChart title="TOP5" data={top5} height={300} /></GlassCard>
     </div>;
   }
   return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -170,8 +226,10 @@ function ChartsSection({ isEcommerce, d0, d1, distCols, datasetData }: any) {
   </div>;
 }
 
-function TrendSection({ isEcommerce, nk, ns, datasetData }: any) {
-  if (isEcommerce && datasetData?.rows?.length > 0) return null;
+function TrendSection({ nk, ns, datasetData }: any) {
+  const rows = datasetData?.rows || [];
+  const moneyCol = rows.length > 0 ? findMoneyColumn(cleanRow(rows[0])) : null;
   if (!nk || !ns) return null;
-  return <div className="mb-8"><GlassCard><LineChart title={nk + " 趋势"} data={[{ name: "最小", value: ns.min },{ name: "25%", value: ns.avg*0.75 },{ name: "平均", value: ns.avg },{ name: "75%", value: ns.avg*1.25 },{ name: "最大", value: ns.max }]} height={350} /></GlassCard></div>;
+  const title = moneyCol ? (moneyCol + " 趋势") : (nk + " 趋势");
+  return <div className="mb-8"><GlassCard><LineChart title={title} data={[{ name: "最小", value: ns.min },{ name: "25%", value: ns.avg*0.75 },{ name: "平均", value: ns.avg },{ name: "75%", value: ns.avg*1.25 },{ name: "最大", value: ns.max }]} height={350} /></GlassCard></div>;
 }
