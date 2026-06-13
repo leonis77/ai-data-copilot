@@ -138,9 +138,34 @@ export function buildSummary(columns: string[], rows: Record<string, unknown>[])
   return parts.join("\n");
 }
 
+
+function isIdColumn(col: string, rows: Record<string, unknown>[]): boolean {
+  const n = col.toLowerCase();
+  // Name patterns that indicate ID/identifier columns
+  if (/id$|编号|单号|手机|电话|物流|track|courier|运单/.test(n)) return true;
+  // Check cardinality: if >70% values are unique, it is an ID
+  if (rows.length > 5) {
+    const unique = new Set();
+    let numCount = 0;
+    for (let i = 0; i < Math.min(rows.length, 200); i++) {
+      const v = rows[i][col];
+      if (typeof v === "number") numCount++;
+      unique.add(String(v));
+    }
+    const sampleSize = Math.min(rows.length, 200);
+    if (unique.size > sampleSize * 0.7) return true;
+  }
+  return false;
+}
+
+function isNumericLike(n: string): boolean {
+  // Column name suggests numeric content
+  return /price|金额|价格|amount|total|quantity|数量|qty|num|rating|评分|销量|volume/.test(n.toLowerCase());
+}
+
 export function computeStats(rows: Record<string, unknown>[], columns: string[]) {
   const numericColumns = columns.filter(function(col) {
-    return rows.some(function(r) { return typeof r[col] === "number" && !isNaN(r[col] as number); });
+    return rows.some(function(r) { return typeof r[col] === "number" && !isNaN(r[col] as number); }) && !isIdColumn(col, rows);
   });
   const stats: Record<string, { sum: number; avg: number; min: number; max: number; count: number }> = {};
   for (const col of numericColumns) {
@@ -154,7 +179,7 @@ export function computeStats(rows: Record<string, unknown>[], columns: string[])
       count: values.length,
     };
   }
-  const textColumns = columns.filter(function(col) { return !numericColumns.includes(col); });
+  const textColumns = columns.filter(function(col) { return !numericColumns.includes(col) && !isIdColumn(col, rows); });
   const distributions: Record<string, Record<string, number>> = {};
   for (const col of textColumns.slice(0, 3)) {
     const dist: Record<string, number> = {};

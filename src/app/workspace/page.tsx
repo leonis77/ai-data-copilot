@@ -65,8 +65,9 @@ export default function WorkspacePage() {
     );
   }
 
+  const cols = (data?.columns || []);
   const rows = (data?.rows || []).filter(function(r:any){if(!r.order_time)return true;const d=new Date(r.order_time);if(isNaN(d.getTime()))return true;const daysAgo=(Date.now()-d.getTime())/86400000;return daysAgo<=dateRange;});
-  const amtField = "amount";
+  var amtField = cols.find(function(c: string) { return /amount|price|金额|价格/.test(c.toLowerCase()); }) || cols.find(function(c: string) { var r0: any = rows[0] || {}; return typeof r0[c] === "number"; }) || "";
   const dtField = "order_time";
   const prodField = "product_name";
   const catField = "sku";
