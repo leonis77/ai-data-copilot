@@ -2,25 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseFile } from "@/lib/parser";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
-function fixAllRows(rows: any): any {
-  // Brute force: for every string value, do latin1->utf8 until stabilized
-  const s = JSON.stringify(rows);
-  let prev = s;
-  let current = s;
-  for (let p = 0; p < 5; p++) {
-    try {
-      const bytes = Buffer.from(current, "latin1");
-      current = bytes.toString("utf8");
-      if (current === prev) break;
-      prev = current;
-    } catch(e) { break; }
-  }
-  if (current !== s) {
-    try { return JSON.parse(current); } catch(e) { return rows; }
-  }
-  return rows;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { fileName, fileData, sheetName } = await request.json();
@@ -29,7 +10,7 @@ export async function POST(request: NextRequest) {
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
     const buffer = Buffer.from(fileData, "base64");
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
-    parsed.rows = fixAllRows(parsed.rows);
+
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
     return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
