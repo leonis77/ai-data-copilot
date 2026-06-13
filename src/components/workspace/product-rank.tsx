@@ -20,8 +20,8 @@ function rankProducts(rows: any[], productField: string, amountField: string, li
 export function ProductRank({ rows, productField, amountField, aiSummary }: { rows: any[]; productField: string; amountField: string; aiSummary?: string }) {
   const data = useMemo(() => rankProducts(rows, productField, amountField, 10), [rows, productField, amountField]);
   return (
-    <ModuleShell title="Product Ranking" aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title="TOP 10 Revenue Ranking" data={data} height={350} /> : <p className="text-sm text-white/30 text-center py-8">No product data</p>}
+    <ModuleShell title="\u5546\u54c1\u6392\u884c\u699c" aiSummary={aiSummary}>
+      {data.length > 0 ? <BarChart title="TOP 10 \u9500\u552e\u989d\u6392\u884c" data={data} height={350} /> : <p className="text-sm text-white/30 text-center py-8">\u65e0\u5546\u54c1\u6570\u636e</p>}
     </ModuleShell>
   );
 }

@@ -30,18 +30,18 @@ export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary 
   const concentration = computeConcentration(data);
 
   return (
-    <ModuleShell title="Category Structure" aiSummary={aiSummary}>
+    <ModuleShell title="\u54c1\u7c7b\u7ed3\u6784" aiSummary={aiSummary}>
       <div className="mb-4 flex gap-4">
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{data.length}</span>
-          <p className="text-xs text-white/40">Categories</p>
+          <p className="text-xs text-white/40">\u54c1\u7c7b\u6570</p>
         </div>
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{concentration}%</span>
-          <p className="text-xs text-white/40">Top 3 Concentration</p>
+          <p className="text-xs text-white/40">TOP3 \u96c6\u4e2d\u5ea6</p>
         </div>
       </div>
-      {data.length > 0 ? <PieChart title="Category Revenue Share" data={data} /> : <p className="text-sm text-white/30 text-center py-8">No category data</p>}
+      {data.length > 0 ? <PieChart title="\u54c1\u7c7b\u9500\u552e\u989d\u5360\u6bd4" data={data} /> : <p className="text-sm text-white/30 text-center py-8">\u65e0\u54c1\u7c7b\u6570\u636e</p>}
     </ModuleShell>
   );
 }

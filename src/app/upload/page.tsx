@@ -44,19 +44,19 @@ export default function UploadPage() {
   var onDrop = useCallback(function(files: File[]) {
     var f = files[0]; if (!f) return;
     var ext = f.name.split(".").pop()?.toLowerCase();
-    if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") { setError("Only xlsx/xls/csv supported"); return; }
+    if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") { setError("\u4ec5\u652f\u6301 xlsx / xls / csv \u683c\u5f0f"); return; }
     setError(""); setFile(f); setResult(null); setCols([]); setSheets([]); setTemplate(null);
   }, []);
 
   var { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "application/vnd.ms-excel": [".xls"], "text/csv": [".csv"] }, maxFiles: 1 });
 
   var downloadTemplate = function() {
-    var csv = "OrderID,ProductName,Spec,Quantity,Amount,OrderTime,Status,Address,BuyerName\n";
-    csv += "Example: ORD001,iPhone 15 Pro,128GB,1,8999,2025-01-15,Completed,Hangzhou,ZhangSan\n";
-    var blob = new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"});
+    var csv = "\u8ba2\u5355\u7f16\u53f7,\u5546\u54c1\u540d\u79f0,\u89c4\u683c,\u6570\u91cf,\u5b9e\u4ed8\u91d1\u989d,\u4e0b\u5355\u65f6\u95f4,\u8ba2\u5355\u72b6\u6001,\u6536\u8d27\u5730\u5740,\u4e70\u5bb6\u540d\u79f0\n";
+    csv += "\u793a\u4f8b: ORD001,iPhone 15 Pro,128GB,1,8999,2025-01-15,\u5df2\u5b8c\u6210,\u676d\u5dde\u5e02,\u5f20\u4e09\n";
+    var blob = new Blob(["\uFEFF" + csv], {type:"text/csv;charset=utf-8"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
-    a.href = url; a.download = "order-template.csv";
+    a.href = url; a.download = "\u6807\u51c6\u8ba2\u5355\u6a21\u677f.csv";
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -68,7 +68,7 @@ export default function UploadPage() {
       var body: any = { fileName: file.name, fileData: sheet ? fileData : b64 };
       if (sheet) body.sheetName = sheet;
       var res = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "Upload failed"); }
+      if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error(err.error || "\u4e0a\u4f20\u5931\u8d25"); }
       var data = await res.json();
       if (data.sheets && data.sheets.length > 1 && !sheet) {
         setSheets(data.sheets); setSelectedSheet(data.sheets[0].name); setUploading(false); return;
@@ -93,24 +93,24 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen py-12"><div className="max-w-4xl mx-auto px-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12 relative">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"><Upload className="w-4 h-4 text-primary-light" /><span className="text-sm text-white/60">Data Upload</span></div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4"><span className="gradient-text">Upload Data</span><span className="text-white/90">, Start Analysis</span></h1>
-        <p className="text-white/40 text-lg">Supports Excel (.xlsx/.xls) and CSV, drag and drop or click to upload</p>
-        <button onClick={clearAll} className="absolute top-0 right-0 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1"><Trash2 className="w-3 h-3" />Clear Cache</button>
+    <div className="min-h-screen py-12 pt-20"><div className="max-w-4xl mx-auto px-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="text-center mb-12 relative">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6"><Upload className="w-4 h-4 text-primary-light" /><span className="text-sm text-white/60">{"\u6570\u636e\u4e0a\u4f20"}</span></div>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4"><span className="gradient-text">{"\u4e0a\u4f20\u6570\u636e"}</span><span className="text-white/90">{"\uff0c\u5f00\u59cb\u5206\u6790"}</span></h1>
+        <p className="text-white/40 text-lg">{"\u652f\u6301 Excel (.xlsx/.xls) \u548c CSV\uff0c\u62d6\u62fd\u6216\u70b9\u51fb\u4e0a\u4f20"}</p>
+        <button onClick={clearAll} className="absolute top-0 right-0 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1"><Trash2 className="w-3 h-3" />{"\u6e05\u9664\u7f13\u5b58"}</button>
       </motion.div>
 
       {sheets.length > 1 && !result && cols.length === 0 ? (
-        <motion.div key="sheets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <motion.div key="sheets" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.5}} className="space-y-6">
           <GlassCard gradient>
             <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-xl bg-accent-cyan/20 flex items-center justify-center"><Layers className="w-5 h-5 text-accent-cyan" /></div>
-              <div><h3 className="font-semibold text-lg">{file?.name || ""}</h3><p className="text-sm text-white/40">Contains {sheets.length} sheets, select which to analyze</p></div>
+              <div><h3 className="font-semibold text-lg">{file?.name || ""}</h3><p className="text-sm text-white/40">{"\u5305\u542b "}{sheets.length}{" \u4e2a\u5de5\u4f5c\u8868\uff0c\u8bf7\u9009\u62e9\u8981\u5206\u6790\u7684\u76ee\u6807"}</p></div>
             </div>
             <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={function(s) { setSelectedSheet(s); }} />
             <div className="mt-6 flex justify-center gap-4">
-              <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); setFileData(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">Cancel</button>
-              <button onClick={function() { handleUpload(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">Confirm<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
+              <button onClick={function() { setFile(null); setSheets([]); setSelectedSheet(""); setFileData(""); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">{"\u53d6\u6d88"}</button>
+              <button onClick={function() { handleUpload(selectedSheet); }} disabled={!selectedSheet} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">{"\u786e\u8ba4\u9009\u62e9"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
             </div>
           </GlassCard>
         </motion.div>
@@ -119,7 +119,7 @@ export default function UploadPage() {
       {!result && cols.length === 0 && sheets.length <= 1 ? (
         <motion.div key="upload" exit={{ opacity: 0, y: -20 }}>
           <GlassCard gradient className="p-10">
-            <div {...getRootProps()} className={"relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all " + (isDragActive ? "border-primary bg-primary/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
+            <div {...getRootProps()} className={"relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all " + (isDragActive ? "border-indigo-400 bg-indigo-500/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
               <input {...getInputProps()} />
               {file ? (
                 <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-4">
@@ -129,32 +129,32 @@ export default function UploadPage() {
               ) : (
                 <div className="space-y-4">
                   <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }} className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center"><Upload className="w-10 h-10 text-primary-light/50" /></motion.div>
-                  <div><p className="font-semibold text-lg text-white/60">{isDragActive ? "Release to upload" : "Drag files here or click to select"}</p><p className="text-sm text-white/30 mt-1">.xlsx .xls .csv, max 50MB</p><button onClick={function(e) { e.stopPropagation(); downloadTemplate(); }} className="mt-4 text-xs text-primary-light/70 hover:text-primary-light transition-colors underline">Download Standard Template (CSV)</button></div>
+                  <div><p className="font-semibold text-lg text-white/60">{isDragActive ? "\u677e\u5f00\u4e0a\u4f20" : "\u62d6\u62fd\u6587\u4ef6\u5230\u6b64\u5904\u6216\u70b9\u51fb\u9009\u62e9"}</p><p className="text-sm text-white/30 mt-1">.xlsx .xls .csv{"\uff0c\u6700\u5927 50MB"}</p><button onClick={function(e) { e.stopPropagation(); downloadTemplate(); }} className="mt-4 text-xs text-indigo-400/70 hover:text-indigo-400 transition-colors underline">{"\u4e0b\u8f7d\u6807\u51c6\u6a21\u677f (CSV)"}</button></div>
                 </div>
               )}
             </div>
             {error && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20"><AlertCircle className="w-4 h-4 text-red-400 shrink-0" /><p className="text-sm text-red-400">{error}</p></motion.div>}
             {file && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 flex justify-center">
-              <button onClick={function() { handleUpload(); }} disabled={uploading} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">
-                {uploading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Parsing...</> : <><Sparkles className="w-5 h-5" />Start Parsing</>}
+              <button onClick={function() { handleUpload(); }} disabled={uploading} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">
+                {uploading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />{"\u89e3\u6790\u4e2d..."}</> : <><Sparkles className="w-5 h-5" />{"\u5f00\u59cb\u89e3\u6790"}</>}
               </button>
             </motion.div>}
           </GlassCard>
         </motion.div>
       ) : (
-        <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.5}} className="space-y-6">
           <GlassCard gradient>
             <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center"><CheckCircle className="w-5 h-5 text-green-400" /></div>
-              <div><h3 className="font-semibold text-lg">Parse Successful</h3><div className="flex items-center gap-2 mt-1">{template ? <TemplateBadge name={template.name} /> : <span className="text-sm text-white/40">Generic Mode</span>}</div></div>
+              <div><h3 className="font-semibold text-lg">{"\u89e3\u6790\u6210\u529f"}</h3><div className="flex items-center gap-2 mt-1">{template ? <TemplateBadge name={template.name} /> : <span className="text-sm text-white/40">{"\u901a\u7528\u6a21\u5f0f"}</span>}</div></div>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="text-center p-4 rounded-xl bg-white/[0.03]"><CountUp end={result.rowCount} className="text-2xl font-bold gradient-text block mb-1" /><p className="text-xs text-white/40">Rows</p></div>
-              <div className="text-center p-4 rounded-xl bg-white/[0.03]"><CountUp end={cols.length} className="text-2xl font-bold gradient-text block mb-1" /><p className="text-xs text-white/40">Columns</p></div>
+              <div className="text-center p-4 rounded-xl bg-white/[0.03]"><CountUp end={result.rowCount} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" /><p className="text-xs text-white/40">{"\u884c\u6570"}</p></div>
+              <div className="text-center p-4 rounded-xl bg-white/[0.03]"><CountUp end={cols.length} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" /><p className="text-xs text-white/40">{"\u5b57\u6bb5"}</p></div>
             </div>
             {cols.length > 0 && <ColumnSelector columns={cols} onChange={function(c: ColumnMeta[]) { setCols(c); }} />}
             <div className="mt-6 flex justify-center gap-4">
-              <button onClick={function() { setFile(null); setResult(null); setCols([]); setTemplate(null); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">Re-upload</button>
-              <button onClick={handleConfirm} disabled={cols.filter(function(c) { return c.selected; }).length === 0} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">View Analysis<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
+              <button onClick={function() { setFile(null); setResult(null); setCols([]); setTemplate(null); }} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">{"\u91cd\u65b0\u4e0a\u4f20"}</button>
+              <button onClick={handleConfirm} disabled={cols.filter(function(c) { return c.selected; }).length === 0} className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">{"\u67e5\u770b\u5206\u6790"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>
             </div>
           </GlassCard>
         </motion.div>

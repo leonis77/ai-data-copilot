@@ -29,8 +29,8 @@ function rankByProvince(rows: any[], addrField: string, valField: string, limit:
 export function RegionMap({ rows, addressField, amountField, aiSummary }: { rows: any[]; addressField: string; amountField: string; aiSummary?: string }) {
   const data = rankByProvince(rows, addressField, amountField, 10);
   return (
-    <ModuleShell title="Regional Revenue Map" aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title="TOP 10 Regions by Revenue" data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">No address data</p>}
+    <ModuleShell title="\u533a\u57df\u70ed\u529b\u56fe" aiSummary={aiSummary}>
+      {data.length > 0 ? <BarChart title="TOP10 \u7701\u4efd\u9500\u552e\u989d" data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">\u65e0\u5730\u5740\u6570\u636e</p>}
     </ModuleShell>
   );
 }
