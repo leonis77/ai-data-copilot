@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ModuleShell } from "./module-shell";
 import { PieChart } from "@/components/charts";
+import { t } from "@/lib/i18n";
 
 function aggregateByCategory(rows: any[], catField: string, amountField: string): { name: string; value: number }[] {
   const map: Record<string, number> = {};
@@ -11,10 +12,7 @@ function aggregateByCategory(rows: any[], catField: string, amountField: string)
     const val = Number(rows[i][amountField]) || 0;
     map[name] = (map[name] || 0) + val;
   }
-  return Object.entries(map)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([k, v]) => ({ name: k, value: Math.round(v) }));
+  return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ name: k, value: Math.round(v) }));
 }
 
 function computeConcentration(data: { name: string; value: number }[]): number {
@@ -30,18 +28,18 @@ export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary 
   const concentration = computeConcentration(data);
 
   return (
-    <ModuleShell title="\u54c1\u7c7b\u7ed3\u6784" aiSummary={aiSummary}>
+    <ModuleShell title={t.workspace.categoryBreakdown} aiSummary={aiSummary}>
       <div className="mb-4 flex gap-4">
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{data.length}</span>
-          <p className="text-xs text-white/40">\u54c1\u7c7b\u6570</p>
+          <p className="text-xs text-white/40">{t.workspace.categories}</p>
         </div>
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{concentration}%</span>
-          <p className="text-xs text-white/40">TOP3 \u96c6\u4e2d\u5ea6</p>
+          <p className="text-xs text-white/40">{t.workspace.top3Concentration}</p>
         </div>
       </div>
-      {data.length > 0 ? <PieChart title="\u54c1\u7c7b\u9500\u552e\u989d\u5360\u6bd4" data={data} /> : <p className="text-sm text-white/30 text-center py-8">\u65e0\u54c1\u7c7b\u6570\u636e</p>}
+      {data.length > 0 ? <PieChart title={t.workspace.categoryShare} data={data} /> : <p className="text-sm text-white/30 text-center py-8">{t.workspace.noCategoryData}</p>}
     </ModuleShell>
   );
 }

@@ -2,6 +2,7 @@
 
 import { ModuleShell } from "./module-shell";
 import { BarChart } from "@/components/charts";
+import { t } from "@/lib/i18n";
 
 const PROVINCES = ["Beijing","Tianjin","Shanghai","Chongqing","Hebei","Shanxi","Liaoning","Jilin","Heilongjiang","Jiangsu","Zhejiang","Anhui","Fujian","Jiangxi","Shandong","Henan","Hubei","Hunan","Guangdong","Guangxi","Hainan","Sichuan","Guizhou","Yunnan","Tibet","Shaanxi","Gansu","Qinghai","Ningxia","Xinjiang","Inner Mongolia","Hong Kong","Macau","Taiwan"];
 
@@ -29,8 +30,8 @@ function rankByProvince(rows: any[], addrField: string, valField: string, limit:
 export function RegionMap({ rows, addressField, amountField, aiSummary }: { rows: any[]; addressField: string; amountField: string; aiSummary?: string }) {
   const data = rankByProvince(rows, addressField, amountField, 10);
   return (
-    <ModuleShell title="\u533a\u57df\u70ed\u529b\u56fe" aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title="TOP10 \u7701\u4efd\u9500\u552e\u989d" data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">\u65e0\u5730\u5740\u6570\u636e</p>}
+    <ModuleShell title={t.workspace.regionMap} aiSummary={aiSummary}>
+      {data.length > 0 ? <BarChart title={t.workspace.top10Regions} data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">{t.workspace.noAddressData}</p>}
     </ModuleShell>
   );
 }
