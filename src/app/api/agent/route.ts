@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDataset } from "@/lib/db";
 import { computeStats } from "@/lib/parser";
 import { routeAgent } from "@/lib/agent";
+import { injectKnowledge } from "@/lib/rag";
 
 export async function POST(request: NextRequest) {
   try {

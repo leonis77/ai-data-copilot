@@ -10,6 +10,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { TemplateBadge } from "@/components/ui/template-badge";
 import { ColumnSelector } from "@/components/ui/column-selector";
 import { SheetPicker } from "@/components/ui/sheet-picker";
+import { ColumnMapper } from "@/components/ui/column-mapper";
 import { getSavedDatasets, saveDatasets } from "@/components/ui/table-selector";
 import { matchTemplate, applyTemplate, templates } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
@@ -68,6 +69,16 @@ export default function UploadPage() {
       setSheets([]);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
+  };
+
+  var downloadTemplate = function() {
+    var csv = "订单编号,商品名称,规格,数量,实付金额,下单时间,订单状态,收货地址,买家名称\n";
+    csv += "示例: ORD001,iPhone 15 Pro,128GB,1,8999,2025-01-15,已完成,浙江省杭州市,张三\n";
+    var blob = new Blob(["\uFEFF" + csv], {type:"text/csv;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "标准订单模板.csv";
+    a.click(); URL.revokeObjectURL(url);
   };
 
   var handleUpload = async function(sheet?: string) {
@@ -154,7 +165,7 @@ export default function UploadPage() {
               ) : (
                 <div className="space-y-4">
                   <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }} className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center"><Upload className="w-10 h-10 text-primary-light/50" /></motion.div>
-                  <div><p className="font-semibold text-lg text-white/60">{isDragActive ? "松开上传" : "拖拽文件到此处或点击选择"}</p><p className="text-sm text-white/30 mt-1">.xlsx .xls .csv，最大 50MB</p></div>
+                  <div><p className="font-semibold text-lg text-white/60">{isDragActive ? "松开上传" : "拖拽文件到此处或点击选择"}</p><p className="text-sm text-white/30 mt-1">.xlsx .xls .csv，最大 50MB</p><button onClick={downloadTemplate} className="mt-4 text-xs text-primary-light/70 hover:text-primary-light transition-colors underline">下载标准模板 (CSV)</button></div>
                 </div>
               )}
             </div>
