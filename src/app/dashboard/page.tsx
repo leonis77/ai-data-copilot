@@ -9,7 +9,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
 import { AnalysisPanel } from "@/components/ai/analysis-panel";
 import { CardSkeleton, ChartSkeleton, AnalysisSkeleton } from "@/components/ui/skeleton";
-import { computeProductMetrics, diagnoseProducts, computeHealthScore } from "@/lib/engines";
+import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { HealthCard } from "@/components/insights/health-card";
 import { RiskCard } from "@/components/insights/risk-card";
 import { OpportunityCard } from "@/components/insights/opportunity-card";
@@ -188,12 +188,15 @@ var numStats = stats ? Object.entries(stats.stats) : [];
             </div>
           )}
 
-          {diagnosis.filter(function(d) { return d.action; }).length > 0 && (
+          {diagnosis.filter(function(d) { return d.action; }).length > 0 && (function() {
+            var actions = generateActions(diagnosis);
+            return (
             <div>
-              <h3 className="text-sm font-medium text-white/50 uppercase tracking-wide mb-3">建议行动</h3>
-              <div className="space-y-1">{diagnosis.filter(function(d) { return d.action; }).map(function(d, i) { return <ActionCard key={i} title={d.action||""} impact={d.impact} index={i} />; })}</div>
+              <h3 className="text-sm font-medium text-white/50 uppercase tracking-wide mb-3">今日最重要的经营动作</h3>
+              <div className="space-y-2">{actions.slice(0, 5).map(function(a, i) { return <ActionCard key={i} title={a.action} target={a.target} priority={a.priority} impact={a.expected_impact} confidence={a.confidence} reason={a.reason} risk={a.risk} index={i} />; })}</div>
             </div>
-          )}
+            );
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-white/5">
             {d0 && <GlassCard><PieChart title={distCols[0]} data={Object.entries(d0).slice(0,8).map(function(e) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
