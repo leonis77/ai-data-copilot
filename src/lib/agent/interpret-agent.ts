@@ -13,9 +13,9 @@ export async function interpretAgent(input: string, ctx: AgentContext): Promise<
   try {
     var cleaned = text.replace(/```json|```/g, "").trim();
     var p = JSON.parse(cleaned);
-    var hl = (p.highlights || []).map(function(h) { return "- **" + h.metric + "**: " + h.value + " " + String.fromCharCode(0x2014) + " " + h.insight; }).join("\n");
-    var an = (p.anomalies || []).map(function(a) { return "- [" + a.severity + "] " + a.finding; }).join("\n");
-    var op = (p.opportunities || []).map(function(o) { return "- " + o; }).join("\n");
+    var hl = (p.highlights || []).map(function(h: any) { return "- **" + h.metric + "**: " + h.value + " " + String.fromCharCode(0x2014) + " " + h.insight; }).join("\n");
+    var an = (p.anomalies || []).map(function(a: any) { return "- [" + a.severity + "] " + a.finding; }).join("\n");
+    var op = (p.opportunities || []).map(function(o: any) { return "- " + o; }).join("\n");
     return { type: "interpret", content: (p.story || "") + "\n\n**Key Findings**\n" + hl + "\n\n**Anomaly Alerts**\n" + an + "\n\n**Business Opportunities**\n" + op, followUp: p.followUp || [] };
   } catch {
     return { type: "interpret", content: text, followUp: ["Which metric matters most?", "Any business risks?", "How to improve?"] };
