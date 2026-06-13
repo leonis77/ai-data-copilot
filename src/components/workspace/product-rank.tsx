@@ -7,7 +7,7 @@ import { BarChart } from "@/components/charts";
 function rankProducts(rows: any[], productField: string, amountField: string, limit: number): { name: string; value: number }[] {
   const map: Record<string, number> = {};
   for (let i = 0; i < rows.length; i++) {
-    const name = String(rows[i][productField] || "????");
+    const name = String(rows[i][productField] || "Unknown");
     const val = Number(rows[i][amountField]) || 0;
     map[name] = (map[name] || 0) + val;
   }
@@ -20,8 +20,8 @@ function rankProducts(rows: any[], productField: string, amountField: string, li
 export function ProductRank({ rows, productField, amountField, aiSummary }: { rows: any[]; productField: string; amountField: string; aiSummary?: string }) {
   const data = useMemo(() => rankProducts(rows, productField, amountField, 10), [rows, productField, amountField]);
   return (
-    <ModuleShell title="?????" aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title="TOP10 ?????" data={data} height={350} /> : <p className="text-sm text-white/30 text-center py-8">?????</p>}
+    <ModuleShell title="Product Ranking" aiSummary={aiSummary}>
+      {data.length > 0 ? <BarChart title="TOP 10 Revenue Ranking" data={data} height={350} /> : <p className="text-sm text-white/30 text-center py-8">No product data</p>}
     </ModuleShell>
   );
 }

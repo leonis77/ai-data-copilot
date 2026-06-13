@@ -7,13 +7,13 @@ import { BarChart3, Upload, MessageSquare, FileText, Sparkles, GitCompare, Trend
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "??", icon: Sparkles },
-  { href: "/upload", label: "??", icon: Upload },
-  { href: "/dashboard", label: "???", icon: BarChart3 },
-  { href: "/workspace", label: "???", icon: TrendingUp },
-  { href: "/chat", label: "AI ??", icon: MessageSquare },
-  { href: "/compare", label: "??", icon: GitCompare },
-  { href: "/report", label: "??", icon: FileText },
+  { href: "/", label: "Home", icon: Sparkles },
+  { href: "/upload", label: "Upload", icon: Upload },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
+  { href: "/workspace", label: "Workspace", icon: TrendingUp },
+  { href: "/chat", label: "AI Chat", icon: MessageSquare },
+  { href: "/compare", label: "Compare", icon: GitCompare },
+  { href: "/report", label: "Report", icon: FileText },
 ];
 
 export function Navbar() {
@@ -33,16 +33,12 @@ export function Navbar() {
             const active = pathname === item.href;
             return (
               <Link key={item.href} href={item.href}
-                className={cn(
-                  "relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300",
-                  active ? "text-white bg-primary/20" : "text-white/50 hover:text-white hover:bg-white/5"
-                )}>
+                className={cn("relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300",
+                  active ? "text-white bg-primary/20" : "text-white/50 hover:text-white hover:bg-white/5")}>
                 <item.icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{item.label}</span>
-                {active && (
-                  <motion.div layoutId="nav-ind" className="absolute inset-0 rounded-xl bg-primary/20 border border-primary/30"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                )}
+                {active && <motion.div layoutId="nav-ind" className="absolute inset-0 rounded-xl bg-primary/20 border border-primary/30"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
               </Link>
             );
           })}

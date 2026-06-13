@@ -3,10 +3,10 @@
 import { ModuleShell } from "./module-shell";
 import { BarChart } from "@/components/charts";
 
-const PROVINCES = ["??","??","??","??","??","??","??","??","???","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","??","???","??","??","??"];
+const PROVINCES = ["Beijing","Tianjin","Shanghai","Chongqing","Hebei","Shanxi","Liaoning","Jilin","Heilongjiang","Jiangsu","Zhejiang","Anhui","Fujian","Jiangxi","Shandong","Henan","Hubei","Hunan","Guangdong","Guangxi","Hainan","Sichuan","Guizhou","Yunnan","Tibet","Shaanxi","Gansu","Qinghai","Ningxia","Xinjiang","Inner Mongolia","Hong Kong","Macau","Taiwan"];
 
 function extractProvince(address: string): string {
-  if (!address) return "??";
+  if (!address) return "Unknown";
   for (let i = 0; i < PROVINCES.length; i++) {
     if (address.indexOf(PROVINCES[i]) >= 0) return PROVINCES[i];
   }
@@ -29,8 +29,8 @@ function rankByProvince(rows: any[], addrField: string, valField: string, limit:
 export function RegionMap({ rows, addressField, amountField, aiSummary }: { rows: any[]; addressField: string; amountField: string; aiSummary?: string }) {
   const data = rankByProvince(rows, addressField, amountField, 10);
   return (
-    <ModuleShell title="?????" aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title="TOP10 ????" data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">?????</p>}
+    <ModuleShell title="Regional Revenue Map" aiSummary={aiSummary}>
+      {data.length > 0 ? <BarChart title="TOP 10 Regions by Revenue" data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">No address data</p>}
     </ModuleShell>
   );
 }

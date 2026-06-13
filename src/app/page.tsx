@@ -6,12 +6,12 @@ import { ArrowRight, Upload, BarChart3, Sparkles, MessageSquare, FileText, Zap, 
 import { GlassCard } from "@/components/ui/glass-card";
 
 const features = [
-  { icon: Upload, title: "????", desc: "?? Excel / CSV ?????????????" },
-  { icon: BarChart3, title: "?????", desc: "??????????????????????" },
-  { icon: Sparkles, title: "AI ????", desc: "DeepSeek AI ??????????????" },
-  { icon: MessageSquare, title: "?????", desc: "???????????????????" },
-  { icon: FileText, title: "????", desc: "????????????? AI ??" },
-  { icon: Shield, title: "????", desc: "??????????????" },
+  { icon: Upload, title: "One-Click Upload", desc: "Drag and drop Excel / CSV files, auto-parse data structure" },
+  { icon: BarChart3, title: "Smart Visualization", desc: "Auto-generate multi-dimensional charts, clear at a glance" },
+  { icon: Sparkles, title: "AI Deep Analysis", desc: "DeepSeek AI automatically discovers insights and risks" },
+  { icon: MessageSquare, title: "Conversational AI", desc: "Natural language Q&A on your business data" },
+  { icon: FileText, title: "Auto Reports", desc: "One-click report generation with charts and AI suggestions" },
+  { icon: Shield, title: "Data Security", desc: "Local processing, sensitive data stays on your server" },
 ];
 
 const floatingElements = [
@@ -27,8 +27,7 @@ export default function LandingPage() {
     <div className="min-h-screen">
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 opacity-30"
-            style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(168,85,247,0.1) 0%, transparent 60%), radial-gradient(ellipse at 50% 80%, rgba(6,182,212,0.08) 0%, transparent 60%)" }} />
+          <div className="absolute inset-0 opacity-30" style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(168,85,247,0.1) 0%, transparent 60%), radial-gradient(ellipse at 50% 80%, rgba(6,182,212,0.08) 0%, transparent 60%)" }} />
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMTIxMjEiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE4YzAtMi4yLTEuOC00LTQtNHMtNCAxLjgtNCA0IDEuOCA0IDQgNCA0LTEuOCA0LTR6bTAgMjRjMC0yLjItMS44LTQtNC00cy00IDEuOC00IDQgMS44IDQgNCA0IDQtMS44IDQtNHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50" />
         </div>
 
@@ -43,7 +42,7 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }}>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8">
               <span className="w-2 h-2 rounded-full bg-accent-cyan animate-pulse" />
-              <span className="text-sm text-white/60">AI ????????????</span>
+              <span className="text-sm text-white/60">AI-Powered E-Commerce Analytics</span>
             </div>
           </motion.div>
 
@@ -52,14 +51,14 @@ export default function LandingPage() {
             className="text-5xl md:text-7xl font-black tracking-tight mb-6">
             <span className="gradient-text">Commerce Copilot</span>
             <br />
-            <span className="text-white/90">?????????</span>
+            <span className="text-white/90">Data-Driven Smart Decisions</span>
           </motion.h1>
 
           <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
             className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-10 leading-relaxed">
-            ?? Excel ???AI ???????????????????
-            ????????????????
+            Upload Excel data, AI auto-analyzes trends, discovers anomalies, generates insight reports.
+            Let data inform your every decision.
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
@@ -68,14 +67,14 @@ export default function LandingPage() {
             <Link href="/upload">
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 className="group flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300">
-                ????
+                Start Analysis
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </Link>
             <Link href="/dashboard">
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-2 px-8 py-4 rounded-2xl glass hover:bg-white/10 text-white/70 hover:text-white font-semibold text-lg transition-all duration-300">
-                ????
+                View Demo
               </motion.button>
             </Link>
           </motion.div>
@@ -87,8 +86,8 @@ export default function LandingPage() {
       <section className="max-w-7xl mx-auto px-6 py-24">
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
           transition={{ duration: 0.6 }} className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4"><span className="gradient-text">??????</span></h2>
-          <p className="text-white/40 text-lg">?????????????? AI ??</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4"><span className="gradient-text">Six Core Capabilities</span></h2>
+          <p className="text-white/40 text-lg">From data import to intelligent analysis, full-stack AI empowerment</p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -106,14 +105,14 @@ export default function LandingPage() {
 
       <section className="max-w-7xl mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4"><span className="gradient-text">??????</span></h2>
-          <p className="text-white/40 text-lg">????????</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4"><span className="gradient-text">Three Steps to Analysis</span></h2>
+          <p className="text-white/40 text-lg">Simple, Efficient, Intelligent</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { step: "01", title: "????", desc: "???? Excel ? CSV ??????????????", icon: Upload },
-            { step: "02", title: "AI ??", desc: "DeepSeek AI ??????????????????", icon: Sparkles },
-            { step: "03", title: "????", desc: "???????????????????????", icon: FileText },
+            { step: "01", title: "Upload Data", desc: "Drag and drop Excel or CSV files, system auto-parses and recognizes fields", icon: Upload },
+            { step: "02", title: "AI Analysis", desc: "DeepSeek AI auto-analyzes data, finds trends, anomalies and opportunities", icon: Sparkles },
+            { step: "03", title: "Get Insights", desc: "One-click visual reports and decision suggestions, supports natural language", icon: FileText },
           ].map((item, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ delay: i * 0.15, duration: 0.5 }} className="relative">
@@ -138,15 +137,15 @@ export default function LandingPage() {
           <div className="absolute inset-0 backdrop-blur-3xl" />
           <div className="relative z-10">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              ???? AI ????<span className="gradient-text"> ?????</span>??
+              Ready to let AI become your <span className="gradient-text">Data Analyst</span>?
             </h2>
             <p className="text-white/40 text-lg mb-8 max-w-xl mx-auto">
-              ??????????????????????????
+              No coding, no complex setup. Upload data and get professional analysis reports.
             </p>
             <Link href="/upload">
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 className="group inline-flex items-center gap-2 px-10 py-5 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-bold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300">
-                ??????
+                Start Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </Link>

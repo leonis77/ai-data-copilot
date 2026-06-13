@@ -7,7 +7,7 @@ import { PieChart } from "@/components/charts";
 function aggregateByCategory(rows: any[], catField: string, amountField: string): { name: string; value: number }[] {
   const map: Record<string, number> = {};
   for (let i = 0; i < rows.length; i++) {
-    const name = String(rows[i][catField] || "???");
+    const name = String(rows[i][catField] || "Other");
     const val = Number(rows[i][amountField]) || 0;
     map[name] = (map[name] || 0) + val;
   }
@@ -30,18 +30,18 @@ export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary 
   const concentration = computeConcentration(data);
 
   return (
-    <ModuleShell title="????" aiSummary={aiSummary}>
+    <ModuleShell title="Category Structure" aiSummary={aiSummary}>
       <div className="mb-4 flex gap-4">
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{data.length}</span>
-          <p className="text-xs text-white/40">???</p>
+          <p className="text-xs text-white/40">Categories</p>
         </div>
         <div className="text-center p-3 rounded-xl bg-white/[0.03]">
           <span className="text-xl font-bold gradient-text">{concentration}%</span>
-          <p className="text-xs text-white/40">TOP3???</p>
+          <p className="text-xs text-white/40">Top 3 Concentration</p>
         </div>
       </div>
-      {data.length > 0 ? <PieChart title="???????" data={data} /> : <p className="text-sm text-white/30 text-center py-8">?????</p>}
+      {data.length > 0 ? <PieChart title="Category Revenue Share" data={data} /> : <p className="text-sm text-white/30 text-center py-8">No category data</p>}
     </ModuleShell>
   );
 }
