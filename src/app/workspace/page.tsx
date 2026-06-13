@@ -19,12 +19,19 @@ const TABS = [
   { label: "\u5F02\u5E38\u68C0\u6D4B", icon: AlertTriangle, key: "anomaly" },
 ];
 
-function findCol(cols: string[], patterns: RegExp[]): string {
-  for (var i = 0; i < patterns.length; i++) {
-    var found = cols.find(function(c: string) { return patterns[i].test(c); });
-    if (found) return found;
+function findCol(cols: string[], patterns: RegExp[], exclude?: RegExp[]): string {
+  var best = ""; var bestScore = 0;
+  for (var i = 0; i < cols.length; i++) {
+    var c = cols[i];
+    if (exclude) { var skip = false; for (var ei = 0; ei < exclude.length; ei++) { if (exclude[ei].test(c)) { skip = true; break; } } if (skip) continue; }
+    for (var j = 0; j < patterns.length; j++) {
+      if (patterns[j].test(c)) {
+        var score = patterns.length - j;
+        if (score > bestScore) { bestScore = score; best = c; }
+      }
+    }
   }
-  return "";
+  return best;
 }
 
 export default function WorkspacePage() {
@@ -66,9 +73,9 @@ export default function WorkspacePage() {
   var allRows: any[] = data.rows || [];
 
   // Auto-detect columns
-  var amtField = findCol(cols, [/amount|price/, /\u91d1\u989d/, /\u4ef7\u683c/, /\u5b9e\u4ed8/, /\u603b\u989d/]);
+  var amtField = findCol(cols, [/\u5b9e\u4ed8/, /\u91d1\u989d/, /amount/, /\u4ef7\u683c/, /price/]);
   var dtField = findCol(cols, [/time|date/, /\u65f6\u95f4/, /\u65e5\u671f/, /\u4e0b\u5355/, /order/]);
-  var prodField = findCol(cols, [/name|product/, /\u540d\u79f0/, /\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/]);
+  var prodField = findCol(cols, [/\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name|title/], [/\u5e97\u94fa/, /shop/]);
   var catField = findCol(cols, [/sku|category/, /\u5206\u7c7b/, /\u89c4\u683c/, /\u54c1\u7c7b/]);
   var addrField = findCol(cols, [/addr/, /\u5730\u5740/, /\u6536\u8d27/, /\u533a\u57df/]);
 
