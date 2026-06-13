@@ -1,24 +1,48 @@
 "use client";
 
+import { useMemo } from "react";
 import { ModuleShell } from "./module-shell";
-import { detectOutliers } from "@/lib/analysis";
+import { AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+
+function detectAnomalies(rows: any[], amountField: string): { index: number; value: number; zScore: number; row: any }[] {
+  if (rows.length < 5) return [];
+  const values = rows.map(r => Number(r[amountField]) || 0);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const std = Math.sqrt(values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length);
+  if (std === 0) return [];
+
+  return values
+    .map((v, i) => ({ index: i, value: v, zScore: Math.abs((v - mean) / std), row: rows[i] }))
+    .filter(a => a.zScore > 2)
+    .sort((a, b) => b.zScore - a.zScore)
+    .slice(0, 10);
+}
 
 export function AnomalyDetection({ rows, amountField, aiSummary }: { rows: any[]; amountField: string; aiSummary?: string }) {
-  const outliers = detectOutliers(rows, amountField, 3.0);
+  const anomalies = useMemo(() => detectAnomalies(rows, amountField), [rows, amountField]);
+  const highAnomalies = anomalies.filter(a => a.value > 0);
+
   return (
-    <ModuleShell title="异常检测" aiSummary={aiSummary}>
-      {outliers.length === 0 ? (
-        <p className="text-sm text-white/30 text-center py-8">未检测到异常数据</p>
+    <ModuleShell title="????" aiSummary={aiSummary}>
+      {anomalies.length === 0 ? (
+        <div className="text-center py-8">
+          <AlertTriangle className="w-10 h-10 text-white/20 mx-auto mb-3" />
+          <p className="text-sm text-white/30">????????</p>
+        </div>
       ) : (
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {outliers.slice(0, 20).map(function(o, i) {
-            return (
-              <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 text-sm">
-                <span className="text-white/60 truncate max-w-[200px]">{String(o.row.product_name || o.row.name || "Row " + o.rowIndex)}</span>
-                <span className="text-red-400 font-medium">¥{o.value.toLocaleString()} (Z={o.zScore})</span>
+        <div className="space-y-2">
+          <p className="text-sm text-white/40 mb-3">??? {anomalies.length} ??????Z-score ???? 2.0?</p>
+          {anomalies.map((a, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+              <div className={"w-8 h-8 rounded-lg flex items-center justify-center " + (a.zScore > 3 ? "bg-red-500/20" : "bg-yellow-500/20")}>
+                {a.zScore > 3 ? <AlertTriangle className="w-4 h-4 text-red-400" /> : <TrendingUp className="w-4 h-4 text-yellow-400" />}
               </div>
-            );
-          })}
+              <div className="flex-1">
+                <p className="text-sm">?? #{a.index + 1} | ??: {"\u00A5"}{a.value.toLocaleString()}</p>
+                <p className="text-xs text-white/40">Z-score: {a.zScore.toFixed(1)} | ???: {a.zScore > 3 ? "??" : "??"}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </ModuleShell>
