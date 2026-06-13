@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const rows = ds.rows;
 
     const stats = computeStats(rows, columns);
-    const dataSummary = buildDataSummary(stats);
+    const dataSummary = buildDataSummary(stats, columns as string[], rows as any[]);
 
     const result = await analyzeData(dataSummary, question);
 
@@ -77,20 +77,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function buildDataSummary(stats: ReturnType<typeof computeStats>): string {
-  const parts: string[] = [];
-  parts.push(`数据集共 ${stats.rowCount} 条记录，${stats.columnCount} 个字段。`);
-
-  for (const [col, s] of Object.entries(stats.stats).slice(0, 5)) {
-    parts.push(
-      `${col}: 共 ${s.count} 条, 平均值 ${s.avg.toFixed(2)}, 总和 ${s.sum.toFixed(2)}, 最小值 ${s.min}, 最大值 ${s.max}。`
-    );
+function buildDataSummary(stats: ReturnType<typeof computeStats>, columns: string[], rows: any[]): string {
+  var parts: string[] = [];
+  parts.push("Rows:" + stats.rowCount + " Cols:" + stats.columnCount);
+  // Numeric stats with range
+  var entries = Object.entries(stats.stats);
+  for (var i = 0; i < Math.min(entries.length, 5); i++) {
+    var col = entries[i][0], s = entries[i][1];
+    parts.push(col + ": " + s.min + "-" + s.max + " avg=" + s.avg.toFixed(2) + " total=" + s.sum.toFixed(2));
   }
-
-  for (const [col, dist] of Object.entries(stats.distributions).slice(0, 3)) {
-    const top = Object.entries(dist).slice(0, 5).map(([k, v]) => `${k}(${v})`).join(", ");
-    parts.push(`${col} 分类分布: ${top}。`);
+  // Category distributions
+  var dk = Object.keys(stats.distributions);
+  for (var j = 0; j < Math.min(dk.length, 3); j++) {
+    var top = Object.entries(stats.distributions[dk[j]]).slice(0,6).map(function(e){return e[0]+"("+e[1]+")"}).join(",");
+    parts.push(dk[j] + ": " + top);
   }
-
+  // Price analysis
+  if (rows.length > 0) {
+    var priceCol = columns.find(function(c){return /price|金额|价格|价/.test(c)});
+    if (priceCol) { var pc: string = priceCol;
+      var prices = rows.map(function(r){return Number(r[pc])||0}).filter(function(v){return v>0});
+      if (prices.length > 0) {
+        prices.sort(function(a,b){return a-b});
+        parts.push("Price: med=" + prices[Math.floor(prices.length*0.5)] + " 25p=" + prices[Math.floor(prices.length*0.25)] + " 75p=" + prices[Math.floor(prices.length*0.75)]);
+      }
+    }
+  }
+  // Sample rows (first 3, filtered)
+  if (rows.length > 0) {
+    var sample = rows.slice(0,3).map(function(r){var o: any = {};for(var k in r){if(!/^__/.test(k)&&k!=="sheet_name")o[k]=r[k]}return JSON.stringify(o)}).join("\n");
+    parts.push("Sample:\n" + sample.substring(0,500));
+  }
   return parts.join("\n");
 }
