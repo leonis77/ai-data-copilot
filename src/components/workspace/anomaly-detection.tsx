@@ -38,7 +38,7 @@ export function AnomalyDetection({ rows, amountField, aiSummary }: { rows: any[]
                 {a.zScore > 3 ? <AlertTriangle className="w-4 h-4 text-red-400" /> : <TrendingUp className="w-4 h-4 text-yellow-400" />}
               </div>
               <div className="flex-1">
-                <p className="text-sm">?? #{a.index + 1} | ??: {"\u00A5"}{a.value.toLocaleString()}</p>
+                <p className="text-sm">?? #{a.index + 1} | ??: {"¥"}{a.value.toLocaleString()}</p>
                 <p className="text-xs text-white/40">Z-score: {a.zScore.toFixed(1)} | ???: {a.zScore > 3 ? "??" : "??"}</p>
               </div>
             </div>

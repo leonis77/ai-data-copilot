@@ -53,7 +53,7 @@ export default function UploadPage() {
   var downloadTemplate = function() {
     var csv = "OrderID,ProductName,Spec,Quantity,Amount,OrderTime,Status,Address,BuyerName\n";
     csv += "Example: ORD001,iPhone 15 Pro,128GB,1,8999,2025-01-15,Completed,Hangzhou,ZhangSan\n";
-    var blob = new Blob(["\uFEFF" + csv], {type:"text/csv;charset=utf-8"});
+    var blob = new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url; a.download = "order-template.csv";

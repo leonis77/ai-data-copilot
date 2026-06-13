@@ -24,7 +24,7 @@ export function SalesTrend({ rows, amountField, orderTimeField, dateRange, aiSum
   return (
     <ModuleShell title="?????" aiSummary={aiSummary}>
       <div className="mb-4">
-        <span className="text-3xl font-bold gradient-text">{"\u00A5"}{total.toLocaleString()}</span>
+        <span className="text-3xl font-bold gradient-text">{"¥"}{total.toLocaleString()}</span>
         <span className="text-sm text-white/40 ml-2">?{dateRange}????</span>
       </div>
       {data.length > 0 ? (

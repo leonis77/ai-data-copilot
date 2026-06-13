@@ -39,7 +39,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
 
   async function doDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation();
-    if (!confirm("\u786E\u5B9A\u5220\u9664\u8FD9\u4E2A\u6570\u636E\u96C6\uFF1F")) return;
+    if (!confirm("确定删除这个数据集？")) return;
     try { await fetch("/api/upload?id=" + id, { method: "DELETE" }); } catch {}
     const s = removeDataset(id);
     setItems(s.datasets);
@@ -48,7 +48,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
   }
 
   const cur = items.find(function(i) { return i.id === active; });
-  const label = cur ? cur.originalName : "\u65E0\u6570\u636E";
+  const label = cur ? cur.originalName : "无数据";
 
   return (
     <div className={"relative " + (className || "")}>
@@ -59,7 +59,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
       </button>
       {open && (
         <div className="absolute top-full mt-2 left-0 w-72 glass rounded-xl shadow-xl z-50 py-2 max-h-72 overflow-y-auto">
-          <div className="px-3 py-1.5 text-xs text-white/30">{items.length > 0 ? "\u5DF2\u4E0A\u4F20 " + items.length + " \u4E2A\u6570\u636E\u96C6" : "\u6682\u65E0\u6570\u636E"}</div>
+          <div className="px-3 py-1.5 text-xs text-white/30">{items.length > 0 ? "已上传 " + items.length + " 个数据集" : "暂无数据"}</div>
           {items.map(function(item) {
             const isActive = item.id === active;
             return (
@@ -76,7 +76,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
           })}
           <div className="border-t border-white/5 mt-1 pt-1">
             <Link href="/upload" className="flex items-center gap-2 px-3 py-2 text-sm text-primary-light hover:bg-white/5 transition-all">
-              <Plus className="w-3 h-3" /> \u4E0A\u4F20\u65B0\u6570\u636E
+              <Plus className="w-3 h-3" /> 上传新数据
             </Link>
           </div>
         </div>

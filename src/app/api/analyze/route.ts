@@ -83,12 +83,12 @@ function buildDataSummary(stats: ReturnType<typeof computeStats>, columns: strin
 
   // Find key columns by name pattern
   var findCol = function(re: RegExp): string | undefined { return columns.find(function(c){return re.test(c)}); };
-  var priceCol = findCol(/price|amount|\u4ef7|\u91d1\u989d|\u5b9e\u4ed8/);
-  var nameCol = findCol(/name|product|\u540d\u79f0|\u5546\u54c1|\u4ea7\u54c1|\u6807\u9898/);
-  var dateCol = findCol(/date|time|\u65f6\u95f4|\u65e5\u671f|\u4e0b\u5355/);
-  var statCol = findCol(/status|\u72b6\u6001/);
-  var addrCol = findCol(/addr|\u5730\u5740|\u6536\u8d27|\u7701|\u5e02/);
-  var buyerCol = findCol(/buyer|member|\u4e70\u5bb6|\u4f1a\u5458/);
+  var priceCol = findCol(/price|amount|价|金额|实付/);
+  var nameCol = findCol(/name|product|名称|商品|产品|标题/);
+  var dateCol = findCol(/date|time|时间|日期|下单/);
+  var statCol = findCol(/status|状态/);
+  var addrCol = findCol(/addr|地址|收货|省|市/);
+  var buyerCol = findCol(/buyer|member|买家|会员/);
 
   // Numeric stats
   var entries = Object.entries(stats.stats);
