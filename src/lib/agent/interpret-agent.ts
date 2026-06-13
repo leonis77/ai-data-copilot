@@ -2,66 +2,22 @@ import { AgentContext, AgentResponse } from "./types";
 import { getClient } from "./llm";
 
 export async function interpretAgent(input: string, ctx: AgentContext): Promise<AgentResponse> {
-  const client = getClient();
-
-  const systemPrompt = `??????????????????????????????
-
-## ????
-???"????"??????????
-- ?????????????
-- ????????
-- ????????
-- ?????????????
-
-## ????
-1. ?????????????
-2. ???????/???????
-3. ????????????
-4. ??????????????
-5. ????????????
-
-## ??
-${ctx.dataSummary}
-
-## ??
-- ???????????
-- ??"?????"?"???????"
-- ?????????????
-- ???????????????
-
-?????`;
-
-  const res = await client.chat.completions.create({
+  var client = getClient();
+  var sp = "You are an e-commerce data interpretation expert. Find business patterns, anomalies, and opportunities.\n\nFramework: 1. Trends 2. Structure 3. Anomalies 4. Correlations 5. Opportunities\n\nData:\n" + ctx.dataSummary + "\n\nEvery conclusion needs data support. Tell stories with data. Give actionable next steps. Respond in user language.";
+  var res = await client.chat.completions.create({
     model: "deepseek-chat",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: "??????????" + input },
-    ],
-    temperature: 0.4,
-    max_tokens: 2000,
+    messages: [{ role: "system", content: sp }, { role: "user", content: "Deeply interpret: " + input }],
+    temperature: 0.4, max_tokens: 2000,
   });
-  const text = res.choices[0]?.message?.content || "";
-
+  var text = res.choices[0]?.message?.content || "";
   try {
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const p = JSON.parse(cleaned);
-    const hl = (p.highlights || []).map((h: any) =>
-      "- **" + h.metric + "**: " + h.value + " ? " + h.insight
-    ).join("\n");
-    const an = (p.anomalies || []).map((a: any) =>
-      "- [" + a.severity + "] " + a.finding
-    ).join("\n");
-    const op = (p.opportunities || []).map((o: string) => "- " + o).join("\n");
-    return {
-      type: "interpret",
-      content: (p.story || "") + "\n\n**????**\n" + hl + "\n\n**????**\n" + an + "\n\n**????**\n" + op,
-      followUp: p.followUp || [],
-    };
+    var cleaned = text.replace(/```json|```/g, "").trim();
+    var p = JSON.parse(cleaned);
+    var hl = (p.highlights || []).map(function(h) { return "- **" + h.metric + "**: " + h.value + " " + String.fromCharCode(0x2014) + " " + h.insight; }).join("\n");
+    var an = (p.anomalies || []).map(function(a) { return "- [" + a.severity + "] " + a.finding; }).join("\n");
+    var op = (p.opportunities || []).map(function(o) { return "- " + o; }).join("\n");
+    return { type: "interpret", content: (p.story || "") + "\n\n**Key Findings**\n" + hl + "\n\n**Anomaly Alerts**\n" + an + "\n\n**Business Opportunities**\n" + op, followUp: p.followUp || [] };
   } catch {
-    return {
-      type: "interpret",
-      content: text,
-      followUp: ["??????????", "????????", "???????"],
-    };
+    return { type: "interpret", content: text, followUp: ["Which metric matters most?", "Any business risks?", "How to improve?"] };
   }
 }

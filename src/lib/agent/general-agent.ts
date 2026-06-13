@@ -3,36 +3,13 @@ import { getClient } from "./llm";
 
 export async function generalAgent(input: string, ctx: AgentContext): Promise<AgentResponse> {
   const client = getClient();
-
-  const systemPrompt = `??AI?????????????????????????
-
-## ??????
-- ????${ctx.datasetName}
-- ????${ctx.rowCount} ??${ctx.columns.length} ?
-- ?????${ctx.columns.join("?")}
-
-## ????
-- ??????????
-- ??????????
-- ????????????????
-- ??????
-
-???????`;
-
-  const res = await client.chat.completions.create({
+  const ds = "Dataset: " + ctx.datasetName + ", " + ctx.rowCount + " rows";
+  const sp = "You are an e-commerce data analyst. Only answer based on provided data. Skip obvious facts. Give actionable insights. " + ds;
+  var res = await client.chat.completions.create({
     model: "deepseek-chat",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: input },
-    ],
-    temperature: 0.5,
-    max_tokens: 1500,
+    messages: [{ role: "system", content: sp }, { role: "user", content: input }],
+    temperature: 0.2, max_tokens: 2000,
   });
-  const reply = res.choices[0]?.message?.content || "??????????";
-
-  return {
-    type: "general",
-    content: reply,
-    followUp: ["??????", "??????", "??????"],
-  };
+  var reply = res.choices[0]?.message?.content || "Please rephrase.";
+  return { type: "general", content: reply, followUp: ["Query metrics", "Generate report", "Deep analysis"] };
 }
