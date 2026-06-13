@@ -3,20 +3,17 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Package, TrendingUp, DollarSign, BarChart3, Upload, Sparkles, ArrowRight } from "lucide-react";
-import { GlassCard } from "@/components/ui/glass-card";
+import { Upload, ArrowRight, Sparkles, BarChart3, TrendingUp, AlertTriangle, Target } from "lucide-react";
 import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart, LineChart } from "@/components/charts";
-import { AnalysisPanel } from "@/components/ai/analysis-panel";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { HealthCard } from "@/components/insights/health-card";
-import { RiskCard } from "@/components/insights/risk-card";
-import { OpportunityCard } from "@/components/insights/opportunity-card";
-import { ActionCard } from "@/components/insights/action-card";
+import { DecisionCard } from "@/components/insights/decision-card";
+import { AIInsightPanel } from "@/components/insights/ai-insight-panel";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
+import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -27,7 +24,6 @@ export default function DashboardPage() {
   const [datasetName, setDatasetName] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [datasetData, setDatasetData] = useState<any>(null);
-  const [selectedCols, setSelectedCols] = useState<string[]>([]);
 
   useEffect(() => { loadData(""); }, []);
 
@@ -36,35 +32,25 @@ export default function DashboardPage() {
   async function loadData(dsId: string) {
     try {
       let id = dsId;
-      if (!id) {
-        const saved = getStore();
-        id = saved.activeId || "";
-      }
+      if (!id) { const saved = getStore(); id = saved.activeId || ""; }
       if (!id) { setLoading(false); return; }
       setDatasetId(id);
       const res = await fetch("/api/upload?id=" + id);
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       if (!data || !data.columns) { setLoading(false); return; }
-
-      let cfg: any = {};
-      try { cfg = JSON.parse(localStorage.getItem("columnConfig") || "{}"); } catch (e) {}
-      let selCols: string[] = cfg.selectedColumns || data.columns || [];
-      if (selCols.length === 0) selCols = data.columns || [];
-      setSelectedCols(selCols);
-
-      const filteredRows = data.rows.map((r: any) => {
+      let selCols: string[] = data.columns || [];
+      const filteredRows = (data.rows || []).map((r: any) => {
         const o: Record<string, unknown> = {};
-        for (let i = 0; i < selCols.length; i++) { o[selCols[i]] = r[selCols[i]]; }
+        for (let i = 0; i < selCols.length; i++) o[selCols[i]] = r[selCols[i]];
         return o;
       });
-      const parsed = computeStats(filteredRows, selCols);
       setDatasetData({ ...data, rows: filteredRows, columns: selCols });
+      const parsed = computeStats(filteredRows, selCols);
       setStats(parsed);
       setHasData(true);
       setDatasetName(data.original_name || "");
       setLoading(false);
-
       try {
         const ar = await fetch("/api/analyze?dataset=" + id);
         if (ar.ok) { const ad = await ar.json(); if (ad.summary) setAnalysis(ad); }
@@ -73,57 +59,58 @@ export default function DashboardPage() {
   }
 
   async function runAnalysis() {
-    if (!datasetId) return;
-    setAnalyzing(true);
+    if (!datasetId) return; setAnalyzing(true);
     try {
-      let data = datasetData;
-      if (!data || !data.rows) {
-        const res = await fetch("/api/upload?id=" + datasetId);
-        if (!res.ok) { setAnalyzing(false); return; }
-        data = await res.json();
-        setDatasetData(data);
-      }
-      const summary = JSON.stringify({
-        rows: (data.rows || []).slice(0, 50),
-        columns: data.columns || [],
-        rowCount: (data.rows || []).length,
-      });
-      const ar = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataSummary: summary, question: "" })
-      });
+      const summary = JSON.stringify({ rows: (datasetData?.rows || []).slice(0, 50), columns: datasetData?.columns || [], rowCount: (datasetData?.rows || []).length });
+      const ar = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataSummary: summary, question: "" }) });
       if (ar.ok) { const ad = await ar.json(); setAnalysis(ad); }
-    } catch (e) { console.error("runAnalysis error", e); }
+    } catch (e: any) { console.error(e); }
     finally { setAnalyzing(false); }
   }
 
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="min-h-screen py-12">
-        <div className="max-w-7xl mx-auto px-6">
+      <div className="min-h-screen pt-16">
+        <div className="max-w-7xl mx-auto px-6 py-12">
           <div className="h-8 w-48 skeleton rounded-lg mb-2" />
           <div className="h-4 w-64 skeleton rounded-lg" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            {[1, 2, 3, 4].map(i => <CardSkeleton key={i} />)}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
           </div>
         </div>
       </div>
     );
   }
 
+  // No data state - elegant empty
   if (!hasData) {
     return (
-      <div className="min-h-screen flex items-center justify-center py-12">
+      <div className="min-h-screen pt-16 flex items-center justify-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md px-6">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-            <BarChart3 className="w-10 h-10 text-primary-light/50" />
-          </div>
-          <h2 className="text-2xl font-bold mb-3">暂无数据</h2>
-          <p className="text-white/40 mb-8">请先上传数据文件</p>
+          <motion.div
+            animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8"
+            style={{ background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)" }}
+          >
+            <BarChart3 className="w-10 h-10 text-indigo-400/60" />
+          </motion.div>
+          <h2 className="text-2xl font-bold mb-3 text-white/80">????????</h2>
+          <p className="text-white/30 mb-10 leading-relaxed">
+            ???? Excel ? CSV ??<br />AI ???????????
+          </p>
           <Link href="/upload">
-            <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25">
-              <Upload className="w-5 h-5" />上传数据<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300"
+            >
+              <Upload className="w-5 h-5" />
+              ????
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </Link>
         </motion.div>
@@ -131,165 +118,174 @@ export default function DashboardPage() {
     );
   }
 
+  // Diagnosis engine
   function findCol(cols: string[], patterns: RegExp[]): string | undefined {
-    for (const p of patterns) {
-      const found = cols.find(c => p.test(c));
-      if (found) return found;
-    }
+    for (const p of patterns) { const found = cols.find(c => p.test(c)); if (found) return found; }
     return undefined;
   }
 
-  const numStats = stats ? Object.entries(stats.stats) : [];
-  const distCols = stats ? Object.keys(stats.distributions) : [];
-  const rankedCols = numStats.sort((a: any, b: any) => (b[1].max - b[1].min) - (a[1].max - a[1].min));
-  const topCols = rankedCols.slice(0, 4);
-  const d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
-  const d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
-
   let productMetrics: any[] = [];
   let diagnosis: any[] = [];
-  let healthScore: any = null;
+  let healthScore: any = { score: 0 };
+  let actions: any[] = [];
   if (datasetData?.rows?.length > 0) {
     try {
-      const rows = datasetData.rows || [];
-      const cols = datasetData.columns || [];
-      const nameCol = findCol(cols, [/名称/, /商品/, /产品/, /name/, /title/]);
-      const priceCol = findCol(cols, [/金额/, /价格/, /price/, /amount/, /实付/]);
-      const qtyCol = findCol(cols, [/数量/, /quantity/, /qty/]);
-      const stockCol = findCol(cols, [/库存/, /stock/]);
+      const rows = datasetData.rows;
+      const cols = datasetData.columns;
+      const nameCol = findCol(cols, [/name/, /title/, /product/, /item/, /goods/]);
+      const priceCol = findCol(cols, [/name/, /title/, /product/, /item/, /goods/]);
+      const qtyCol = findCol(cols, [/name/, /title/, /product/, /item/, /goods/]);
+      const stockCol = findCol(cols, [/name/, /title/, /product/, /item/, /goods/]);
       if (nameCol && priceCol) {
         productMetrics = computeProductMetrics(rows, nameCol, priceCol, qtyCol, stockCol);
         diagnosis = diagnoseProducts(productMetrics);
         healthScore = computeHealthScore(productMetrics, diagnosis);
+        actions = generateActions(diagnosis);
       }
     } catch(e) {}
   }
 
-  const criticalIssues = diagnosis.filter(d => d.level === "critical");
-  const warnings = diagnosis.filter(d => d.level === "warning");
-  const opportunities = diagnosis.filter(d => d.level === "opportunity");
-  const hasDiagnosis = diagnosis.length > 0;
+  const criticalIssues = diagnosis.filter((d: any) => d.level === "critical");
+  const opportunities = diagnosis.filter((d: any) => d.level === "opportunity");
+
+  // Stats for quick metrics
+  const numStats = stats ? Object.entries(stats.stats) : [];
+  const rankedCols = (numStats as any[]).sort((a, b) => (b[1].max - b[1].min) - (a[1].max - a[1].min));
+  const topMetrics = rankedCols.slice(0, 3);
 
   return (
-    <div className="min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-primary-light" />
-            </div>
+    <div className="min-h-screen pt-16">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Ambient background glow */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-[0.03]"
+            style={{ background: "radial-gradient(circle, rgba(99,102,241,1) 0%, transparent 70%)", filter: "blur(80px)" }} />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full opacity-[0.02]"
+            style={{ background: "radial-gradient(circle, rgba(168,85,247,1) 0%, transparent 70%)", filter: "blur(80px)" }} />
+        </div>
+
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+          <div className="flex items-center gap-4 mb-2">
             <div>
-              <h1 className="text-3xl font-bold"><span className="gradient-text">经营诊断</span></h1>
+              <h1 className="text-3xl font-bold text-white/90">
+                <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                  ????
+                </span>
+              </h1>
+              {datasetName && (
+                <p className="text-sm text-white/30 mt-1">{datasetName}</p>
+              )}
             </div>
             <TableSelector onSelect={handleSelect} className="ml-auto" />
           </div>
-          {datasetName && <p className="text-sm text-white/40 ml-14">{datasetName}</p>}
         </motion.div>
 
-        {hasDiagnosis ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-1">
-                <HealthCard score={healthScore?.score || 0} breakdown={healthScore?.breakdown} />
-              </div>
-              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-                {topCols.map((entry: any, i: number) => {
-                  const col = entry[0], s = entry[1];
-                  return (
-                    <GlassCard key={i} delay={i * 0.1}>
-                      <CountUp end={Math.round(s.avg)} className="text-xl font-bold block mb-1" />
-                      <p className="text-xs text-white/40">{col}</p>
-                    </GlassCard>
-                  );
-                })}
-              </div>
+        {/* Main Grid: Health + Quick Metrics */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Health Score Card */}
+          <div className="lg:col-span-1">
+            <HealthCard score={healthScore?.score || 0} breakdown={healthScore?.breakdown} />
+          </div>
+
+          {/* Right side: Quick stats + Critical issues */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Quick metric cards */}
+            <div className="grid grid-cols-3 gap-3">
+              {topMetrics.map((entry: any, i: number) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="relative overflow-hidden rounded-xl p-5 border border-white/[0.05]"
+                  style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}
+                >
+                  <CountUp end={Math.round(entry[1].avg)} className="text-2xl font-bold bg-gradient-to-r from-white/90 to-white/50 bg-clip-text text-transparent block mb-1" />
+                  <p className="text-xs text-white/30">{entry[0]}</p>
+                </motion.div>
+              ))}
             </div>
 
+            {/* Critical issues */}
             {criticalIssues.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-red-400/70 uppercase tracking-wide mb-3">关键问题</h3>
-                <div className="space-y-2">
-                  {criticalIssues.map((d, i) => <RiskCard key={i} title={d.title} detail={d.detail} level="critical" />)}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="relative overflow-hidden rounded-2xl p-5 border border-red-500/10"
+                style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span className="text-xs text-red-400/70 uppercase tracking-wider font-medium">????</span>
                 </div>
-              </div>
-            )}
-
-            {warnings.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-yellow-400/70 uppercase tracking-wide mb-3">预警</h3>
                 <div className="space-y-2">
-                  {warnings.map((d, i) => <RiskCard key={i} title={d.title} detail={d.detail} level="warning" />)}
-                </div>
-              </div>
-            )}
-
-            {opportunities.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-green-400/70 uppercase tracking-wide mb-3">机会</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {opportunities.map((d, i) => (
-                    <OpportunityCard key={i} title={d.title} detail={d.detail} action={d.action} impact={d.impact} />
+                  {criticalIssues.map((d: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <span className="text-red-400 mt-0.5">?</span>
+                      <span className="text-white/60">{d.title}: {d.detail}</span>
+                    </div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )}
-
-            {(() => {
-              const actions = generateActions(diagnosis);
-              if (actions.length === 0) return null;
-              return (
-                <div>
-                  <h3 className="text-sm font-medium text-white/50 uppercase tracking-wide mb-3">今日最重要的经营动作</h3>
-                  <div className="space-y-2">
-                    {actions.slice(0, 5).map((a: any, i: number) => (
-                      <ActionCard key={i} title={a.action} target={a.target} priority={a.priority} impact={a.expected_impact} confidence={a.confidence} reason={a.reason} risk={a.risk} index={i} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-white/5">
-              {d0 && <GlassCard><PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(([k, v]) => ({ name: k, value: v as number }))} /></GlassCard>}
-              {d1 && <GlassCard><BarChart title={distCols[1]} data={Object.entries(d1).slice(0, 8).map(([k, v]) => ({ name: k, value: v as number }))} /></GlassCard>}
-            </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {topCols.map((entry: any, i: number) => {
-                const col = entry[0], s = entry[1];
-                return (
-                  <GlassCard key={i} delay={i * 0.1}>
-                    <CountUp end={Math.round(s.avg)} className="text-2xl font-bold block mb-1" />
-                    <p className="text-xs text-white/40">{col} 平均值</p>
-                  </GlassCard>
-                );
-              })}
+        </div>
+
+        {/* Decision Center */}
+        {actions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-8"
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <Target className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">??????????</h2>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {d0 && <GlassCard><PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(([k, v]) => ({ name: k, value: v as number }))} /></GlassCard>}
-              {d1 && <GlassCard><BarChart title={distCols[1]} data={Object.entries(d1).slice(0, 8).map(([k, v]) => ({ name: k, value: v as number }))} /></GlassCard>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {actions.slice(0, 4).map((a: any, i: number) => (
+                <DecisionCard
+                  key={i}
+                  index={i}
+                  title={a.action}
+                  description={a.reason || ""}
+                  impact={a.expected_impact || ""}
+                  priority={a.priority || "P1"}
+                />
+              ))}
             </div>
-          </div>
+          </motion.div>
         )}
 
-        <div className="mb-8 mt-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold"><span className="gradient-text">AI 智能分析</span></h2>
-            {!analysis && (
-              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} onClick={runAnalysis} disabled={analyzing}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white font-medium text-sm disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-primary/25">
-                {analyzing ? (
-                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />分析中...</>
-                ) : (
-                  <><Sparkles className="w-4 h-4" />开始 AI 分析</>
-                )}
+        {/* AI Analysis Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">AI ????</h2>
+            </div>
+            {!analysis && !analyzing && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={runAnalysis}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                ????
               </motion.button>
             )}
           </div>
-          <AnalysisPanel analysis={analysis} loading={analyzing} />
-        </div>
+          <AIInsightPanel analysis={analysis} loading={analyzing} />
+        </motion.div>
       </div>
     </div>
   );
