@@ -12,11 +12,11 @@ import { AnomalyDetection } from "@/components/workspace/anomaly-detection";
 import { getStore } from "@/lib/store";
 
 const TABS = [
-  { label: "\u9500\u552E\u989D\u4F53\u68C0", icon: TrendingUp, key: "sales" },
-  { label: "\u5546\u54C1\u6392\u884C\u699C", icon: Package, key: "rank" },
-  { label: "\u54C1\u7C7B\u7ED3\u6784", icon: Tag, key: "cat" },
-  { label: "\u533A\u57DF\u70ED\u529B\u56FE", icon: MapPin, key: "region" },
-  { label: "\u5F02\u5E38\u68C0\u6D4B", icon: AlertTriangle, key: "anomaly" },
+  { label: "销售额体检", icon: TrendingUp, key: "sales" },
+  { label: "商品排行榜", icon: Package, key: "rank" },
+  { label: "品类结构", icon: Tag, key: "cat" },
+  { label: "区域热力图", icon: MapPin, key: "region" },
+  { label: "异常检测", icon: AlertTriangle, key: "anomaly" },
 ];
 
 function findCol(cols: string[], patterns: RegExp[], exclude?: RegExp[]): string {
@@ -61,9 +61,9 @@ export default function WorkspacePage() {
       <div className="min-h-screen flex items-center justify-center py-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md px-6">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6"><BarChart3 className="w-10 h-10 text-primary-light/50" /></div>
-          <h2 className="text-2xl font-bold mb-3">\u8BF7\u5148\u4E0A\u4F20\u6570\u636E</h2>
-          <p className="text-white/40 mb-8">\u5DE5\u4F5C\u53F0\u9700\u8981\u6570\u636E\u624D\u80FD\u5DE5\u4F5C</p>
-          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25"><Upload className="w-5 h-5" />\u4E0A\u4F20\u6570\u636E<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
+          <h2 className="text-2xl font-bold mb-3">请先上传数据</h2>
+          <p className="text-white/40 mb-8">工作台需要数据才能工作</p>
+          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-accent-purple text-white font-semibold text-lg shadow-lg shadow-primary/25"><Upload className="w-5 h-5" />上传数据<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
         </motion.div>
       </div>
     );
@@ -72,14 +72,12 @@ export default function WorkspacePage() {
   var cols: string[] = data.columns || [];
   var allRows: any[] = data.rows || [];
 
-  // Auto-detect columns
-  var amtField = findCol(cols, [/\u5b9e\u4ed8/, /\u91d1\u989d/, /amount/, /\u4ef7\u683c/, /price/]);
-  var dtField = findCol(cols, [/time|date/, /\u65f6\u95f4/, /\u65e5\u671f/, /\u4e0b\u5355/, /order/]);
-  var prodField = findCol(cols, [/\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name|title/], [/\u5e97\u94fa/, /shop/]);
-  var catField = findCol(cols, [/sku|category/, /\u5206\u7c7b/, /\u89c4\u683c/, /\u54c1\u7c7b/]);
-  var addrField = findCol(cols, [/addr/, /\u5730\u5740/, /\u6536\u8d27/, /\u533a\u57df/]);
+  var amtField = findCol(cols, [/实付/, /金额/, /amount/, /价格/, /price/]);
+  var dtField = findCol(cols, [/时间/, /日期/, /time/, /date/, /下单/, /order/]);
+  var prodField = findCol(cols, [/商品/, /产品/, /标题/, /宝贝/, /name/, /title/], [/店铺/, /shop/]);
+  var catField = findCol(cols, [/sku/, /分类/, /规格/, /品类/]);
+  var addrField = findCol(cols, [/地址/, /addr/, /收货/, /区域/, /地区/]);
 
-  // Filter by date range if date column found
   var rows = allRows;
   if (dtField) {
     rows = allRows.filter(function(r: any) {
@@ -98,14 +96,14 @@ export default function WorkspacePage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center"><BarChart3 className="w-5 h-5 text-white" /></div>
-            <div><h1 className="text-3xl font-bold"><span className="gradient-text">\u6570\u636E\u5DE5\u4F5C\u53F0</span></h1><p className="text-sm text-white/40">{rows.length}/{allRows.length} \u6761\u8BB0\u5F55</p></div>
+            <div><h1 className="text-3xl font-bold"><span className="gradient-text">数据工作台</span></h1><p className="text-sm text-white/40">{rows.length}/{allRows.length} 条记录</p></div>
           </div>
         </motion.div>
 
         <div className="flex items-center gap-4 mb-6">
           <div className="flex gap-1.5">
             {[7,30,90].map(function(d) {
-              return <button key={d} onClick={function(){setDateRange(d);}} className={"px-3 py-1 rounded-lg text-xs transition-all "+(dateRange===d?"bg-primary/20 text-white border border-primary/30":"text-white/40 hover:text-white/60")}>\u8FD1{d}\u5929</button>;
+              return <button key={d} onClick={function(){setDateRange(d);}} className={"px-3 py-1 rounded-lg text-xs transition-all "+(dateRange===d?"bg-primary/20 text-white border border-primary/30":"text-white/40 hover:text-white/60")}>{"近"+d+"天"}</button>;
             })}
           </div>
           <div className="flex gap-2 overflow-x-auto">
@@ -121,8 +119,8 @@ export default function WorkspacePage() {
         </div>
 
         <div className="space-y-6">
-          {active === 0 && <SalesTrend rows={rows} amountField={amtField} orderTimeField={dtField} dateRange={dateRange} aiSummary={amtField ? amtField + " trend data" : undefined} />}
-          {active === 1 && <ProductRank rows={rows} productField={prodField} amountField={amtField} aiSummary={prodField ? "top products by " + amtField : undefined} />}
+          {active === 0 && <SalesTrend rows={rows} amountField={amtField} orderTimeField={dtField} dateRange={dateRange} />}
+          {active === 1 && <ProductRank rows={rows} productField={prodField} amountField={amtField} />}
           {active === 2 && <CategoryBreakdown rows={rows} categoryField={catField || prodField} amountField={amtField} />}
           {active === 3 && <RegionMap rows={rows} addressField={addrField} amountField={amtField} />}
           {active === 4 && <AnomalyDetection rows={rows} amountField={amtField} />}
