@@ -2,33 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseFile } from "@/lib/parser";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
-function fixEncoding(value: unknown): unknown {
-  // Force to string
-  if (value === null || value === undefined) return value;
-  if (typeof value === "number") return value;
-  if (typeof value === "boolean") return value;
-  const val = String(value);
-  if (!val) return val;
-  // Already has CJK?
-  for (let i = 0; i < val.length; i++) {
-    const c = val.charCodeAt(i);
-    if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) return val;
-  }
-  // Multi-pass decode
-  let current = val;
+function fixAllRows(rows: any): any {
+  // Brute force: for every string value, do latin1->utf8 until stabilized
+  const s = JSON.stringify(rows);
+  let prev = s;
+  let current = s;
   for (let p = 0; p < 5; p++) {
     try {
       const bytes = Buffer.from(current, "latin1");
-      const next = bytes.toString("utf8");
-      if (next === current) break;
-      for (let i = 0; i < next.length; i++) {
-        const c = next.charCodeAt(i);
-        if ((c >= 0x4E00 && c <= 0x9FFF)) return next;
-      }
-      current = next;
+      current = bytes.toString("utf8");
+      if (current === prev) break;
+      prev = current;
     } catch(e) { break; }
   }
-  return val;
+  if (current !== s) {
+    try { return JSON.parse(current); } catch(e) { return rows; }
+  }
+  return rows;
 }
 
 export async function POST(request: NextRequest) {
@@ -39,15 +29,10 @@ export async function POST(request: NextRequest) {
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
     const buffer = Buffer.from(fileData, "base64");
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
-
-    // Fix encoding: JSON roundtrip with replacer
-    const fixedRows = JSON.parse(JSON.stringify(parsed.rows, function(key, value) {
-      return fixEncoding(value);
-    }));
-
+    parsed.rows = fixAllRows(parsed.rows);
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: fixedRows, summary: parsed.summary });
-    return NextResponse.json({ id, columns: parsed.columns, rows: fixedRows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
+    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
+    return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
