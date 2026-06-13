@@ -78,35 +78,101 @@ export async function GET(request: NextRequest) {
 }
 
 function buildDataSummary(stats: ReturnType<typeof computeStats>, columns: string[], rows: any[]): string {
-  var parts: string[] = [];
-  parts.push("Rows:" + stats.rowCount + " Cols:" + stats.columnCount);
-  // Numeric stats with range
+  var p: string[] = [];
+  p.push("Rows:" + stats.rowCount + " Cols:" + stats.columnCount);
+
+  // Find key columns by name pattern
+  var findCol = function(re: RegExp): string | undefined { return columns.find(function(c){return re.test(c)}); };
+  var priceCol = findCol(/price|amount|\u4ef7|\u91d1\u989d|\u5b9e\u4ed8/);
+  var nameCol = findCol(/name|product|\u540d\u79f0|\u5546\u54c1|\u4ea7\u54c1|\u6807\u9898/);
+  var dateCol = findCol(/date|time|\u65f6\u95f4|\u65e5\u671f|\u4e0b\u5355/);
+  var statCol = findCol(/status|\u72b6\u6001/);
+  var addrCol = findCol(/addr|\u5730\u5740|\u6536\u8d27|\u7701|\u5e02/);
+  var buyerCol = findCol(/buyer|member|\u4e70\u5bb6|\u4f1a\u5458/);
+
+  // Numeric stats
   var entries = Object.entries(stats.stats);
-  for (var i = 0; i < Math.min(entries.length, 5); i++) {
+  for (var i = 0; i < Math.min(entries.length, 4); i++) {
     var col = entries[i][0], s = entries[i][1];
-    parts.push(col + ": " + s.min + "-" + s.max + " avg=" + s.avg.toFixed(2) + " total=" + s.sum.toFixed(2));
+    p.push(col + ": " + s.min + "-" + s.max + " avg=" + s.avg.toFixed(2));
   }
-  // Category distributions
-  var dk = Object.keys(stats.distributions);
-  for (var j = 0; j < Math.min(dk.length, 3); j++) {
-    var top = Object.entries(stats.distributions[dk[j]]).slice(0,6).map(function(e){return e[0]+"("+e[1]+")"}).join(",");
-    parts.push(dk[j] + ": " + top);
+
+  // HOT PRODUCTS - top 5 by revenue
+  if (nameCol && priceCol) {
+    var prodMap: Record<string, number> = {};
+    for (var ri = 0; ri < rows.length; ri++) {
+      var nm = String(rows[ri][nameCol] || "");
+      var amt = Number(rows[ri][priceCol]) || 0;
+      prodMap[nm] = (prodMap[nm] || 0) + amt;
+    }
+    var topProd = Object.entries(prodMap).sort(function(a,b){return b[1]-a[1]}).slice(0,8);
+    var topTotal = topProd.reduce(function(s,e){return s+e[1]},0);
+    var allTotal = Object.values(prodMap).reduce(function(s,v){return s+v},0);
+    var concentration = allTotal > 0 ? Math.round(topTotal/allTotal*100) : 0;
+    p.push("HOT: top8 products = " + topProd.map(function(e){return e[0]+"("+Math.round(e[1])+")"}).join(", "));
+    p.push("HOT: top8 revenue share = " + concentration + "%");
   }
-  // Price analysis
-  if (rows.length > 0) {
-    var priceCol = columns.find(function(c){return /price|金额|价格|价/.test(c)});
-    if (priceCol) { var pc: string = priceCol;
-      var prices = rows.map(function(r){return Number(r[pc])||0}).filter(function(v){return v>0});
-      if (prices.length > 0) {
-        prices.sort(function(a,b){return a-b});
-        parts.push("Price: med=" + prices[Math.floor(prices.length*0.5)] + " 25p=" + prices[Math.floor(prices.length*0.25)] + " 75p=" + prices[Math.floor(prices.length*0.75)]);
-      }
+
+  // TREND - date aggregation
+  if (dateCol && priceCol) {
+    var dateMap: Record<string, number> = {};
+    for (var di = 0; di < rows.length; di++) {
+      var dt = String(rows[di][dateCol] || "").substring(0,10);
+      dateMap[dt] = (dateMap[dt] || 0) + (Number(rows[di][priceCol]) || 0);
+    }
+    var dates = Object.keys(dateMap).sort();
+    if (dates.length >= 2) {
+      var first = Math.round(dateMap[dates[0]] || 0);
+      var last = Math.round(dateMap[dates[dates.length-1]] || 0);
+      var trend = last > first ? "UP" : last < first ? "DOWN" : "FLAT";
+      p.push("TREND: " + dates.length + " days, first=" + first + " last=" + last + " direction=" + trend);
     }
   }
-  // Sample rows (first 3, filtered)
-  if (rows.length > 0) {
-    var sample = rows.slice(0,3).map(function(r){var o: any = {};for(var k in r){if(!/^__/.test(k)&&k!=="sheet_name")o[k]=r[k]}return JSON.stringify(o)}).join("\n");
-    parts.push("Sample:\n" + sample.substring(0,500));
+
+  // CUSTOMER INSIGHTS
+  if (buyerCol) {
+    var buyerCounts: Record<string, number> = {};
+    for (var bi = 0; bi < rows.length; bi++) {
+      var bn = String(rows[bi][buyerCol] || "");
+      buyerCounts[bn] = (buyerCounts[bn] || 0) + 1;
+    }
+    var repeatBuyers = Object.values(buyerCounts).filter(function(v){return v > 1}).length;
+    p.push("CUSTOMER: " + Object.keys(buyerCounts).length + " unique buyers, " + repeatBuyers + " repeat");
   }
-  return parts.join("\n");
+
+  // REGIONAL distribution
+  if (addrCol) {
+    var regionMap: Record<string, number> = {};
+    for (var ai = 0; ai < rows.length; ai++) {
+      var ad = String(rows[ai][addrCol] || "").substring(0,2);
+      regionMap[ad] = (regionMap[ad] || 0) + 1;
+    }
+    var topRegions = Object.entries(regionMap).sort(function(a,b){return b[1]-a[1]}).slice(0,6);
+    p.push("REGION: " + topRegions.map(function(e){return e[0]+"("+e[1]+")"}).join(", "));
+  }
+
+  // STATUS / ISSUES
+  if (statCol) {
+    var statusCounts: Record<string, number> = {};
+    for (var si = 0; si < rows.length; si++) {
+      var st = String(rows[si][statCol] || "");
+      statusCounts[st] = (statusCounts[st] || 0) + 1;
+    }
+    p.push("STATUS: " + Object.entries(statusCounts).map(function(e){return e[0]+"("+e[1]+")"}).join(", "));
+  }
+
+  // Distributions
+  var dk = Object.keys(stats.distributions);
+  for (var j = 0; j < Math.min(dk.length, 2); j++) {
+    var top = Object.entries(stats.distributions[dk[j]]).slice(0,6).map(function(e){return e[0]+"("+e[1]+")"}).join(",");
+    p.push(dk[j] + ": " + top);
+  }
+
+  // Sample
+  if (rows.length > 0) {
+    var sample = rows.slice(0,3).map(function(r){var o:any={};for(var k in r){if(!/^__/.test(k)&&k!=="sheet_name")o[k]=r[k]}return JSON.stringify(o)}).join("\n");
+    p.push("Sample:\n" + sample.substring(0,500));
+  }
+
+  return p.join("\n");
 }
