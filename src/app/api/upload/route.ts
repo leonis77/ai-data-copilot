@@ -2,26 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseFile } from "@/lib/parser";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
-function fixEncoding(val: unknown): unknown {
-  if (typeof val !== "string") return val;
+function fixEncoding(value: unknown): unknown {
+  // Force to string
+  if (value === null || value === undefined) return value;
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value;
+  const val = String(value);
   if (!val) return val;
-  // Check for CJK via hex ranges: U+4E00-U+9FFF, U+3400-U+4DBF
+  // Already has CJK?
   for (let i = 0; i < val.length; i++) {
-    const code = val.charCodeAt(i);
-    if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF)) return val;
+    const c = val.charCodeAt(i);
+    if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) return val;
   }
-  // Multi-pass latin1 -> utf8 decode
-  let fixed = val;
-  for (let pass = 0; pass < 5; pass++) {
+  // Multi-pass decode
+  let current = val;
+  for (let p = 0; p < 5; p++) {
     try {
-      const decoded = Buffer.from(fixed, "latin1").toString("utf8");
-      if (decoded === fixed) break;
-      // Check if decoded has CJK
-      for (let i = 0; i < decoded.length; i++) {
-        const c = decoded.charCodeAt(i);
-        if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) return decoded;
+      const bytes = Buffer.from(current, "latin1");
+      const next = bytes.toString("utf8");
+      if (next === current) break;
+      for (let i = 0; i < next.length; i++) {
+        const c = next.charCodeAt(i);
+        if ((c >= 0x4E00 && c <= 0x9FFF)) return next;
       }
-      fixed = decoded;
+      current = next;
     } catch(e) { break; }
   }
   return val;
@@ -36,16 +40,14 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(fileData, "base64");
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
 
-    // Apply encoding fix to all rows
-    parsed.rows = parsed.rows.map(function(row: any): any {
-      const o: any = {};
-      for (const k in row) o[k] = fixEncoding(row[k]);
-      return o;
-    });
+    // Fix encoding: JSON roundtrip with replacer
+    const fixedRows = JSON.parse(JSON.stringify(parsed.rows, function(key, value) {
+      return fixEncoding(value);
+    }));
 
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
-    return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
+    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: fixedRows, summary: parsed.summary });
+    return NextResponse.json({ id, columns: parsed.columns, rows: fixedRows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
