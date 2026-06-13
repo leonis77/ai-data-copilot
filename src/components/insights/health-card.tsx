@@ -14,71 +14,45 @@ function scoreColor(score: number): string {
   return "from-red-400 to-rose-400";
 }
 
-function scoreLabel(score: number): string {
-  if (score >= 80) return "??";
-  if (score >= 60) return "??";
-  return "??";
-}
-
 const rings = [
-  { key: "inventory", label: "??", icon: Package, color: "bg-sky-400" },
-  { key: "sales", label: "??", icon: TrendingUp, color: "bg-violet-400" },
-  { key: "structure", label: "??", icon: Shield, color: "bg-emerald-400" },
-  { key: "pricing", label: "??", icon: DollarSign, color: "bg-amber-400" },
+  { key: "inventory", label: "\u5e93\u5b58", icon: Package, color: "bg-sky-400" },
+  { key: "sales", label: "\u9500\u91cf", icon: TrendingUp, color: "bg-violet-400" },
+  { key: "structure", label: "\u7ed3\u6784", icon: Shield, color: "bg-emerald-400" },
+  { key: "pricing", label: "\u4ef7\u683c", icon: DollarSign, color: "bg-amber-400" },
 ];
 
 export function HealthCard({ score, breakdown }: HealthCardProps) {
+  const label = score >= 80 ? "\u5065\u5eb7" : score >= 60 ? "\u5173\u6ce8" : "\u9884\u8b66";
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
       className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
-      style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", background: "rgba(17,24,39,0.6)" }}
+      style={{ backdropFilter: "blur(20px)", background: "radial-gradient(circle at 30% 20%, rgba(124,92,255,0.1), transparent 40%), radial-gradient(circle at 70% 80%, rgba(0,212,255,0.06), transparent 40%), rgba(17,24,39,0.6)" }}
     >
-      {/* Glow background */}
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          background: "radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.3) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(168,85,247,0.2) 0%, transparent 50%)"
-        }}
-      />
-
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-xs text-white/30 uppercase tracking-widest mb-1">??????</p>
+            <p className="text-xs text-white/30 uppercase tracking-widest mb-1">{"\u7ecf\u8425\u5065\u5eb7\u8bc4\u5206"}</p>
             <p className="text-sm text-white/40">Business Health Score</p>
           </div>
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-            className="w-10 h-10 rounded-xl bg-white/[0.05] flex items-center justify-center"
-          >
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}
+            className="w-10 h-10 rounded-xl bg-white/[0.05] flex items-center justify-center">
             <Shield className="w-5 h-5 text-indigo-400" />
           </motion.div>
         </div>
 
-        {/* Score ring */}
         <div className="flex justify-center mb-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
-            className="relative w-32 h-32"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }} className="relative w-32 h-32">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
               <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-              <motion.circle
-                cx="60" cy="60" r="52" fill="none"
-                stroke={`url(#healthGradient)`}
-                strokeWidth="8" strokeLinecap="round"
+              <motion.circle cx="60" cy="60" r="52" fill="none" stroke="url(#healthGradient)" strokeWidth="8" strokeLinecap="round"
                 strokeDasharray={`${(score / 100) * 327} 327`}
                 initial={{ strokeDasharray: "0 327" }}
                 animate={{ strokeDasharray: `${(score / 100) * 327} 327` }}
-                transition={{ delay: 0.6, duration: 1.2, ease: "easeOut" }}
-              />
+                transition={{ delay: 0.6, duration: 1.2, ease: "easeOut" }} />
               <defs>
                 <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor={score >= 80 ? "#34d399" : score >= 60 ? "#fbbf24" : "#f87171"} />
@@ -87,39 +61,21 @@ export function HealthCard({ score, breakdown }: HealthCardProps) {
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className={`text-3xl font-black bg-gradient-to-r ${scoreColor(score)} bg-clip-text text-transparent`}
-              >
-                {score}
-              </motion.span>
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
-                className={`text-xs font-medium ${score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400"}`}
-              >
-                {scoreLabel(score)}
-              </motion.span>
+              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                className={`text-3xl font-black bg-gradient-to-r ${scoreColor(score)} bg-clip-text text-transparent`}>{score}</motion.span>
+              <motion.span initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
+                className={`text-xs font-medium ${score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400"}`}>{label}</motion.span>
             </div>
           </motion.div>
         </div>
 
-        {/* Breakdown rings */}
         {breakdown && (
           <div className="grid grid-cols-4 gap-2">
             {rings.map((ring, i) => {
               const val = (breakdown as any)[ring.key] || 0;
               return (
-                <motion.div
-                  key={ring.key}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1 + i * 0.1 }}
-                  className="text-center"
-                >
+                <motion.div key={ring.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1 + i * 0.1 }} className="text-center">
                   <div className="relative w-10 h-10 mx-auto mb-1">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 44 44">
                       <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
