@@ -10,7 +10,9 @@ import { PieChart, BarChart, LineChart } from "@/components/charts";
 import { AnalysisPanel } from "@/components/ai/analysis-panel";
 import { CardSkeleton, ChartSkeleton, AnalysisSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
+import { getStore } from "@/lib/store";
 import { computeStats, buildSummary } from "@/lib/parser";
+import { computeSalesSummary, rankByField, aggregateByDate } from "@/lib/analysis";
 import type { AnalysisResult, DataStats } from "@/types";
 
 export default function DashboardPage() {
@@ -116,13 +118,8 @@ export default function DashboardPage() {
           </GlassCard>;
         })}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {d0 && <GlassCard><PieChart title={distCols[0] + " 分布"} data={Object.entries(d0).map(function(e) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
-        {d1 && <GlassCard><BarChart title={distCols[1] + " 对比"} data={Object.entries(d1).map(function(e) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
-      </div>
-      {nk && ns && (
-        <div className="mb-8"><GlassCard><LineChart title={nk + " 趋势"} data={[{ name: "最小", value: ns.min },{ name: "25%", value: ns.avg*0.75 },{ name: "平均", value: ns.avg },{ name: "75%", value: ns.avg*1.25 },{ name: "最大", value: ns.max }]} height={350} /></GlassCard></div>
-      )}
+      <ChartsSection isEcommerce={!!(getStore().columnConfig?.templateId && getStore().columnConfig?.templateId !== 'generic')} d0={d0} d1={d1} distCols={distCols} datasetData={datasetData} />
+      <TrendSection isEcommerce={!!(getStore().columnConfig?.templateId && getStore().columnConfig?.templateId !== 'generic')} nk={nk} ns={ns} datasetData={datasetData} />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold"><span className="gradient-text">AI 智能分析</span></h2>
@@ -132,4 +129,44 @@ export default function DashboardPage() {
       </div>
     </div></div>
   );
+}
+
+
+function KpiCards({ stats, rows, ns, isEcommerce }: any) {
+  const cards: any[] = isEcommerce && rows?.length > 0 ? (function() {
+    const sales = computeSalesSummary(rows || [], "amount");
+    const refundAmt = (rows||[]).filter(function(r:any){return /退款/.test(String(r.status||''))}).reduce(function(s:number,r:any){return s+(Number(r.amount)||0)},0);
+    return [
+      { label: "总销售额", value: Math.round(sales.total), icon: TrendingUp, prefix: "¥" },
+      { label: "订单数", value: rows?.length||0, icon: Package },
+      { label: "客单价", value: Math.round(sales.avg), icon: DollarSign, prefix: "¥" },
+      { label: "退款金额", value: Math.round(refundAmt), icon: BarChart3, prefix: "¥" },
+    ];
+  })() : [
+    { label: "数据总量", value: stats?.rowCount||0, icon: Package },
+    { label: "字段数量", value: stats?.columnCount||0, icon: BarChart3 },
+    { label: "平均值", value: ns ? Math.round(ns.avg) : 0, icon: DollarSign, prefix: "¥" },
+    { label: "字段数", value: stats?.columnCount||0, icon: TrendingUp },
+  ];
+  return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">{cards.map(function(card,i){return <GlassCard key={i} delay={i*0.1}><div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><card.icon className="w-5 h-5 text-white/80" /></div></div><CountUp end={card.value} prefix={card.prefix||""} suffix={card.suffix||""} className="text-2xl font-bold block mb-1" /><p className="text-xs text-white/40">{card.label}</p></GlassCard>;})}</div>;
+}
+
+function ChartsSection({ isEcommerce, d0, d1, distCols, datasetData }: any) {
+  if (isEcommerce && datasetData?.rows?.length > 0) {
+    const top5 = rankByField(datasetData.rows, "product_name", "amount", 5);
+    return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <GlassCard><LineChart title="近日销售额趋势" data={aggregateByDate(datasetData.rows, "order_time", "amount")} height={300} /></GlassCard>
+      <GlassCard><BarChart title="TOP5 商品" data={top5} height={300} /></GlassCard>
+    </div>;
+  }
+  return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    {d0 && <GlassCard><PieChart title={distCols[0] + " 分布"} data={Object.entries(d0).map(function(e:any) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
+    {d1 && <GlassCard><BarChart title={distCols[1] + " 对比"} data={Object.entries(d1).map(function(e:any) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
+  </div>;
+}
+
+function TrendSection({ isEcommerce, nk, ns, datasetData }: any) {
+  if (isEcommerce && datasetData?.rows?.length > 0) return null;
+  if (!nk || !ns) return null;
+  return <div className="mb-8"><GlassCard><LineChart title={nk + " 趋势"} data={[{ name: "最小", value: ns.min },{ name: "25%", value: ns.avg*0.75 },{ name: "平均", value: ns.avg },{ name: "75%", value: ns.avg*1.25 },{ name: "最大", value: ns.max }]} height={350} /></GlassCard></div>;
 }

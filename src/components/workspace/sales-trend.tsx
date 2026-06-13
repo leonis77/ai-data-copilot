@@ -4,7 +4,7 @@ import { ModuleShell } from "./module-shell";
 import { aggregateByDate } from "@/lib/analysis";
 import { LineChart } from "@/components/charts";
 
-export function SalesTrend({ rows, amountField, orderTimeField, aiSummary }: { rows: any[]; amountField: string; orderTimeField: string; aiSummary?: string }) {
+export function SalesTrend({ rows, amountField, orderTimeField, aiSummary, dateRange }: { rows: any[]; amountField: string; orderTimeField: string; aiSummary?: string; dateRange?: number }) {
   const data = aggregateByDate(rows, orderTimeField, amountField);
   return (
     <ModuleShell title="销售额体检" aiSummary={aiSummary}>

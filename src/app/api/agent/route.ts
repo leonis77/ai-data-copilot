@@ -33,7 +33,13 @@ export async function POST(request: NextRequest) {
       dataSummary += "Sample: " + JSON.stringify(sample).substring(0, 500);
     }
 
-    var ctx = { dataSummary: dataSummary, columns: columns, rowCount: rows.length, stats: stats, datasetName: ds.original_name || ds.name };
+    // Inject e-commerce domain context if template matched
+    var ecomCtx = "";
+    var cols = columns;
+    if (cols.includes("amount") && cols.includes("order_time")) {
+      ecomCtx = "你是电商运营分析专家。重点关注：销售额趋势、爆品识别、客单价波动、退款异常。";
+    }
+    var ctx = { dataSummary: ecomCtx +  dataSummary, columns: columns, rowCount: rows.length, stats: stats, datasetName: ds.original_name || ds.name };
     var result = await routeAgent(input || "help", ctx);
     return NextResponse.json(result);
   } catch (error) {

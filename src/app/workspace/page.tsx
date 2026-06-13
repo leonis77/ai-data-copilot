@@ -21,6 +21,7 @@ const TABS = [
 
 export default function WorkspacePage() {
   const [active, setActive] = useState(0);
+  const [dateRange, setDateRange] = useState(30);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [hasTemplate, setHasTemplate] = useState(false);
@@ -64,7 +65,7 @@ export default function WorkspacePage() {
     );
   }
 
-  const rows = data?.rows || [];
+  const rows = (data?.rows || []).filter(function(r:any){if(!r.order_time)return true;const d=new Date(r.order_time);if(isNaN(d.getTime()))return true;const daysAgo=(Date.now()-d.getTime())/86400000;return daysAgo<=dateRange;});
   const amtField = "amount";
   const dtField = "order_time";
   const prodField = "product_name";
@@ -81,7 +82,9 @@ export default function WorkspacePage() {
           </div>
         </motion.div>
 
-        <div className="flex gap-2 mb-6 overflow-x-auto">
+        <div className="flex items-center gap-4 mb-6">
+      <div className="flex gap-1.5">{[7,30,90].map(function(d){return <button key={d} onClick={function(){setDateRange(d);}} className={"px-3 py-1 rounded-lg text-xs transition-all "+(dateRange===d?"bg-primary/20 text-white border border-primary/30":"text-white/40 hover:text-white/60")}>{"近"+d+"天"}</button>;})}</div>
+      <div className="flex gap-2 overflow-x-auto">
           {TABS.map(function(t, i) {
             const Icon = t.icon;
             return (
@@ -91,9 +94,10 @@ export default function WorkspacePage() {
             );
           })}
         </div>
+      </div>
 
-        <div className="space-y-6">
-          {active === 0 && <SalesTrend rows={rows} amountField={amtField} orderTimeField={dtField} />}
+      <div className="space-y-6">
+          {active === 0 && <SalesTrend rows={rows} amountField={amtField} orderTimeField={dtField} dateRange={dateRange} />}
           {active === 1 && <ProductRank rows={rows} productField={prodField} amountField={amtField} />}
           {active === 2 && <CategoryBreakdown rows={rows} categoryField={catField} amountField={amtField} />}
           {active === 3 && <RegionMap rows={rows} addressField={addrField} amountField={amtField} />}
