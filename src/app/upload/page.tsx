@@ -73,15 +73,17 @@ export default function UploadPage() {
       if (data.sheets && data.sheets.length > 1 && !sheet) {
         setSheets(data.sheets); setSelectedSheet(data.sheets[0].name); setUploading(false); return;
       }
+      if (!data || !data.columns || !Array.isArray(data.columns)) { throw new Error("invalid response"); }
       setResult(data);
-      var tmpl = matchTemplate(data.columns); setTemplate(tmpl);
+      var tmpl = matchTemplate(data.columns) || null; setTemplate(tmpl);
       var meta = applyTemplate(data.columns, tmpl); setCols(meta);
-      addDataset(data.id, file.name, data.rowCount, data.columns);
+      try { addDataset(data.id, file.name, data.rowCount, data.columns); } catch(e) { console.error("addDataset error", e); }
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
   };
 
   var handleConfirm = function() {
+    try {
     var storeObj = JSON.parse(localStorage.getItem("aicopilot") || "{}");
     storeObj.columnConfig = {
       datasetId: result.id,
@@ -90,6 +92,7 @@ export default function UploadPage() {
     };
     localStorage.setItem("aicopilot", JSON.stringify(storeObj));
     router.push("/dashboard");
+    } catch(e) { setError("Failed: " + (e instanceof Error ? e.message : String(e))); }
   };
 
   return (
