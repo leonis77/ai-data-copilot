@@ -124,10 +124,10 @@ export default function DashboardPage() {
     try {
       var rows = datasetData.rows;
       var cols = datasetData.columns;
-      var nameCol = findCol(cols, [/name/, /title/, /product/, /item/, /goods/]);
-      var priceCol = findCol(cols, [/amount/, /price/, /pay/, /total/, /revenue/]);
-      var qtyCol = findCol(cols, [/quantity/, /qty/, /count/, /num/]);
-      var stockCol = findCol(cols, [/stock/, /inventory/]);
+      var nameCol = findCol(cols, [/\u540d\u79f0/, /\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name/, /title/, /product/, /item/]);
+      var priceCol = findCol(cols, [/\u91d1\u989d/, /\u4ef7\u683c/, /\u5b9e\u4ed8/, /\u603b\u4ef7/, /amount/, /price/, /pay/, /total/, /revenue/]);
+      var qtyCol = findCol(cols, [/\u6570\u91cf/, /\u9500\u91cf/, /quantity/, /qty/, /count/, /num/]);
+      var stockCol = findCol(cols, [/\u5e93\u5b58/, /stock/, /inventory/]);
       if (nameCol && priceCol) {
         productMetrics = computeProductMetrics(rows, nameCol, priceCol, qtyCol, stockCol);
         diagnosis = diagnoseProducts(productMetrics);

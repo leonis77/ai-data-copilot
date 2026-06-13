@@ -92,11 +92,11 @@ export default function WorkspacePage() {
   const cols: string[] = data.columns || [];
   const allRows: any[] = data.rows || [];
 
-  const amtField = findCol(cols, [/实付/, /金额/, /amount/, /价格/, /price/]);
-  const dtField = findCol(cols, [/时间/, /日期/, /time/, /date/, /下单/, /order/]);
-  const prodField = findCol(cols, [/商品/, /产品/, /标题/, /宝贝/, /name/, /title/], [/店铺/, /shop/]);
-  const catField = findCol(cols, [/sku/, /分类/, /规格/, /品类/]);
-  const addrField = findCol(cols, [/地址/, /addr/, /收货/, /区域/, /地区/]);
+  const amtField = findCol(cols, [/\u5b9e\u4ed8/, /\u91d1\u989d/, /amount/, /\u4ef7\u683c/, /price/]);
+  const dtField = findCol(cols, [/\u65f6\u95f4/, /\u65e5\u671f/, /time/, /date/, /\u4e0b\u5355/, /order/]);
+  const prodField = findCol(cols, [/\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name/, /title/], [/\u5e97\u94fa/, /shop/]);
+  const catField = findCol(cols, [/sku/, /\u5206\u7c7b/, /\u89c4\u683c/, /\u54c1\u7c7b/]);
+  const addrField = findCol(cols, [/\u5730\u5740/, /addr/, /\u6536\u8d27/, /\u533a\u57df/, /\u5730\u533a/]);
 
   let rows = allRows;
   if (dtField) {
