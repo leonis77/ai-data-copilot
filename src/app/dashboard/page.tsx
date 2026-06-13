@@ -133,9 +133,14 @@ export default function DashboardPage() {
 
 
 function KpiCards({ stats, rows, ns, isEcommerce }: any) {
-  const cards: any[] = isEcommerce && rows?.length > 0 ? (function() {
-    const sales = computeSalesSummary(rows || [], "amount");
-    const refundAmt = (rows||[]).filter(function(r:any){return /退款/.test(String(r.status||''))}).reduce(function(s:number,r:any){return s+(Number(r.amount)||0)},0);
+  const hasAmount = rows?.length > 0 && rows[0].hasOwnProperty("amount");
+  const hasPrice = rows?.length > 0 && rows[0].hasOwnProperty("price");
+  const salesField = hasAmount ? "amount" : (hasPrice ? "price" : null);
+  const isBiz = isEcommerce || !!salesField;
+
+  const cards: any[] = isBiz && rows?.length > 0 && salesField ? (function() {
+    const sales = computeSalesSummary(rows || [], salesField);
+    const refundAmt = (rows||[]).filter(function(r:any){return /退款|退货/.test(String(r.status||''))}).reduce(function(s:number,r:any){return s+(Number(r[salesField])||0)},0);
     return [
       { label: "总销售额", value: Math.round(sales.total), icon: TrendingUp, prefix: "¥" },
       { label: "订单数", value: rows?.length||0, icon: Package },
@@ -146,7 +151,7 @@ function KpiCards({ stats, rows, ns, isEcommerce }: any) {
     { label: "数据总量", value: stats?.rowCount||0, icon: Package },
     { label: "字段数量", value: stats?.columnCount||0, icon: BarChart3 },
     { label: "平均值", value: ns ? Math.round(ns.avg) : 0, icon: DollarSign, prefix: "¥" },
-    { label: "字段数", value: stats?.columnCount||0, icon: TrendingUp },
+    { label: "数值范围", value: ns ? (Math.round(ns.max) - Math.round(ns.min)) : 0, icon: TrendingUp },
   ];
   return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">{cards.map(function(card,i){return <GlassCard key={i} delay={i*0.1}><div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><card.icon className="w-5 h-5 text-white/80" /></div></div><CountUp end={card.value} prefix={card.prefix||""} suffix={card.suffix||""} className="text-2xl font-bold block mb-1" /><p className="text-xs text-white/40">{card.label}</p></GlassCard>;})}</div>;
 }

@@ -106,13 +106,14 @@ export default function UploadPage() {
   };
 
   var handleConfirm = function() {
-    // Save column config
-    localStorage.setItem("columnConfig", JSON.stringify({
+    // Write column config to store key directly
+    const storeObj = JSON.parse(localStorage.getItem("aicopilot") || "{}");
+    storeObj.columnConfig = {
       datasetId: result.id,
       templateId: template ? template.id : null,
       selectedColumns: cols.filter(function(c) { return c.selected; }).map(function(c) { return c.name; }),
-      columnMeta: cols,
-    }));
+    };
+    localStorage.setItem("aicopilot", JSON.stringify(storeObj));
     router.push("/dashboard");
   };
 
