@@ -94,12 +94,19 @@ export default function DashboardPage() {
     </div>
   );
 
-  var numStats = stats ? Object.entries(stats.stats)[0] : null;
+  var numStats = stats ? Object.entries(stats.stats) : [];
   var distCols = stats ? Object.keys(stats.distributions) : [];
+
+  // Sort numeric columns by range (max-min), top 4 become KPI cards
+  var rankedCols = numStats.sort(function(a, b) { return (b[1].max - b[1].min) - (a[1].max - a[1].min); });
+  var topCols = rankedCols.slice(0, 4);
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
   var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
-  var nk = numStats ? numStats[0] : "";
-  var ns = numStats ? numStats[1] : null;
+
+  // Fallback if no numeric columns
+  if (topCols.length === 0 && distCols.length > 0) {
+    topCols = [[stats?.rowCount + "", {sum:0,avg:0,min:0,max:stats?.rowCount||0,count:0}]];
+  }
 
   return (
     <div className="min-h-screen py-12"><div className="max-w-7xl mx-auto px-6">
@@ -108,18 +115,26 @@ export default function DashboardPage() {
           <div><h1 className="text-3xl font-bold"><span className="gradient-text">数据仪表盘</span></h1></div>
           <TableSelector onSelect={handleSelect} className="ml-auto" />
         </div>
-        {datasetName && <p className="text-sm text-white/40 ml-14">{datasetName}{selectedCols.length > 0 && selectedCols.length !== (datasetData?.columns?.length || 99) ? " · 已选 " + selectedCols.length + " 列" : ""}</p>}
+        {datasetName && <p className="text-sm text-white/40 ml-14">{datasetName}</p>}
       </motion.div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[{ label: "数据总量", value: stats?.rowCount || 0, icon: Package },{ label: "字段数量", value: stats?.columnCount || 0, icon: BarChart3 },{ label: "平均值", value: ns ? Math.round(ns.avg) : 0, icon: DollarSign, prefix: "\u00A5" },{ label: "完整度", value: 98, icon: TrendingUp, suffix: "%" }].map(function(card, i) {
+        {topCols.map(function(entry, i) {
+          var col = entry[0], s = entry[1];
+          var icons = [TrendingUp, Package, DollarSign, BarChart3];
           return <GlassCard key={i} delay={i*0.1}>
-            <div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><card.icon className="w-5 h-5 text-white/80" /></div></div>
-            <CountUp end={card.value} prefix={card.prefix||""} suffix={card.suffix||""} className="text-2xl font-bold block mb-1" /><p className="text-xs text-white/40">{card.label}</p>
+            <div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-white/80" /></div></div>
+            <CountUp end={Math.round(s.avg)} className="text-2xl font-bold block mb-1" />
+            <p className="text-xs text-white/40">{col} 平均值</p>
           </GlassCard>;
         })}
       </div>
-      <ChartsSection d0={d0} d1={d1} distCols={distCols} datasetData={datasetData} />
-      <TrendSection nk={nk} ns={ns} datasetData={datasetData} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {d0 ? <GlassCard><PieChart title={distCols[0] + " 分布"} data={Object.entries(d0).slice(0,8).map(function(e) { return { name: e[0], value: e[1] }; })} /></GlassCard> : <GlassCard><div className="h-64 flex items-center justify-center text-white/20">上传数据后自动展示</div></GlassCard>}
+        {d1 ? <GlassCard><BarChart title={distCols[1] + " 对比"} data={Object.entries(d1).slice(0,8).map(function(e) { return { name: e[0], value: e[1] }; })} /></GlassCard> : (rankedCols.length > 0 ? <GlassCard><BarChart title={rankedCols[0][0] + " 汇总"} data={[{ name: "总计", value: Math.round(rankedCols[0][1].sum) },{ name: "最大", value: Math.round(rankedCols[0][1].max) },{ name: "最小", value: Math.round(rankedCols[0][1].min) }]} height={300} /></GlassCard> : null)}
+      </div>
+
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold"><span className="gradient-text">AI 智能分析</span></h2>
@@ -128,108 +143,5 @@ export default function DashboardPage() {
         <AnalysisPanel analysis={analysis} loading={analyzing} />
       </div>
     </div></div>
-  );
-}
-
-
-
-function cleanRow(row: any): any {
-  const o: any = {};
-  for (const k in row) {
-    let v: any = row[k];
-    if (typeof v === "string") {
-      // Strip currency symbols and commas: "¥128.00" -> 128.00
-      const cleaned = v.replace(/[^0-9.\-]/g, "");
-      const n = Number(cleaned);
-      if (!isNaN(n) && cleaned.length > 0) v = n;
-    }
-    o[k] = v;
-  }
-  return o;
-}
-
-function findMoneyColumn(row: any): string | null {
-  if (!row) return null;
-  const candidates: { col: string; score: number }[] = [];
-  for (const k in row) {
-    const v = Number(row[k]);
-    if (isNaN(v)) continue;
-    let score = 0;
-    // Prioritize columns named like amount/price/money
-    const lk = k.toLowerCase();
-    if (/price|amount|total|金额|价格|总额|实付|售价/.test(lk)) score += 10;
-    if (/数量|quantity|qty|num/.test(lk)) score -= 5;
-    if (v > 0) score += 1;
-    if (score > 0) candidates.push({ col: k, score });
-  }
-  candidates.sort(function(a,b){return b.score-a.score});
-  return candidates.length > 0 ? candidates[0].col : null;
-}
-
-
-function findNameColumn(row: any): string {
-  if (!row) return Object.keys(row)[0]||"";
-  for (const k in row) {
-    const lk = k.toLowerCase();
-    if (/name|名称|商品|产品|title/.test(lk)) return k;
-  }
-  return Object.keys(row)[0]||"";
-}
-
-function findDateColumn(row: any): string | null {
-  if (!row) return null;
-  for (const k in row) {
-    const lk = k.toLowerCase();
-    if (/date|time|时间|日期|order_time|下单/.test(lk)) return k;
-  }
-  return null;
-}
-
-function KpiCards({ stats, rows, ns, isEcommerce }: any) {
-  const cleanedRows = (rows||[]).map(cleanRow);
-  const recalcStats = computeStats(cleanedRows, Object.keys(cleanedRows[0]||{}));
-  const moneyCol = findMoneyColumn(cleanedRows[0]);
-  const isBiz = !!moneyCol;
-
-  const cards: any[] = isBiz && cleanedRows.length > 0 ? (function() {
-    const sales = computeSalesSummary(cleanedRows, moneyCol);
-    const refundAmt = (cleanedRows||[]).filter(function(r:any){return /退款|退货/.test(String(r.备注||r.note||r.remark||''))}).reduce(function(s:number,r:any){return s+(Number(r[moneyCol])||0)},0);
-    return [
-      { label: "总销售额", value: Math.round(sales.total), icon: TrendingUp, prefix: "¥" },
-      { label: "订单数", value: cleanedRows.length, icon: Package },
-      { label: "客单价", value: Math.round(sales.avg), icon: DollarSign, prefix: "¥" },
-      { label: "退款金额", value: Math.round(refundAmt), icon: BarChart3, prefix: "¥" },
-    ];
-  })() : [
-    { label: "数据总量", value: stats?.rowCount||0, icon: Package },
-    { label: "字段数量", value: stats?.columnCount||0, icon: BarChart3 },
-    { label: "平均值", value: ns ? Math.round(ns.avg) : 0, icon: DollarSign, prefix: "¥" },
-    { label: "数值范围", value: ns ? (Math.round(ns.max) - Math.round(ns.min)) : 0, icon: TrendingUp },
-  ];
-  return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">{cards.map(function(card,i){return <GlassCard key={i} delay={i*0.1}><div className="flex items-start justify-between mb-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><card.icon className="w-5 h-5 text-white/80" /></div></div><CountUp end={card.value} prefix={card.prefix||""} suffix={card.suffix||""} className="text-2xl font-bold block mb-1" /><p className="text-xs text-white/40">{card.label}</p></GlassCard>;})}</div>;
-}
-
-function ChartsSection({ d0, d1, distCols, datasetData }: any) {
-  const rows = datasetData?.rows || [];
-  const cleanedRows = rows.map(cleanRow);
-  const moneyCol = rows.length > 0 ? findMoneyColumn(cleanedRows[0]) : null;
-  if (moneyCol && cleanedRows.length > 0) {
-    const top5 = rankByField(cleanedRows, findNameColumn(cleanedRows[0]), moneyCol, 5);
-    return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <GlassCard><LineChart title="数值趋势" data={aggregateByDate(cleanedRows, findDateColumn(cleanedRows[0])||Object.keys(cleanedRows[0])[0], moneyCol)} height={300} /></GlassCard>
-      <GlassCard><BarChart title="TOP5" data={top5} height={300} /></GlassCard>
-    </div>;
-  }
-  return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    {d0 && <GlassCard><PieChart title={distCols[0] + " 分布"} data={Object.entries(d0).map(function(e:any) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
-    {d1 && <GlassCard><BarChart title={distCols[1] + " 对比"} data={Object.entries(d1).map(function(e:any) { return { name: e[0], value: e[1] }; })} /></GlassCard>}
-  </div>;
-}
-
-function TrendSection({ nk, ns, datasetData }: any) {
-  const rows = datasetData?.rows || [];
-  const moneyCol = rows.length > 0 ? findMoneyColumn(cleanRow(rows[0])) : null;
-  if (!nk || !ns) return null;
-  const title = moneyCol ? (moneyCol + " 趋势") : (nk + " 趋势");
-  return <div className="mb-8"><GlassCard><LineChart title={title} data={[{ name: "最小", value: ns.min },{ name: "25%", value: ns.avg*0.75 },{ name: "平均", value: ns.avg },{ name: "75%", value: ns.avg*1.25 },{ name: "最大", value: ns.max }]} height={350} /></GlassCard></div>;
+  );;
 }
