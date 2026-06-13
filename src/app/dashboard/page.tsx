@@ -39,7 +39,7 @@ export default function DashboardPage() {
     try {
       var id = dsId;
       if (!id) {
-        var saved = JSON.parse(localStorage.getItem("datasets") || "{}");
+        var saved = getStore();
         id = saved.activeId || "";
       }
       if (!id) { setLoading(false); return; }
@@ -73,17 +73,19 @@ export default function DashboardPage() {
   async function runAnalysis() {
     if (!datasetId) return; setAnalyzing(true);
     try {
-      if (!datasetData) return;
-      var selCols = selectedCols.length > 0 ? selectedCols : (datasetData.columns || []);
-      var filteredRows = datasetData.rows.map(function(r: any) {
-        var o: Record<string, unknown> = {};
-        for (var i = 0; i < selCols.length; i++) { o[selCols[i]] = r[selCols[i]]; }
-        return o;
-      });
-      var summary = buildSummary(selCols, filteredRows);
-      var res = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataSummary: summary, question: "" }) });
-      if (res.ok) { var ad = await res.json(); setAnalysis(ad); }
-    } catch {} finally { setAnalyzing(false); }
+      var data = datasetData;
+      if (!data || !data.rows) {
+        var res = await fetch("/api/upload?id=" + datasetId);
+        if (!res.ok) { setAnalyzing(false); return; }
+        data = await res.json();
+        setDatasetData(data);
+      }
+      var cols = data.columns || [];
+      var rows = data.rows || [];
+      var summary = buildSummary(cols, rows);
+      var ar = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataSummary: summary, question: "" }) });
+      if (ar.ok) { var ad = await ar.json(); setAnalysis(ad); }
+    } catch (e) { console.error("runAnalysis error", e); } finally { setAnalyzing(false); }
   }
 
   if (loading) return <div className="min-h-screen py-12"><div className="max-w-7xl mx-auto px-6"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-4 w-64 skeleton rounded-lg" /><div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">{[1,2,3,4].map(function(i){return <CardSkeleton key={i} />})}</div></div></div>;
