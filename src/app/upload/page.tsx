@@ -75,7 +75,7 @@ export default function UploadPage() {
       var colsStr = data.columns.join(",");
       if (/\u8ba2\u5355|\u4e70\u5bb6|\u6536\u8d27|\u652f\u4ed8|\u9000\u6b3e|\u5b9e\u4ed8|\u5546\u54c1\u6807\u9898/.test(colsStr)) profile = "order";
       else if (/sku|\u4f9b\u8d27|\u4ea7\u5730|\u89c4\u683c|\u7269\u6d41|\u53d1\u8d27\u5730/.test(colsStr)) profile = "supply";
-      addDataset(data.id, file.name, data.rowCount, data.columns, profile);
+      addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
   };

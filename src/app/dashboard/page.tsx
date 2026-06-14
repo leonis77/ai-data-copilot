@@ -15,6 +15,8 @@ import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { ProcurementPanel } from "@/components/procurement";
+import { detectRelations } from "@/lib/semantic";
+import type { DatasetRelation } from "@/lib/semantic";
 import { GenericOverview } from "@/components/insights/generic-overview";
 import { generateAllDecisions } from "@/lib/decisions";
 import type { DecisionCard } from "@/lib/decisions";
@@ -156,6 +158,9 @@ export default function DashboardPage() {
 
   var storeData = getStore();
   var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
+  var semanticRoles = storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles;
+  var relations: DatasetRelation[] = [];
+  try { relations = detectRelations(storeData.datasets.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles || null }; })); } catch(e) {}
 
   // Generate decisions for order data
   var decisions: any[] = [];
@@ -221,6 +226,21 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen pt-16">
       <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Cross-table relation banner */}
+        {relations.length > 0 && (
+          <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="mb-6 p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm text-indigo-300/80">
+                {"检测到"} {relations.length} {"组数据关联关系："}
+                {relations[0].description}
+              </span>
+              <Link href="/chat" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                AI {"分析"} {"→"}
+              </Link>
+            </div>
+          </motion.div>
+        )}
         {/* Ambient background glow */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-[0.04]"

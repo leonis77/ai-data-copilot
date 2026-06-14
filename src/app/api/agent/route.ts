@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataset } from "@/lib/db";
+import { getDataset, listDatasets } from "@/lib/db";
 import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
 import { injectKnowledge } from "@/lib/rag";
+import { detectRelations } from "@/lib/semantic";
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,8 +56,23 @@ export async function POST(request: NextRequest) {
       ecomCtx = "[E-commerce Order Data] You are analyzing e-commerce order data. Focus on: sales trends, best-selling products, average order value, refund anomalies, product concentration. Provide business-valuable analysis.\n\n";
     }
 
-    const ctx = {
-      dataSummary: ecomCtx + dataSummary,
+    // Check for cross-dataset relations
+    var crossCtx = "";
+    try {
+      var allDs = await listDatasets();
+      var dsMeta = allDs.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles }; });
+      var rels = detectRelations(dsMeta);
+      if (rels.length > 0) {
+        crossCtx = "CROSS-DATASET CONTEXT: You have access to multiple datasets. Detected relationships:\n";
+        for (var ri = 0; ri < rels.length; ri++) {
+          crossCtx += "- " + rels[ri].description + " (join key: " + rels[ri].joinKey + ")\n";
+        }
+        crossCtx += "Use this to provide insights that span datasets. But ONLY claim data you can verify.\n\n";
+      }
+    } catch (e) {}
+
+    var ctx = {
+      dataSummary: crossCtx + ecomCtx + dataSummary,
       columns: cols,
       rowCount: rows.length,
       stats: stats,

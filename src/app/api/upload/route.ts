@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseFile, rawPreview } from "@/lib/parser";
 import { analyzeSheetStructure } from "@/lib/parser-ai";
 import { logger } from "@/lib/logger";
+import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
 var XLSX = require("xlsx");
@@ -97,17 +98,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to Supabase (non-blocking)
+    var semProfile: any = null;
+    try { semProfile = buildSemanticProfile("", parsed.columns, parsed.rows.slice(0, 50)); } catch (e) { logger.warn("Semantic profile failed"); }
+    
     var id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     var saveRows = parsed.rows.slice(0, 500);
     try {
+      try {
       await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: saveRows, summary: parsed.summary });
+    } catch (dbError: any) { logger.warn("Supabase save failed (non-blocking)", { message: dbError.message }); }
     } catch (dbError: any) {
       logger.warn("Supabase save failed (non-blocking)", { message: dbError.message });
     }
 
     return NextResponse.json({
       id, columns: parsed.columns, rows: parsed.rows,
-      rowCount: parsed.rowCount, summary: parsed.summary,
+      rowCount: parsed.rowCount, summary: parsed.summary, semanticRoles: semProfile,
       sheets: (parsed as any).sheets || null,
     });
   } catch (error) {
