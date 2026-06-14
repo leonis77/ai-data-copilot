@@ -156,8 +156,8 @@ export default function DashboardPage() {
   var dataProfile = "unknown";
   if (datasetData && datasetData.columns) {
     var colsStr = datasetData.columns.join(",").toLowerCase();
-    if (/orderId|order|buyer|address|amount|pay|refund|status/.test(colsStr)) dataProfile = "order";
-    else if (/sku|supply|category|spec|express|logistics/.test(colsStr) && !/buyer|customer|address/.test(colsStr)) dataProfile = "supply";
+    if (/\u8ba2\u5355|\u4e70\u5bb6|\u6536\u8d27|\u652f\u4ed8|\u9000\u6b3e|\u5b9e\u4ed8|\u5546\u54c1\u6807\u9898/.test(colsStr)) dataProfile = "order";
+    else if (/sku|\u4f9b\u8d27|\u4ea7\u5730|\u89c4\u683c|\u7269\u6d41|\u53d1\u8d27\u5730/.test(colsStr) && !/\u4e70\u5bb6|buyer|\u6536\u8d27/.test(colsStr)) dataProfile = "supply";
   }
 
   // Generate decisions for order data
