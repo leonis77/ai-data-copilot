@@ -49,12 +49,13 @@ export function parseFile(data: Uint8Array, fileName: string, sheetName?: string
     const range = XLSX.utils.decode_range(sheet["!ref"]);
     let headerRow = range.s.r, best = -1;
     for (let r = range.s.r; r <= Math.min(range.s.r + 30, range.e.r); r++) {
-      let n = 0;
+      let n = 0; let uniqueVals = new Set<string>();
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cl = sheet[XLSX.utils.encode_cell({ r, c })];
-        if (cl && cl.v !== undefined && cl.v !== null && String(cl.v).trim()) n++;
+        if (cl && cl.v !== undefined && cl.v !== null && String(cl.v).trim()) { n++; uniqueVals.add(String(cl.v).trim()); }
       }
-      if (n > best) { best = n; headerRow = r; }
+       // Skip rows that are merged-cell titles (all cells contain same value)
+      if (n > best && uniqueVals.size > 1) { best = n; headerRow = r; }
     }
     const cols: string[] = [];
     for (let c = range.s.c; c <= range.e.c; c++) {
