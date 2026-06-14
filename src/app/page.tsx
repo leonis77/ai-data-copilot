@@ -58,9 +58,9 @@ function Workbench() {
             style={{backdropFilter:"blur(20px)",background:"radial-gradient(circle at 30% 20%,rgba(124,92,255,0.08),transparent 40%),rgba(17,24,39,0.5)"}}>
             <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-amber-400" /></div><span className="text-sm text-white/40">{"\u5feb\u901f\u64cd\u4f5c"}</span></div>
             <div className="space-y-2">
-              <Link href="/dashboard" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors">{ArrowRight({className:"w-3 h-3 inline"}) as any} {"\u67e5\u770b\u8bca\u65ad"}</Link>
-              <Link href="/chat" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors">{ArrowRight({className:"w-3 h-3 inline"}) as any} {"\u00a0"}AI {"\u5206\u6790\u52a9\u624b"}</Link>
-              <Link href="/upload" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors">{ArrowRight({className:"w-3 h-3 inline"}) as any} {"\u00a0"}{"\u4e0a\u4f20\u65b0\u6570\u636e"}</Link>
+              <Link href="/dashboard" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors"><ArrowRight className="w-3 h-3 inline" /> {"\u67e5\u770b\u8bca\u65ad"}</Link>
+              <Link href="/chat" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors"><ArrowRight className="w-3 h-3 inline" /> {"\u00a0"}AI {"\u5206\u6790\u52a9\u624b"}</Link>
+              <Link href="/upload" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors"><ArrowRight className="w-3 h-3 inline" /> {"\u00a0"}{"\u4e0a\u4f20\u65b0\u6570\u636e"}</Link>
             </div>
           </motion.div>
         </div>
