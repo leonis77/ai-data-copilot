@@ -8,30 +8,29 @@
 
 ## 核心功能
 
-### 智能数据类型识别
-上传表格时自动检测业务类型，切换对应分析模式：
-- **订单表**（含订单/买家/收货/支付/退款）→ 经营诊断 + 决策卡片
-- **供货表**（含SKU/供货价/产地/规格）→ 供货分析 + AI进货建议
-- **通用表**（都不匹配）→ 智能列画像 + 数值统计
+### 智能语义分析
+上传任意表格，系统自动识别每列的语义角色（金额/时间/商品名/地址/数量/分类），不限于预定义的订单/供货类型。
+- **任意表格** → 语义角色自动检测 → 可用分析维度自动匹配
+- **多表关联** → 检测共享实体“商品名”或“时间”维度 → 自动触发跨表分析
 
 ### 智能首页
-- 有历史数据 → 显示经营工作台（数据概览 + 快速入口）
-- 无数据 → 显示引导页
+- 有历史数据 → 经营工作台（数据概览 + 快速入口）
+- 无数据 → 引导页
 
 ### AI 决策引擎
 - 定价决策：毛利率分析、价格集中度预警
 - 补货决策：销量速度提醒
+- 跨表分析：订单表×供货表 → 利润分析、新品机会、供应链盲区
+
+### 反幻觉体系
+- **Prompt 硬约束**：每个数字必须溯源到具体行/列，数据不足时强制回复 DATA_INSUFFICIENT
+- **数据校验**：AI 声称的每个数值实时验证是否真实存在于源数据
+- **可验证 UI**：用户可点击查看每个数据点的溯源信息
 
 ### 供货分析
 - 价格四分位分布
 - 商品信号标注（主推/新品/高性价比/尾季/谨慎）
 - AI 进货推荐单
-
-### 通用数据画像
-任意表格上传后自动分析：
-- 列角色识别（ID/名称/价格/日期/分类/地址/数量）
-- 值类型推断（数字/日期/文本）
-- 数值列统计（最小/最大/均值）
 
 ---
 
@@ -51,6 +50,85 @@
 
 ---
 
+## 架构设计
+
+```
+上传 Excel
+    |
+    v
+解析引擎（规则优先 + AI 引导兆底）
+    |
+    v
+语义分析（列角色检测 + 关系发现）
+    |
+    v
+存入 localStorage + Supabase（非阻塞）
+    |
+    v
+智能首页（工作台 / 引导页）
+    |
+    v
+Dashboard（语义驱动渲染）
+    |-- 决策卡片（P0/P1/P2 优先级）
+    |-- 跨表关联 Banner
+    |-- 排行/分布/异常检测
+    |
+    v
+AI Agent（反幻觉 + 溯源 + 跨表 context）
+```
+
+### 核心设计决策
+
+- **语义驱动**：不限于订单/供货类型，任意表格自动识别可用分析维度
+- **localStorage 优先**：数据本地持久化，Supabase 为可选缓存
+- **反幻觉体系**：AI 输出实时校验，防止编造数据
+- **AI 解析兆底**：规则引擎失败时自动切换 AI 引导解析
+
+---
+
+## 项目结构
+
+```
+src/
+  app/
+    page.tsx                   # 智能首页
+    layout.tsx                  # 根布局 + 导航栏
+    error.tsx                   # 全局错误边界
+    upload/page.tsx             # 上传页
+    dashboard/page.tsx          # 语义驱动诊断
+    workspace/page.tsx          # 数据工作台
+    chat/page.tsx               # AI 对话
+    report/page.tsx             # 报告生成
+    api/
+      agent/route.ts            # Agent 路由 + 跨表context
+      upload/route.ts           # 解析 + 语义分析
+      analyze/route.ts          # DeepSeek 分析
+  components/
+    ui/         # GlassCard, CountUp, Typewriter, Skeleton
+    charts/     # 饼图, 柱状图, 折线图 (ECharts)
+    insights/   # HealthCard, DecisionCardUI, GenericOverview
+    procurement/ # SupplyHealth, PurchaseList
+    workspace/  # SalesTrend, ProductRank, CategoryBreakdown, RegionMap
+    layout/     # Navbar
+  lib/
+    parser.ts              # Excel/CSV 解析
+    parser-ai.ts           # AI 引导解析兆底
+    semantic/              # 语义分析引擎
+      types.ts, roles.ts, relations.ts
+    verify.ts              # 数据溯源校验
+    db.ts                  # Supabase 客户端
+    store/                 # localStorage 状态管理
+    agent/                 # AI Agent 框架（反幻觉Prompt）
+    decisions/             # 决策引擎
+    procurement/           # 供货分析引擎
+    logger.ts              # 结构化日志
+    i18n/                  # 中文文本管理
+  types/
+    index.ts               # 公共类型
+```
+
+---
+
 ## 快速开始
 
 ```bash
@@ -58,8 +136,6 @@ git clone https://github.com/leonis77/ai-data-copilot.git
 cd ai-data-copilot
 npm install
 ```
-
-### 环境变量
 
 创建 `.env.local`：
 
@@ -71,111 +147,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ```bash
-npm run dev     # 启动开发服务器 -> http://localhost:3000
-```
-
----
-
-## 架构设计
-
-```
-上传 Excel
-    |
-    v
-数据画像检测 (订单/供货/通用)
-    |
-    v
-存入 localStorage + Supabase（非阻塞）
-    |
-    v
-智能首页（工作台 或 引导页）
-    |
-    v
-Dashboard（按类型渲染）
-    |-- 订单 -> 决策卡片 + 健康评分 + 图表
-    |-- 供货 -> 供货健康 + AI进货建议
-    |-- 通用 -> 列画像 + 数值统计
-```
-
-### 核心设计决策
-
-- **localStorage 优先**：数据本地持久化，Supabase 为可选缓存
-- **Supabase 非阻塞**：存储失败不影响上传成功
-- **上传时检测类型**：一次判定，持久存储，不重复计算
-- **useRef 存储文件数据**：避免 React 闭包陷阱
-
----
-
-## 项目结构
-
-```
-src/
-  app/
-    page.tsx                   # 智能首页（工作台/引导页）
-    layout.tsx                  # 根布局 + 导航栏
-    globals.css                 # 暗黑主题 + 玻璃拟态
-    error.tsx                   # 全局错误边界
-    upload/page.tsx             # 上传页（拖拽+Sheet选择+字段选择）
-    dashboard/page.tsx          # 按类型诊断（订单/供货/通用）
-    workspace/page.tsx          # 数据工作台（5个分析视图）
-    chat/page.tsx               # AI 对话助手
-    report/page.tsx             # 报告生成 + 打印
-    api/
-      agent/route.ts            # Agent 路由 + RAG
-      upload/route.ts           # 文件解析 + 画像检测
-      analyze/route.ts          # DeepSeek 分析
-      report/route.ts           # 报告生成
-  components/
-    ui/         # GlassCard, CountUp, Typewriter, Skeleton, SheetPicker
-    charts/     # 饼图, 柱状图, 折线图 (ECharts)
-    insights/   # HealthCard, DecisionCardUI, RiskCard, GenericOverview
-    procurement/ # SupplyHealth, PurchaseList
-    workspace/  # SalesTrend, ProductRank, CategoryBreakdown, RegionMap
-    layout/     # Navbar
-  lib/
-    parser.ts              # Excel/CSV 解析（智能标题检测 + 合并单元格处理）
-    db.ts                  # Supabase 客户端（全 try-catch）
-    store/                 # localStorage 状态管理（容量检测 + 清理）
-    agent/                 # AI Agent 框架（重试 + 结构化提示词）
-    decisions/             # 决策引擎（定价 + 补货）
-    procurement/           # 供货分析引擎（价格 + 信号 + 推荐）
-    logger.ts              # 结构化日志 (debug/info/warn/error)
-    i18n/                  # zh.json 集中文本管理
-    templates/             # 平台模板（天猫/京东/拼多多/抖店）
-  types/
-    index.ts               # 公共类型定义
-```
-
----
-
-## 数据库初始化
-
-在 Supabase SQL Editor 中执行：
-
-```sql
-CREATE TABLE datasets (
-  id            TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  original_name TEXT NOT NULL,
-  columns       JSONB DEFAULT '[]',
-  rows          JSONB DEFAULT '[]',
-  row_count     INTEGER DEFAULT 0,
-  summary       TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE analysis_results (
-  id          TEXT PRIMARY KEY,
-  dataset_id  TEXT REFERENCES datasets(id),
-  summary     TEXT,
-  insights    JSONB DEFAULT '[]',
-  risks       JSONB DEFAULT '[]',
-  suggestions JSONB DEFAULT '[]',
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE datasets DISABLE ROW LEVEL SECURITY;
-ALTER TABLE analysis_results DISABLE ROW LEVEL SECURITY;
+npm run dev     # http://localhost:3000
 ```
 
 ---
@@ -193,20 +165,18 @@ ALTER TABLE analysis_results DISABLE ROW LEVEL SECURITY;
 1. 在 Vercel 中导入 GitHub 仓库 `leonis77/ai-data-copilot`
 2. 配置环境变量：`DEEPSEEK_API_KEY`、`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`
 3. 点击 Deploy
-4. 推送 `master` 分支自动触发重新部署
+4. 推送 `master` 自动触发重新部署
 
 ---
 
 ## 更新日志
 
-- **2026-06-14** 通用数据画像：智能列角色识别 + 数值统计
-- **2026-06-14** 智能首页：有数据->工作台，无数据->引导页
-- **2026-06-14** 上传时自动检测数据类型（订单/供货/通用）
+- **2026-06-14** 语义决策系统：角色检测 + 跨表关联 + 反幻觉体系
+- **2026-06-14** AI 引导解析：DeepSeek 结构分析 + 规则引擎兆底
+- **2026-06-14** 智能首页：有数据→工作台，无数据→引导页
 - **2026-06-14** 决策引擎：定价 + 补货决策卡片
-- **2026-06-14** 供货分析模块：价格四分位 + AI 进货建议
-- **2026-06-14** 全局错误边界 + 结构化日志
-- **2026-06-14** AI API 指数退避重试
-- **2026-06-14** localStorage 容量检测 + 自动清理
+- **2026-06-14** 供货分析：价格四分位 + AI 进货建议
+- **2026-06-14** 全局错误边界 + 结构化日志 + AI 重试
 - **2026-06-14** i18n JSON 集中文本管理
 
 ## License
