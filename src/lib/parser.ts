@@ -195,3 +195,45 @@ export function computeStats(rows: Record<string, unknown>[], columns: string[])
   }
   return { stats, distributions, rowCount: rows.length, columnCount: columns.length };
 }
+
+
+// Extract raw cell data for AI preview (no smart parsing)
+export function rawPreview(data: Uint8Array, fileName: string): { sheets: { name: string; preview: string[][]; mergeInfo: string[]; totalRows: number }[] } | null {
+  try {
+    var XLSX = require("xlsx");
+    var wb = XLSX.read(data, { type: "array" });
+    var results: any[] = [];
+    for (var si = 0; si < wb.SheetNames.length; si++) {
+      var sn = wb.SheetNames[si];
+      var sheet = wb.Sheets[sn];
+      if (!sheet["!ref"]) continue;
+      var range = XLSX.utils.decode_range(sheet["!ref"]);
+      
+      var preview: string[][] = [];
+      var mergeInfo: string[] = [];
+      var merges = sheet["!merges"] || [];
+      for (var mi = 0; mi < merges.length; mi++) {
+        var m = merges[mi];
+        var k = XLSX_enc2(m.s.r, m.s.c);
+        var cell = sheet[k];
+        mergeInfo.push("M(" + m.s.r + "," + m.s.c + ")->(" + m.e.r + "," + m.e.c + "):" + (cell ? String(cell.v || "").substring(0, 30) : ""));
+      }
+      
+      for (var r = range.s.r; r <= Math.min(range.s.r + 9, range.e.r); r++) {
+        var row: string[] = [];
+        for (var c = range.s.c; c <= Math.min(range.s.c + 9, range.e.c); c++) {
+          var cl = sheet[XLSX_enc2(r, c)];
+          row.push(cl && cl.v !== undefined && cl.v !== null ? String(cl.v).substring(0, 50).trim() : "");
+        }
+        preview.push(row);
+      }
+      results.push({ name: sn, preview: preview, mergeInfo: mergeInfo, totalRows: range.e.r - range.s.r });
+    }
+    return { sheets: results };
+  } catch (e) { return null; }
+}
+
+function XLSX_enc2(r: number, c: number): string {
+  var col = String.fromCharCode(65 + c);
+  return col + (r + 1);
+}
