@@ -15,6 +15,7 @@ import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { ProcurementPanel } from "@/components/procurement";
+import { GenericOverview } from "@/components/insights/generic-overview";
 import { generateAllDecisions } from "@/lib/decisions";
 import type { DecisionCard } from "@/lib/decisions";
 import { logger } from "@/lib/logger";
@@ -167,6 +168,30 @@ export default function DashboardPage() {
       diagnosis: diagnosis,
       healthScore: healthScore,
     });
+  }
+
+  // Unknown/generic data rendering
+  if (dataProfile === "unknown") {
+    return (
+      <div className="min-h-screen pt-16">
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
+            <div className="flex items-center gap-4 mb-2">
+              <div>
+                <h1 className="text-3xl font-bold text-white/90">
+                  <span className="bg-gradient-to-r from-sky-400 to-cyan-400 bg-clip-text text-transparent">
+                    {"\u6570\u636e\u753b\u50cf"}
+                  </span>
+                </h1>
+                {datasetName && <p className="text-sm text-white/30 mt-1">{datasetName}</p>}
+              </div>
+              <TableSelector onSelect={handleSelect} className="ml-auto" />
+            </div>
+          </motion.div>
+          <GenericOverview columns={datasetData.columns} rows={datasetData.rows} datasetName={datasetName} />
+        </div>
+      </div>
+    );
   }
 
   // Supply data rendering
