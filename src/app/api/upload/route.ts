@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
 
     const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
+    const saveRows = parsed.rows.slice(0, 500);
+    await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: saveRows, summary: parsed.summary });
     return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
   } catch (error) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });

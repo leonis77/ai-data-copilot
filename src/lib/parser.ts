@@ -87,9 +87,10 @@ export function parseFile(data: Uint8Array, fileName: string, sheetName?: string
   if (allRows.length === 0) throw new Error("empty file");
   const finalColumns = [...new Set(allColumns)];
   const activeColumns = finalColumns.filter(function(c) { return allRows.some(function(r) { const v = r[c]; return v !== undefined && v !== null && String(v).trim() !== ""; }); });
-  const rows = allRows.slice(0, 5000);
+  const maxRows = sheetMeta.length > 1 ? 500 : 5000;
+  const rows = allRows.slice(0, maxRows);
   const summary = buildSummary(activeColumns, rows);
-  return { columns: activeColumns, rows, rowCount: rows.length, summary, sheets: sheetMeta.length > 1 ? sheetMeta : null };
+  return { columns: activeColumns, rows, rowCount: allRows.length, summary: summary + (allRows.length > rows.length ? " (showing first " + rows.length + " of " + allRows.length + " rows)" : ""), sheets: sheetMeta.length > 1 ? sheetMeta : null };
 }
 
 function parseCSV(data: Uint8Array): ParsedData {
