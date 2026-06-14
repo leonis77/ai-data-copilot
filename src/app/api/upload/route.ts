@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseFile } from "@/lib/parser";
+import { logger } from "@/lib/logger";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
@@ -8,6 +9,7 @@ export async function POST(request: NextRequest) {
     if (!fileName || !fileData) return NextResponse.json({ error: "missing file" }, { status: 400 });
     const ext = fileName.split(".").pop()?.toLowerCase();
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
+    if (fileData.length > 70 * 1024 * 1024) return NextResponse.json({ error: "file too large (max 50MB)" }, { status: 413 });
     const buffer = Buffer.from(fileData, "base64");
     const parsed = parseFile(new Uint8Array(buffer), fileName, sheetName);
 
@@ -15,7 +17,7 @@ export async function POST(request: NextRequest) {
     await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: parsed.rows, summary: parsed.summary });
     return NextResponse.json({ id, columns: parsed.columns, rows: parsed.rows, rowCount: parsed.rowCount, summary: parsed.summary, sheets: (parsed as any).sheets || null });
   } catch (error) {
-    console.error("Upload error:", error);
+    logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
   }
 }

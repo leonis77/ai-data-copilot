@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataset } from "@/lib/db";
 import { computeStats } from "@/lib/parser";
+import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
 import { injectKnowledge } from "@/lib/rag";
 
@@ -68,12 +69,12 @@ export async function POST(request: NextRequest) {
       if (ragContext) {
         enrichedInput = input + "\n\n[E-commerce Reference Knowledge]\n" + ragContext;
       }
-    } catch {}
+    } catch(e) { logger.warn("RAG inject failed, continuing", { message: e instanceof Error ? e.message : String(e) }); }
 
     const result = await routeAgent(enrichedInput || "Please analyze this data", ctx);
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Agent error:", error);
+    logger.error("Agent API failed", { message: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "agent failed" }, { status: 500 });
   }
 }

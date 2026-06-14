@@ -14,6 +14,8 @@ import { TableSelector } from "@/components/ui/table-selector";
 import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
+import { ProcurementPanel } from "@/components/procurement";
+import { logger } from "@/lib/logger";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,10 @@ export default function DashboardPage() {
       if (!res.ok) { setLoading(false); return; }
       var data = await res.json();
       if (!data || !data.columns) { setLoading(false); return; }
+      if (data.rowCount && data.rowCount >= 5000) {
+        logger.warn("Large dataset truncated", { rowCount: data.rowCount, limit: 5000 });
+        // Show notification handled by parser returning rowCount
+      }
       var selCols: string[] = data.columns || [];
       var filteredRows = (data.rows || []).map(function(r: any) {
         var o: Record<string, unknown> = {};
@@ -143,6 +149,37 @@ export default function DashboardPage() {
   var topMetrics = rankedCols.slice(0, 3);
   var distCols = stats ? Object.keys(stats.distributions) : [];
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
+
+  var dataProfile = "unknown";
+  if (datasetData && datasetData.columns) {
+    var colsStr = datasetData.columns.join(",").toLowerCase();
+    if (/orderId|order|buyer|address|amount|pay|refund|status/.test(colsStr)) dataProfile = "order";
+    else if (/sku|supply|category|spec|express|logistics/.test(colsStr) && !/buyer|customer|address/.test(colsStr)) dataProfile = "supply";
+  }
+
+  // Supply data rendering
+  if (dataProfile === "supply") {
+    return (
+      <div className="min-h-screen pt-16">
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
+            <div className="flex items-center gap-4 mb-2">
+              <div>
+                <h1 className="text-3xl font-bold text-white/90">
+                  <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                    {"供货分析"}
+                  </span>
+                </h1>
+                {datasetName && <p className="text-sm text-white/30 mt-1">{datasetName}</p>}
+              </div>
+              <TableSelector onSelect={handleSelect} className="ml-auto" />
+            </div>
+          </motion.div>
+          <ProcurementPanel datasetData={datasetData} datasetName={datasetName} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-16">

@@ -1,5 +1,6 @@
 import { AgentContext, AgentResponse } from "./types";
-import { getClient } from "./llm";
+import { logger } from "@/lib/logger";
+import { getClient, withRetry } from "./llm";
 
 export async function generalAgent(input: string, ctx: AgentContext): Promise<AgentResponse> {
   const client = getClient();
