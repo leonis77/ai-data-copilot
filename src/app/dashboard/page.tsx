@@ -8,13 +8,15 @@ import { CountUp } from "@/components/ui/count-up";
 import { PieChart, BarChart } from "@/components/charts";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { HealthCard } from "@/components/insights/health-card";
-import { DecisionCard } from "@/components/insights/decision-card";
+import { DecisionCardUI } from "@/components/insights/decision-card";
 import { AIInsightPanel } from "@/components/insights/ai-insight-panel";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { ProcurementPanel } from "@/components/procurement";
+import { generateAllDecisions } from "@/lib/decisions";
+import type { DecisionCard } from "@/lib/decisions";
 import { logger } from "@/lib/logger";
 
 export default function DashboardPage() {
@@ -149,12 +151,26 @@ export default function DashboardPage() {
   var topMetrics = rankedCols.slice(0, 3);
   var distCols = stats ? Object.keys(stats.distributions) : [];
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
+  var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
 
   var dataProfile = "unknown";
   if (datasetData && datasetData.columns) {
     var colsStr = datasetData.columns.join(",").toLowerCase();
     if (/orderId|order|buyer|address|amount|pay|refund|status/.test(colsStr)) dataProfile = "order";
     else if (/sku|supply|category|spec|express|logistics/.test(colsStr) && !/buyer|customer|address/.test(colsStr)) dataProfile = "supply";
+  }
+
+  // Generate decisions for order data
+  var decisions: any[] = [];
+  if (dataProfile === "order" && datasetData.rows.length > 0) {
+    decisions = generateAllDecisions({
+      columns: datasetData.columns,
+      rows: datasetData.rows,
+      datasetName: datasetName,
+      productMetrics: productMetrics,
+      diagnosis: diagnosis,
+      healthScore: healthScore,
+    });
   }
 
   // Supply data rendering
@@ -206,7 +222,23 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Level 1: ACTION - Health Score + Decision Cards */}
+        {/* Level 1: ACTION - Decision Cards Stream */}
+        {decisions.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.5}} className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"今日经营决策"}</h2>
+              <span className="text-xs text-white/15 ml-2">{decisions.length} {"条建议"}</span>
+            </div>
+            <div className="space-y-3">
+              {decisions.map(function(d: any, i: number) {
+                return <DecisionCardUI key={d.id || i} index={i} type={d.type} priority={d.priority} title={d.title} description={d.description} impact={d.impact} action={d.action} confidence={d.confidence} relatedMetric={d.relatedMetric} />;
+              })}
+            </div>
+          </motion.div>
+        )}
+
+      {/* Level 2: QUICK METRICS + Health */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
             <HealthCard score={healthScore?.score || 0} breakdown={healthScore?.breakdown} />
@@ -219,9 +251,7 @@ export default function DashboardPage() {
                   <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"\u4eca\u65e5\u6700\u91cd\u8981\u7684\u7ecf\u8425\u52a8\u4f5c"}</h2>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  {actions.slice(0, 3).map(function(a: any, i: number) {
-                    return <DecisionCard key={i} index={i} title={a.action} description={a.reason || ""} impact={a.expected_impact || ""} priority={a.priority || "P1"} />;
-                  })}
+                  
                 </div>
               </div>
             )}
@@ -282,6 +312,28 @@ export default function DashboardPage() {
             )}
           </div>
           <AIInsightPanel analysis={analysis} loading={analyzing} />
+        </motion.div>
+
+        {/* Detailed data toggle */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{delay:0.5}} className="mt-8 pt-6 border-t border-white/[0.04]">
+          <details className="group">
+            <summary className="text-xs text-white/20 cursor-pointer hover:text-white/35 transition-colors list-none flex items-center gap-2">
+              <span className="group-open:hidden">{"▶ 查看详细数据"}</span>
+              <span className="hidden group-open:inline">{"▼ 收起详细数据"}</span>
+            </summary>
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {d0 && (
+                <div style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
+                </div>
+              )}
+              {d1 && (
+                <div style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <BarChart title={distCols[1]} data={Object.entries(d1).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
+                </div>
+              )}
+            </div>
+          </details>
         </motion.div>
       </div>
     </div>
