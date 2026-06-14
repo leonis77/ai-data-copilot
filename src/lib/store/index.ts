@@ -5,7 +5,7 @@ const MAX_STORE_SIZE = 4 * 1024 * 1024; // 4MB warning threshold
 
 export interface AppStore {
   activeId: string;
-  datasets: { id: string; originalName: string; rowCount: number; columns: string[]; createdAt: string }[];
+  datasets: { id: string; originalName: string; rowCount: number; columns: string[]; createdAt: string; profile?: string }[];
   columnConfig: { datasetId: string; templateId?: string | null; selectedColumns: string[] } | null;
 }
 
@@ -68,11 +68,11 @@ export function setStore(update: Partial<AppStore>): AppStore {
   }
 }
 
-export function addDataset(id: string, name: string, rowCount: number, columns: string[]) {
+export function addDataset(id: string, name: string, rowCount: number, columns: string[], profile?: string) {
   try {
     const s = getStore();
     s.datasets = s.datasets.filter(function(d) { return d.id !== id; });
-    s.datasets.unshift({ id, originalName: name, rowCount, columns, createdAt: new Date().toISOString() });
+    s.datasets.unshift({ id, originalName: name, rowCount, columns, createdAt: new Date().toISOString(), profile: profile || "unknown" });
     if (s.datasets.length > 5) s.datasets = s.datasets.slice(0, 5);
     s.activeId = id;
     s.columnConfig = null;
