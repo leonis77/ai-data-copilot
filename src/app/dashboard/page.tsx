@@ -119,26 +119,33 @@ export default function DashboardPage() {
     );
   }
 
-  function findCol(cols: string[], patterns: RegExp[]): string | undefined {
-    for (var i = 0; i < patterns.length; i++) {
-      var found = cols.find(function(c) { return patterns[i].test(c); });
-      if (found) return found;
-    }
-    return undefined;
+  // -- Column detection via semantic roles (from upload detectRoles) --
+  var semanticCols = (getStore().datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles?.columns) || [];
+  function colByRole(roles: any[], targetRole: string) {
+    var found = roles.find(function(r) { return r.role === targetRole && r.confidence >= 0.6; });
+    return found ? found.column : undefined;
   }
 
   var productMetrics: any[] = [];
   var diagnosis: any[] = [];
   var healthScore: any = { score: 0 };
   var actions: any[] = [];
-  if (datasetData?.rows?.length > 0) {
+  if (datasetData && datasetData.rows && datasetData.rows.length > 0) {
     try {
       var rows = datasetData.rows;
-      var cols = datasetData.columns;
-      var nameCol = findCol(cols, [/\u540d\u79f0/, /\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name/, /title/, /product/, /item/]);
-      var priceCol = findCol(cols, [/\u91d1\u989d/, /\u4ef7\u683c/, /\u5b9e\u4ed8/, /\u603b\u4ef7/, /amount/, /price/, /pay/, /total/, /revenue/]);
-      var qtyCol = findCol(cols, [/\u6570\u91cf/, /\u9500\u91cf/, /quantity/, /qty/, /count/, /num/]);
-      var stockCol = findCol(cols, [/\u5e93\u5b58/, /stock/, /inventory/]);
+      var nameCol = colByRole(semanticCols, "entity_name");
+      var priceCol = colByRole(semanticCols, "money");
+      var qtyCol = colByRole(semanticCols, "quantity");
+      var stockCol = colByRole(semanticCols, "quantity");
+      // Fallback: if no semantic roles, try column name regex
+      if (!nameCol) {
+        var fn = datasetData.columns.find(function(c: string) { return /名称|商品|产品|标题|宝贝|name|title|product|item/.test(c); });
+        if (fn) nameCol = fn;
+      }
+      if (!priceCol) {
+        var fp = datasetData.columns.find(function(c: string) { return /金额|价格|实付|总价|amount|price|pay|total|revenue/.test(c); });
+        if (fp) priceCol = fp;
+      }
       if (nameCol && priceCol) {
         productMetrics = computeProductMetrics(rows, nameCol, priceCol, qtyCol, stockCol);
         diagnosis = diagnoseProducts(productMetrics);
