@@ -157,9 +157,50 @@ export default function DashboardPage() {
   }
   var criticalIssues = diagnosis.filter(function(d: any) { return d.level === "critical"; });
   var numStats = stats ? Object.entries(stats.stats) : [];
-  var rankedCols = (numStats as any[]).sort(function(a, b) { return (b[1].max - b[1].min) - (a[1].max - a[1].min); });
-  var topMetrics = rankedCols.slice(0, 3);
-  var distCols = stats ? Object.keys(stats.distributions) : [];
+
+  // 智能图表列选择：用语义角色+列名排序，过滤无业务价值的列
+  function getColPriority(colName: string): number {
+    // 列名层面的快速判断
+    var cl = colName.toLowerCase();
+    if (/邮费|运费|快递|shipping|freight/.test(cl)) return 0;  // 邮费无业务价值
+    if (/税|tax/.test(cl)) return 0;
+    if (/编号|id|单号|电话|phone/.test(cl)) return 0;
+    // 角色层面的判断
+    for (var ri = 0; ri < semanticRoles.length; ri++) {
+      if (semanticRoles[ri].column === colName) {
+        var role = semanticRoles[ri].role;
+        if (role === "entity_name") return 6;
+        if (role === "quantity") return 7;
+        if (role === "money") return /退款|refund/.test(cl) ? 2 : /折扣|discount/.test(cl) ? 1 : 8;
+        if (role === "datetime") return 4;
+        if (role === "location") return 4;
+        if (role === "category") return 5;
+        return 2;
+      }
+    }
+    return 2;
+  }
+
+  // Metrics: 按业务优先级排序（同优先级按下范围排序）
+  var rankedCols = (numStats as any[]).sort(function(a, b) {
+    var pa = getColPriority(a[0]), pb = getColPriority(b[0]);
+    if (pa !== pb) return pb - pa;
+    return (b[1].max - b[1].min) - (a[1].max - a[1].min);
+  });
+  var topMetrics = rankedCols.filter(function(e) { return getColPriority(e[0]) >= 4; }).slice(0, 3);
+
+  // Distributions: 只展示 entity_name / category / datetime / location 类型的列
+  var distCols = stats ? Object.keys(stats.distributions).filter(function(c) {
+    var p = getColPriority(c);
+    return p >= 4; // 过滤掉低价值列
+  }) : [];
+  if (distCols.length < 2 && stats) {
+    // 回退：如果过滤后不够，用原始列表补足
+    var allDistCols = Object.keys(stats.distributions);
+    for (var di = 0; di < allDistCols.length && distCols.length < 2; di++) {
+      if (distCols.indexOf(allDistCols[di]) === -1) distCols.push(allDistCols[di]);
+    }
+  }
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
   var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
 
