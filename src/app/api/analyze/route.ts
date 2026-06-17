@@ -6,6 +6,8 @@ import { classifyByRoles } from "@/lib/classifier";
 import { mapBusinessConcepts } from "@/lib/business-concepts";
 import { detectRoles } from "@/lib/semantic";
 import { logger } from "@/lib/logger";
+import { computeUserBenchmarks, saveUserBenchmarks } from "@/lib/rag";
+import { injectRAG } from "@/lib/rag";
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,8 +80,22 @@ export async function POST(request: NextRequest) {
         undefined
       );
 
+      // Step 5.5: RAG 注入（用户历史 + 行业知识）
+      try {
+        var ragCtx = await injectRAG(question || "分析数据", dsId, contextText);
+        if (ragCtx.combined) {
+          contextText = ragCtx.combined + "\n\n---\n" + contextText;
+        }
+      } catch (ragErr) { /* non-blocking */ }
+
       // Step 6: AI 分析
       var result = await analyzeWithContext(contextText, classification.class, question);
+
+      // Step 6.5: 保存用户基准（非阻塞）
+      try {
+        var benchmarks = computeUserBenchmarks(dsId, stats, rows.length, columns.length, classification.class);
+        saveUserBenchmarks(dsId, benchmarks);
+      } catch (bmErr) { /* non-blocking */ }
 
       // Step 7: 保存
       await saveAnalysis({

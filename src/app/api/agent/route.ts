@@ -3,7 +3,7 @@ import { getDataset, listDatasets } from "@/lib/db";
 import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
-import { injectKnowledge } from "@/lib/rag";
+import { injectRAG } from "@/lib/rag";
 import { detectRelations } from "@/lib/semantic";
 
 export async function POST(request: NextRequest) {
@@ -79,11 +79,11 @@ export async function POST(request: NextRequest) {
       datasetName: ds.original_name || ds.name || "Unnamed Dataset",
     };
 
-    let enrichedInput = input;
+    var enrichedInput = input;
     try {
-      const ragContext = await injectKnowledge(input, dataSummary);
-      if (ragContext) {
-        enrichedInput = input + "\n\n[E-commerce Reference Knowledge]\n" + ragContext;
+      var ragCtx = await injectRAG(input, ds.id, dataSummary);
+      if (ragCtx.combined) {
+        enrichedInput = ragCtx.combined + "\n\n用户问题:\n" + input + "\n\n数据上下文:\n" + dataSummary;
       }
     } catch(e) { logger.warn("RAG inject failed, continuing", { message: e instanceof Error ? e.message : String(e) }); }
 
