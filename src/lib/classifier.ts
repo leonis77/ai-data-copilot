@@ -54,8 +54,8 @@ interface RoleFingerprint {
 var FINGERPRINTS: RoleFingerprint[] = [
   // 订单：必须有 money + entity_name + datetime
   { class: "order", required: ["money", "entity_name", "datetime"], optional: ["location", "identifier"], penaltyRoles: [], label: "订单表" },
-  // 供货：money + entity_name + quantity，如果有 datetime 则大概率是订单表
-  { class: "supply", required: ["money", "entity_name", "quantity"], optional: ["identifier", "category", "location"], penaltyRoles: ["datetime"], label: "供货表" },
+  // 供货：money + entity_name（不强制 quantity，真实供货表经常没有数量列），有 datetime 则扣分
+  { class: "supply", required: ["money", "entity_name"], optional: ["quantity", "identifier", "category", "location"], penaltyRoles: ["datetime"], label: "供货表" },
   // 推广：money + entity_name，展现/点击等衍生量
   { class: "marketing", required: ["money", "entity_name"], optional: ["quantity", "identifier"], penaltyRoles: ["datetime", "location"], label: "推广报表" },
   // 售后：money + entity_name + datetime（退款时间）
@@ -123,23 +123,49 @@ export function classifyByRoles(semanticRoles: ColumnRole[]): ClassificationResu
 
 export function classifyByColumns(columns: string[], semanticRoles: ColumnRole[]): ClassificationResult {
   var roleResult = classifyByRoles(semanticRoles);
-  if (roleResult.confidence >= 0.6) return roleResult;
-
   var joined = columns.join(",").toLowerCase();
-  var hasOrderSignal = /订单|买家|收货|支付|退款|实付|order|buyer|customer/.test(joined);
-  var hasSupplySignal = /供货|供应商|采购|批发|产地|supply|vendor|procurement/.test(joined);
-  var hasInventorySignal = /库存|仓库|库位|入库|出库|inventory|warehouse|stock/.test(joined);
 
-  if (hasOrderSignal && roleResult.class === "unknown") {
-    roleResult.signals.push({ source: "role_presence", description: "列名包含订单/买家等关键词，辅助判断为订单表", weight: 0.15 });
-    roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.65);
+  var hasOrderSignal = /订单|买家|收货|支付|实付|应付|order|buyer|customer|收货人/.test(joined);
+  var hasSupplySignal = /供货|供应商|采购|批发|产地|进货|supply|vendor|procurement|sku|规格|物流|快递/.test(joined);
+  var hasMarketingSignal = /花费|展现|点击|投产|roi|消耗|impression|click|ctr|cpc|广告|推广|投放|campaign/.test(joined);
+  var hasInventorySignal = /库存|仓库|库位|入库|出库|inventory|warehouse|stock/.test(joined);
+  var hasAftersalesSignal = /退款|退货|售后|refund|纠纷/.test(joined);
+
+  // 关键纠偏1：如果角色分类是 marketing 但没有推广关键词，且有供货关键词 → 改判供货
+  if (roleResult.class === "marketing" && !hasMarketingSignal && hasSupplySignal) {
+    roleResult.class = "supply";
+    roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.85);
+    roleResult.signals.push({ source: "role_combination", description: "列名包含供货/产地/物流等关键词，修正为供货表", weight: 0.1 });
+    return roleResult;
   }
-  if (hasSupplySignal && roleResult.class === "unknown") {
-    roleResult.signals.push({ source: "role_presence", description: "列名包含供货/供应商等关键词，辅助判断为供货表", weight: 0.15 });
-    roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.65);
+
+  // 关键纠偏2：如果角色分类是 supply 但有订单+日期关键词 → 改判订单
+  if (roleResult.class === "supply" && hasOrderSignal) {
+    roleResult.class = "order";
+    roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.85);
+    roleResult.signals.push({ source: "role_combination", description: "列名包含订单/买家等关键词，修正为订单表", weight: 0.1 });
+    return roleResult;
   }
-  if (hasInventorySignal && roleResult.class === "unknown") {
-    roleResult.signals.push({ source: "role_presence", description: "列名包含库存/仓库等关键词，辅助判断为库存表", weight: 0.15 });
+
+  // 关键纠偏3：unknown 时用列名推断
+  if (roleResult.class === "unknown") {
+    if (hasSupplySignal) {
+      roleResult.class = "supply";
+      roleResult.confidence = Math.min(roleResult.confidence + 0.25, 0.65);
+      roleResult.signals.push({ source: "role_presence", description: "列名包含供货/供应商/产地等关键词，辅助判断为供货表", weight: 0.25 });
+    } else if (hasOrderSignal) {
+      roleResult.class = "order";
+      roleResult.confidence = Math.min(roleResult.confidence + 0.25, 0.65);
+      roleResult.signals.push({ source: "role_presence", description: "列名包含订单/买家等关键词，辅助判断为订单表", weight: 0.25 });
+    } else if (hasMarketingSignal) {
+      roleResult.class = "marketing";
+      roleResult.confidence = Math.min(roleResult.confidence + 0.2, 0.6);
+      roleResult.signals.push({ source: "role_presence", description: "列名包含推广/花费/展现等关键词，辅助判断为推广报表", weight: 0.2 });
+    }
+  }
+
+  // 低置信度加固
+  if (roleResult.confidence < 0.6 && hasSupplySignal) {
     roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.65);
   }
 
