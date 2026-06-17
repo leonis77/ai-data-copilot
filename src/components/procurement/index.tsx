@@ -12,7 +12,10 @@ interface ProcurementPanelProps {
 }
 
 function findCol(cols: string[], patterns: RegExp[]): string | undefined {
-  for (const p of patterns) { const found = cols.find(function(c: string) { return p.test(c); }); if (found) return found; }
+  for (var pi = 0; pi < patterns.length; pi++) {
+    var found = cols.find(function(c: string) { return c !== "sheet_name" && patterns[pi].test(c); });
+    if (found) return found;
+  }
   return undefined;
 }
 

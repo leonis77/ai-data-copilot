@@ -140,7 +140,7 @@ export default function DashboardPage() {
       var stockCol = colByRole(semanticRoles, "quantity");
       // Fallback: if no semantic roles, try column name regex
       if (!nameCol) {
-        var fn = datasetData.columns.find(function(c: string) { return /名称|商品|产品|标题|宝贝|name|title|product|item/.test(c); });
+        var fn = datasetData.columns.find(function(c: string) { return c !== "sheet_name" && /名称|商品|产品|标题|宝贝|name|title|product|item/.test(c); });
         if (fn) nameCol = fn;
       }
       if (!priceCol) {

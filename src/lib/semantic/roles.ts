@@ -24,8 +24,18 @@ var ROLE_DECISIONS: Record<string, string[]> = {
 export function detectRoles(columns: string[], sampleRows: Record<string, unknown>[]): ColumnRole[] {
   var result: ColumnRole[] = [];
 
+  // 元数据列（系统生成的，不是用户数据）
+  var META_COLUMNS = ["sheet_name", "__row_id", "__index"];
+
   for (var i = 0; i < columns.length; i++) {
     var col = columns[i];
+
+    // 跳过元数据列
+    if (META_COLUMNS.indexOf(col) !== -1) {
+      result.push({ column: col, role: "text", confidence: 0, sampleValues: [] });
+      continue;
+    }
+
     var bestRole: SemanticRole = "text";
     var bestConfidence = 0;
 
