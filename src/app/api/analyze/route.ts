@@ -4,9 +4,7 @@ import { analyzeWithContext, analyzeData, buildAnalysisContext } from "@/lib/ai"
 import { computeStats } from "@/lib/parser";
 import { classifyByRoles } from "@/lib/classifier";
 import { mapBusinessConcepts } from "@/lib/business-concepts";
-import { computeCrossTableMetrics } from "@/lib/semantic/relations";
-import type { CrossTableInput, CrossTableMetrics } from "@/lib/semantic/relations";
-import { getStore } from "@/lib/store";
+import { detectRoles } from "@/lib/semantic";
 import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -26,20 +24,27 @@ export async function POST(request: NextRequest) {
     var columns: string[] = ds.columns || [];
     var rows: any[] = ds.rows || [];
 
-    // ── New layered pipeline ──
+    // ── Layered pipeline (纯服务端计算，不依赖浏览器 localStorage) ──
     try {
-      var storeData = getStore();
-      var datasetMeta = storeData.datasets.find(function (d: any) { return d.id === dsId; });
-      var semanticRoles = datasetMeta?.semanticRoles?.columns || [];
+      // Step 1: 从数据直接检测语义角色（服务端可用）
+      var semanticRoles = detectRoles(columns, rows.slice(0, 50));
 
+      // Step 2: 表格分类
       var classification = classifyByRoles(semanticRoles);
+
+      // Step 3: 业务概念映射
       var businessProfile = mapBusinessConcepts(semanticRoles, classification.class, columns);
+
+      // Step 4: 预计算指标
       var stats = computeStats(rows, columns);
 
-      // Top entities
+      // Top 实体提取
       var topEntities: { name: string; revenue?: number; share?: number }[] = [];
-      var entityCol = businessProfile.getColumn("product_name") || businessProfile.getColumn("supplier_name") || businessProfile.getColumn("customer_name");
-      var moneyCol = businessProfile.getColumn("selling_price") || businessProfile.getColumn("procurement_cost");
+      var entityCol = businessProfile.getColumn("product_name") ||
+        businessProfile.getColumn("supplier_name") ||
+        businessProfile.getColumn("customer_name");
+      var moneyCol = businessProfile.getColumn("selling_price") ||
+        businessProfile.getColumn("procurement_cost");
 
       if (entityCol && moneyCol) {
         var entityMap: Record<string, number> = {};
@@ -61,34 +66,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Cross-table metrics
-      var crossTableContext: any = undefined;
-      try {
-        var allDatasets = storeData.datasets;
-        if (allDatasets && allDatasets.length > 1) {
-          for (var k = 0; k < allDatasets.length; k++) {
-            var other = allDatasets[k];
-            if (other.id === dsId || !other.semanticRoles?.columns) continue;
-            var hasEntity = other.semanticRoles.columns.some(function (r: any) { return r.role === "entity_name" && r.confidence >= 0.6; });
-            if (!hasEntity) continue;
-            crossTableContext = {
-              entityMatchRate: 0, unmatchedCount: 0,
-              note: "关联表 " + other.originalName + " 已检测到，切换到该表后将进行完整跨表分析",
-            };
-            break;
-          }
-        }
-      } catch (crossErr) {
-        logger.warn("Cross-table context skipped", { message: String(crossErr) });
-      }
-
+      // Step 5: 构建分层上下文
       var contextText = buildAnalysisContext(
-        classification.class, classification.confidence, businessProfile,
-        rows.length, columns.length, topEntities, undefined, crossTableContext
+        classification.class,
+        classification.confidence,
+        businessProfile,
+        rows.length,
+        columns.length,
+        topEntities,
+        undefined,
+        undefined
       );
 
+      // Step 6: AI 分析
       var result = await analyzeWithContext(contextText, classification.class, question);
 
+      // Step 7: 保存
       await saveAnalysis({
         id: "analysis_" + dsId, datasetId: dsId,
         summary: result.summary, insights: JSON.stringify(result.insights),
@@ -99,7 +92,6 @@ export async function POST(request: NextRequest) {
     } catch (pipelineErr) {
       logger.warn("Layered pipeline failed, fallback to legacy", { message: String(pipelineErr) });
 
-      // Fallback
       var stats2 = computeStats(rows, columns);
       var dataSummary = buildLegacySummary(stats2, columns, rows);
       var result2 = await analyzeData(dataSummary, question);
@@ -152,9 +144,6 @@ function buildLegacySummary(stats: ReturnType<typeof computeStats>, columns: str
   var priceCol = findCol(/price|amount|价|金额|实付/);
   var nameCol = findCol(/name|product|名称|商品|产品|标题/);
   var dateCol = findCol(/date|time|时间|日期|下单/);
-  var statCol = findCol(/status|状态/);
-  var addrCol = findCol(/addr|地址|收货|省|市/);
-  var buyerCol = findCol(/buyer|member|买家|会员/);
 
   var entries = Object.entries(stats.stats);
   for (var i = 0; i < Math.min(entries.length, 4); i++) {
@@ -170,11 +159,7 @@ function buildLegacySummary(stats: ReturnType<typeof computeStats>, columns: str
       prodMap[nm] = (prodMap[nm] || 0) + amt;
     }
     var topProd = Object.entries(prodMap).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8);
-    var topTotal = topProd.reduce(function (s, e) { return s + e[1]; }, 0);
-    var allTotal = Object.values(prodMap).reduce(function (s, v) { return s + v; }, 0);
-    var concentration = allTotal > 0 ? Math.round(topTotal / allTotal * 100) : 0;
     p.push("HOT: top8 = " + topProd.map(function (e) { return e[0] + "(" + Math.round(e[1]) + ")"; }).join(", "));
-    p.push("HOT: top8 share = " + concentration + "%");
   }
 
   if (dateCol && priceCol) {
@@ -184,11 +169,7 @@ function buildLegacySummary(stats: ReturnType<typeof computeStats>, columns: str
       dateMap[dt] = (dateMap[dt] || 0) + (Number(rows[di][priceCol]) || 0);
     }
     var dates = Object.keys(dateMap).sort();
-    if (dates.length >= 2) {
-      var first = Math.round(dateMap[dates[0]] || 0);
-      var last = Math.round(dateMap[dates[dates.length - 1]] || 0);
-      p.push("TREND: " + (last > first ? "UP" : last < first ? "DOWN" : "FLAT"));
-    }
+    if (dates.length >= 2) p.push("TREND: " + dates.length + " days");
   }
 
   return p.join("\n");
