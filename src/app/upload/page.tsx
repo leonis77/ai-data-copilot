@@ -14,6 +14,7 @@ import type { SheetInfo } from "@/components/ui/sheet-picker";
 import { matchTemplate, applyTemplate } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 import { addDataset } from "@/lib/store";
+import { classifyByRoles } from "@/lib/classifier";
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise(function(resolve, reject) {
@@ -24,10 +25,14 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function detectProfile(columns: string[]): string {
-  const joined = columns.join(",");
+function detectProfile(columns: string[], semanticRoles?: any): string {
+  if (semanticRoles && semanticRoles.columns && semanticRoles.columns.length > 0) {
+    var result = classifyByRoles(semanticRoles.columns);
+    if (result.confidence >= 0.5) return result.class;
+  }
+  var joined = columns.join(",");
   if (/订单|买家|收货|支付|退款|实付|商品标题/.test(joined)) return "order";
-  if (/sku|供货|产地|规格|物流|发货地/.test(joined)) return "supply";
+  if (/sku|供货|产地|规格|物流|发货地|供应商/.test(joined)) return "supply";
   return "unknown";
 }
 
@@ -106,7 +111,7 @@ export default function UploadPage() {
       const tmpl = matchTemplate(data.columns) || null; setTemplate(tmpl);
       setCols(applyTemplate(data.columns, tmpl));
 
-      const profile = detectProfile(data.columns);
+      const profile = detectProfile(data.columns, data.semanticRoles);
       addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles);
     } catch (e: any) { setError(e.message); }
     finally { setUploading(false); }
