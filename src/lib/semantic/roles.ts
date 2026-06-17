@@ -1,13 +1,15 @@
 import type { SemanticRole, ColumnRole, SemanticProfile } from "./types";
 
 var ROLE_PATTERNS: Record<string, RegExp> = {
+  // Order matters! More specific patterns should be checked first.
+  // e.g. "\u4ea7\u54c1\u5206\u7c7b" \u2192 should match category ("\u5206\u7c7b") not entity_name ("\u4ea7\u54c1")
   money: /\u4ef7|\u91d1\u989d|\u8d39|\u6b3e|pay|amount|price|cost|revenue|total|\u5b9e\u4ed8/i,
   datetime: /\u65f6\u95f4|\u65e5\u671f|date|time|\u4e0b\u5355|\u521b\u5efa|order/i,
-  entity_name: /\u540d\u79f0|\u6807\u9898|\u5546\u54c1|\u4ea7\u54c1|name|title|product|item|\u5b9d\u8d1d/i,
   identifier: /\u7f16\u53f7|id$|\u5355\u53f7|\u7535\u8bdd|phone|sku|code|\u7801/i,
+  category: /\u5206\u7c7b|\u7c7b\u578b|\u72b6\u6001|category|type|status|\u54c1\u7c7b/i,
+  entity_name: /\u540d\u79f0|\u6807\u9898|\u5546\u54c1|\u4ea7\u54c1|name|title|product|item|\u5b9d\u8d1d/i,
   location: /\u5730\u5740|\u7701|\u5e02|addr|region|location|\u6536\u8d27/i,
   quantity: /\u6570\u91cf|\u4ef6\u6570|qty|quantity|count|volume|\u9500\u91cf/i,
-  category: /\u5206\u7c7b|\u7c7b\u578b|\u72b6\u6001|category|type|status|\u54c1\u7c7b/i,
 };
 
 var ROLE_DECISIONS: Record<string, string[]> = {
