@@ -1,6 +1,6 @@
-import { PlatformTemplate } from "./types";
+import { LegacyTemplate } from "./types";
 
-export const tmall: PlatformTemplate = {
+export const tmall: LegacyTemplate = {
   id: "tmall",
   name: "天猫/淘宝",
   fieldMap: {

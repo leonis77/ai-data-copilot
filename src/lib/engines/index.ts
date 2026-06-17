@@ -4,3 +4,7 @@ export { diagnoseProducts, computeHealthScore } from "./diagnosis-engine";
 export type { Diagnosis, HealthScore } from "./diagnosis-engine";
 export { generateActions, computePriority } from "./decision-engine";
 export type { Action } from "./decision-engine";
+export { analyzeCampaigns } from "./marketing-engine";
+export type { CampaignMetrics, CampaignAlert, MarketingAnalysis } from "./marketing-engine";
+export { computeProductPnL } from "./profit-engine";
+export type { ProductPnL, ProfitAnalysis } from "./profit-engine";

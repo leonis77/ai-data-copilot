@@ -16,6 +16,8 @@ export type BusinessConceptId =
   | "product_name" | "supplier_name" | "customer_name" | "warehouse_name"
   | "order_time" | "delivery_time" | "payment_time" | "update_time"
   | "delivery_address" | "warehouse_location" | "supplier_region"
+  | "ad_spend" | "impressions" | "clicks" | "conversions" | "roi" | "cpc" | "ctr"
+  | "refund_reason" | "dispute"
   | "order_id" | "sku_code" | "category_name" | "status_label" | "phone_number"
   | "unknown";
 
@@ -48,7 +50,11 @@ var CONCEPT_LABELS: Record<BusinessConceptId, string> = {
   order_time: "下单时间", delivery_time: "发货时间", payment_time: "付款时间",
   update_time: "更新时间", delivery_address: "收货地址", warehouse_location: "仓库位置",
   supplier_region: "产地", order_id: "订单编号", sku_code: "SKU编码",
-  category_name: "分类", status_label: "状态", phone_number: "联系电话", unknown: "未知",
+  category_name: "分类", status_label: "状态", phone_number: "联系电话",
+  ad_spend: "广告花费", impressions: "展现量", clicks: "点击量",
+  conversions: "转化量", roi: "投产比(ROI)", cpc: "点击单价", ctr: "点击率",
+  refund_reason: "退款原因", dispute: "纠纷",
+  unknown: "未知",
 };
 
 // ============================================================================
@@ -109,6 +115,17 @@ var CONCEPT_RULES: ConceptRule[] = [
   { role: "identifier", keywords: /电话|手机|phone|mobile|tel/i, concept: "phone_number" },
   // category role
   { role: "category", keywords: /.*/, concept: "category_name" },
+  // ── marketing-specific ──
+  { role: "money", keywords: /花费|消耗|广告费|投放|spend|cost/i, tableClasses: ["marketing"], concept: "ad_spend" },
+  { role: "quantity", keywords: /展现|曝光|impression/i, tableClasses: ["marketing"], concept: "impressions" },
+  { role: "quantity", keywords: /点击|click/i, tableClasses: ["marketing"], concept: "clicks" },
+  { role: "quantity", keywords: /成交笔数|转化|conversion|订单数/i, tableClasses: ["marketing"], concept: "conversions" },
+  { role: "text", keywords: /投产|roi|投入产出/i, tableClasses: ["marketing"], concept: "roi" },
+  { role: "money", keywords: /cpc|点击单价|点击成本/i, tableClasses: ["marketing"], concept: "cpc" },
+  { role: "text", keywords: /ctr|点击率/i, tableClasses: ["marketing"], concept: "ctr" },
+  // ── aftersales-specific ──
+  { role: "money", keywords: /退款|售后.*金额|返还/i, tableClasses: ["aftersales"], concept: "refund_amount" },
+  { role: "category", keywords: /退款原因|售后原因|退货原因|原因/i, tableClasses: ["aftersales"], concept: "refund_reason" },
 ];
 
 // ============================================================================

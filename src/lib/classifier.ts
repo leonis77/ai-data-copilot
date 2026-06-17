@@ -11,7 +11,7 @@
 
 import type { ColumnRole, SemanticRole } from "@/lib/semantic/types";
 
-export type TableClass = "order" | "supply" | "inventory" | "financial" | "unknown";
+export type TableClass = "order" | "supply" | "inventory" | "financial" | "marketing" | "aftersales" | "product" | "unknown";
 
 export interface ClassificationResult {
   class: TableClass;
@@ -32,6 +32,9 @@ export var TABLE_LABELS: Record<TableClass, string> = {
   supply: "供货表",
   inventory: "库存表",
   financial: "财务流水",
+  marketing: "推广报表",
+  aftersales: "售后表",
+  product: "商品目录",
   unknown: "通用数据表",
 };
 
@@ -49,7 +52,10 @@ interface RoleFingerprint {
 var FINGERPRINTS: RoleFingerprint[] = [
   { class: "order", required: ["money", "entity_name"], optional: ["datetime", "location", "identifier"], label: "订单表" },
   { class: "supply", required: ["money", "entity_name", "quantity"], optional: ["identifier", "category"], label: "供货表" },
+  { class: "marketing", required: ["money", "entity_name"], optional: ["quantity", "datetime", "identifier"], label: "推广报表" },
+  { class: "aftersales", required: ["money", "entity_name"], optional: ["datetime", "category", "identifier"], label: "售后表" },
   { class: "inventory", required: ["entity_name", "quantity"], optional: ["location", "category", "identifier"], label: "库存表" },
+  { class: "product", required: ["entity_name"], optional: ["category", "money", "identifier"], label: "商品目录" },
   { class: "financial", required: ["money", "datetime"], optional: ["category", "entity_name", "identifier"], label: "财务流水" },
 ];
 

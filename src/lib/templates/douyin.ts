@@ -1,6 +1,6 @@
-import { PlatformTemplate } from "./types";
+import { LegacyTemplate } from "./types";
 
-export const douyin: PlatformTemplate = {
+export const douyin: LegacyTemplate = {
   id: "douyin",
   name: "抖音电商",
   fieldMap: {

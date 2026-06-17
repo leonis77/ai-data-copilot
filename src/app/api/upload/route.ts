@@ -4,6 +4,7 @@ import { analyzeSheetStructure } from "@/lib/parser-ai";
 import { logger } from "@/lib/logger";
 import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
+import { matchPlatformTemplate } from "@/lib/templates/matcher";
 
 var XLSX = require("xlsx");
 
@@ -103,6 +104,23 @@ export async function POST(request: NextRequest) {
     
     var id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     var saveRows = parsed.rows.slice(0, 500);
+
+    // Template matching (best-effort, non-blocking)
+    var templateMatch: any = null;
+    try {
+      var matchResult = matchPlatformTemplate(parsed.columns);
+      if (matchResult) {
+        templateMatch = {
+          templateId: matchResult.template.id,
+          templateName: matchResult.template.name,
+          category: matchResult.template.category,
+          confidence: matchResult.confidence,
+          columnMapping: matchResult.columnMapping,
+        };
+        logger.info("Template matched: " + matchResult.template.name, { confidence: matchResult.confidence });
+      }
+    } catch (tmplErr) { logger.warn("Template matching skipped"); }
+
     try {
       try {
       await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: saveRows, summary: parsed.summary });
@@ -115,6 +133,7 @@ export async function POST(request: NextRequest) {
       id, columns: parsed.columns, rows: parsed.rows,
       rowCount: parsed.rowCount, summary: parsed.summary, semanticRoles: semProfile,
       sheets: (parsed as any).sheets || null,
+      templateMatch: templateMatch,
     });
   } catch (error) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });

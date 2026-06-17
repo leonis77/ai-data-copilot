@@ -1,6 +1,6 @@
-import { PlatformTemplate } from "./types";
+import { LegacyTemplate } from "./types";
 
-export const generic: PlatformTemplate = {
+export const generic: LegacyTemplate = {
   id: "generic",
   name: "通用模式",
   fieldMap: {},

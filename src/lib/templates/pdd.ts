@@ -1,6 +1,6 @@
-import { PlatformTemplate } from "./types";
+import { LegacyTemplate } from "./types";
 
-export const pdd: PlatformTemplate = {
+export const pdd: LegacyTemplate = {
   id: "pdd",
   name: "拼多多",
   fieldMap: {

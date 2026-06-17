@@ -1,6 +1,6 @@
-import { PlatformTemplate } from "./types";
+import { LegacyTemplate } from "./types";
 
-export const jd: PlatformTemplate = {
+export const jd: LegacyTemplate = {
   id: "jd",
   name: "京东",
   fieldMap: {
