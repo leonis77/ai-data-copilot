@@ -120,7 +120,8 @@ export default function DashboardPage() {
   }
 
   // -- Column detection via semantic roles (from upload detectRoles) --
-  var semanticCols = (getStore().datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles?.columns) || [];
+  var storeData = getStore();
+  var semanticRoles = (storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles?.columns) || [];
   function colByRole(roles: any[], targetRole: string) {
     var found = roles.find(function(r) { return r.role === targetRole && r.confidence >= 0.6; });
     return found ? found.column : undefined;
@@ -133,10 +134,10 @@ export default function DashboardPage() {
   if (datasetData && datasetData.rows && datasetData.rows.length > 0) {
     try {
       var rows = datasetData.rows;
-      var nameCol = colByRole(semanticCols, "entity_name");
-      var priceCol = colByRole(semanticCols, "money");
-      var qtyCol = colByRole(semanticCols, "quantity");
-      var stockCol = colByRole(semanticCols, "quantity");
+      var nameCol = colByRole(semanticRoles, "entity_name");
+      var priceCol = colByRole(semanticRoles, "money");
+      var qtyCol = colByRole(semanticRoles, "quantity");
+      var stockCol = colByRole(semanticRoles, "quantity");
       // Fallback: if no semantic roles, try column name regex
       if (!nameCol) {
         var fn = datasetData.columns.find(function(c: string) { return /名称|商品|产品|标题|宝贝|name|title|product|item/.test(c); });
@@ -154,7 +155,6 @@ export default function DashboardPage() {
       }
     } catch(e) {}
   }
-
   var criticalIssues = diagnosis.filter(function(d: any) { return d.level === "critical"; });
   var numStats = stats ? Object.entries(stats.stats) : [];
   var rankedCols = (numStats as any[]).sort(function(a, b) { return (b[1].max - b[1].min) - (a[1].max - a[1].min); });
@@ -163,9 +163,7 @@ export default function DashboardPage() {
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
   var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
 
-  var storeData = getStore();
   var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
-  var semanticRoles = storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles;
   var relations: DatasetRelation[] = [];
   try { relations = detectRelations(storeData.datasets.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles || null }; })); } catch(e) {}
 
