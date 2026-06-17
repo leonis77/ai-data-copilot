@@ -46,17 +46,26 @@ interface RoleFingerprint {
   class: TableClass;
   required: SemanticRole[];
   optional: SemanticRole[];
+  /** 如果存在这些角色，说明大概率不是此类型，扣分 */
+  penaltyRoles: SemanticRole[];
   label: string;
 }
 
 var FINGERPRINTS: RoleFingerprint[] = [
-  { class: "order", required: ["money", "entity_name"], optional: ["datetime", "location", "identifier"], label: "订单表" },
-  { class: "supply", required: ["money", "entity_name", "quantity"], optional: ["identifier", "category"], label: "供货表" },
-  { class: "marketing", required: ["money", "entity_name"], optional: ["quantity", "datetime", "identifier"], label: "推广报表" },
-  { class: "aftersales", required: ["money", "entity_name"], optional: ["datetime", "category", "identifier"], label: "售后表" },
-  { class: "inventory", required: ["entity_name", "quantity"], optional: ["location", "category", "identifier"], label: "库存表" },
-  { class: "product", required: ["entity_name"], optional: ["category", "money", "identifier"], label: "商品目录" },
-  { class: "financial", required: ["money", "datetime"], optional: ["category", "entity_name", "identifier"], label: "财务流水" },
+  // 订单：必须有 money + entity_name + datetime
+  { class: "order", required: ["money", "entity_name", "datetime"], optional: ["location", "identifier"], penaltyRoles: [], label: "订单表" },
+  // 供货：money + entity_name + quantity，如果有 datetime 则大概率是订单表
+  { class: "supply", required: ["money", "entity_name", "quantity"], optional: ["identifier", "category", "location"], penaltyRoles: ["datetime"], label: "供货表" },
+  // 推广：money + entity_name，展现/点击等衍生量
+  { class: "marketing", required: ["money", "entity_name"], optional: ["quantity", "identifier"], penaltyRoles: ["datetime", "location"], label: "推广报表" },
+  // 售后：money + entity_name + datetime（退款时间）
+  { class: "aftersales", required: ["money", "entity_name", "datetime"], optional: ["category", "identifier"], penaltyRoles: [], label: "售后表" },
+  // 库存：entity_name + quantity，没有 money
+  { class: "inventory", required: ["entity_name", "quantity"], optional: ["location", "category"], penaltyRoles: ["money"], label: "库存表" },
+  // 商品目录：entity_name 为主
+  { class: "product", required: ["entity_name"], optional: ["category", "identifier"], penaltyRoles: ["money", "datetime"], label: "商品目录" },
+  // 财务：money + datetime，无 entity_name
+  { class: "financial", required: ["money", "datetime"], optional: ["category", "identifier"], penaltyRoles: ["entity_name"], label: "财务流水" },
 ];
 
 // ============================================================================
@@ -177,6 +186,14 @@ function scoreFingerprint(
   var optionalSatisfied = 0;
   for (var j = 0; j < fp.optional.length; j++) {
     if (presentRoles.indexOf(fp.optional[j]) !== -1) { optionalSatisfied++; score += 0.1; }
+  }
+
+  // Penalty roles: if present, this is likely NOT this table type
+  for (var p = 0; p < fp.penaltyRoles.length; p++) {
+    if (presentRoles.indexOf(fp.penaltyRoles[p]) !== -1) {
+      score -= 0.35;
+      signals.push({ source: "role_presence", description: "存在排斥角色: " + fp.penaltyRoles[p] + "（大概率不是" + fp.label + "）", weight: -0.35 });
+    }
   }
 
   if (requiredSatisfied === fp.required.length) {
