@@ -22,6 +22,8 @@ import CrossPlatformView from "@/components/insights/cross-platform";
 import { generateAllDecisions } from "@/lib/decisions";
 import type { DecisionCard } from "@/lib/decisions";
 import { logger } from "@/lib/logger";
+import type { DecisionChain, EvidenceCard, PrioritizedAction } from "@/lib/pipeline/types";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,7 @@ export default function DashboardPage() {
   const [datasetName, setDatasetName] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [datasetData, setDatasetData] = useState<any>(null);
+  const [decisionChain, setDecisionChain] = useState<DecisionChain | null>(null);
 
   useEffect(function() { loadData(""); }, []);
 
@@ -63,6 +66,30 @@ export default function DashboardPage() {
       setHasData(true);
       setDatasetName(data.original_name || "");
       setLoading(false);
+      // Fetch DecisionChain from backend pipeline
+      try {
+        var chainRes = await fetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id }),
+        });
+        if (chainRes.ok) {
+          var chainData = await chainRes.json();
+          if (chainData.type === "decision_chain") {
+            setDecisionChain(chainData as DecisionChain);
+            logger.info("Dashboard loaded DecisionChain from pipeline", {
+              evidenceCards: chainData.evidenceCards?.length || 0,
+              actions: chainData.actions?.length || 0,
+              crossPlatform: chainData.crossPlatform?.length || 0,
+              crossDataset: chainData.crossDataset?.length || 0,
+            });
+          }
+        }
+      } catch(e) {
+        logger.warn("DecisionChain fetch failed, dashboard falls back to local compute", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
       try {
         var ar = await fetch("/api/analyze?dataset=" + id);
         if (ar.ok) { var ad = await ar.json(); if (ad.summary) setAnalysis(ad); }
@@ -370,8 +397,16 @@ export default function DashboardPage() {
         {hasMultiPlatform && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
             <CrossPlatformView
-              comparisons={[]}
-              coveredPlatforms={Array.from(new Set(allPlatforms))}
+              comparisons={decisionChain?.metrics?.crossPlatform || []}
+              coveredPlatforms={
+                decisionChain?.metrics?.crossPlatform
+                  ? Array.from(new Set(
+                      decisionChain.metrics.crossPlatform.flatMap(function(c) {
+                        return c.platformResults.map(function(p) { return p.platform; });
+                      })
+                    ))
+                  : Array.from(new Set(allPlatforms))
+              }
             />
           </motion.div>
         )}

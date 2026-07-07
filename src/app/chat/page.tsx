@@ -9,11 +9,28 @@ import { TableSelector } from "@/components/ui/table-selector";
 import { getStore } from "@/lib/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { EvidenceCard, PrioritizedAction, CrossDatasetSummary, ApplicableRule, ReasoningStep, PipelineMeta } from "@/lib/pipeline/types";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
+import { EvidenceCardView } from "@/components/insights/evidence-card-view";
+import { ActionCardView } from "@/components/insights/action-card-view";
+import { CrossDatasetView } from "@/components/insights/cross-dataset-view";
+import CrossPlatformView from "@/components/insights/cross-platform";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
 
-interface Msg { role: string; content: string; agentType?: string; chart?: any; table?: any; suggestions?: string[] }
+interface Msg {
+  role: string; content: string; agentType?: string;
+  chart?: any; table?: any; suggestions?: string[];
+  // DecisionChain structured output (populated when type === "decision_chain")
+  evidenceCards?: EvidenceCard[];
+  actions?: PrioritizedAction[];
+  crossDataset?: CrossDatasetSummary[];
+  crossPlatform?: CrossPlatformComparison[];
+  reasoningChain?: ReasoningStep[];
+  applicableRules?: ApplicableRule[];
+  meta?: PipelineMeta;
+}
 
 export default function ChatPage() {
   var [msgs, setMsgs] = useState<Msg[]>([]);
@@ -49,7 +66,23 @@ export default function ChatPage() {
       var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId }) });
       if (!res.ok) throw new Error("fail");
       var data = await res.json();
-      setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: data.content || "", agentType: data.type, chart: data.chart, table: data.table, suggestions: data.followUp }]; });
+      var isDecisionChain = data.type === "decision_chain";
+      setMsgs(function(p: Msg[]) { return [...p, {
+        role: "assistant",
+        content: data.content || "",
+        agentType: data.type,
+        chart: data.chart,
+        table: data.table,
+        suggestions: data.followUp,
+        // DecisionChain structured output
+        evidenceCards: isDecisionChain ? data.evidenceCards : undefined,
+        actions: isDecisionChain ? data.actions : undefined,
+        crossDataset: isDecisionChain ? data.crossDataset : undefined,
+        crossPlatform: isDecisionChain ? data.crossPlatform : undefined,
+        reasoningChain: isDecisionChain ? data.reasoningChain : undefined,
+        applicableRules: isDecisionChain ? data.applicableRules : undefined,
+        meta: isDecisionChain ? data.meta : undefined,
+      }]; });
     } catch(e) {
       setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: "\u62b1\u6b49\uff0cAI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002" }]; });
     } finally { setLoading(false); }
@@ -83,6 +116,43 @@ export default function ChatPage() {
                   </div>
                 </div>
                 {m.chart && <div className="glass p-3 rounded-xl text-xs text-white/60">{"\u56fe\u8868\u5efa\u8bae"}: {m.chart.title} ({m.chart.type})</div>}
+                {/* \u2550\u2550\u2550 DecisionChain \u7ed3\u6784\u5316\u5361\u7247 \u2550\u2550\u2550 */}
+                {m.evidenceCards && m.evidenceCards.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u8bc1\u636e\u5361 ({m.evidenceCards.length})</div>
+                    {m.evidenceCards.slice(0, 3).map(function(card, ci) {
+                      return <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />;
+                    })}
+                    {m.evidenceCards.length > 3 && (
+                      <div className="text-[10px] text-white/20 text-center py-1">
+                        +{m.evidenceCards.length - 3} \u5f20\u66f4\u591a\u8bc1\u636e\u5361
+                      </div>
+                    )}
+                  </div>
+                )}
+                {m.crossDataset && m.crossDataset.length > 0 && (
+                  <CrossDatasetView data={m.crossDataset} />
+                )}
+                {m.crossPlatform && m.crossPlatform.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u8de8\u5e73\u53f0\u5229\u6da6\u5bf9\u6bd4</div>
+                    <CrossPlatformView
+                      comparisons={m.crossPlatform}
+                      coveredPlatforms={m.crossPlatform.reduce(function(acc: string[], c) {
+                        c.platformResults.forEach(function(p) { if (acc.indexOf(p.platform) === -1) acc.push(p.platform); });
+                        return acc;
+                      }, [])}
+                    />
+                  </div>
+                )}
+                {m.actions && m.actions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u884c\u52a8\u5efa\u8bae ({m.actions.length})</div>
+                    {m.actions.map(function(act, ai) {
+                      return <ActionCardView key={ai} action={act} index={ai} />;
+                    })}
+                  </div>
+                )}
                 {m.suggestions && m.suggestions.length > 0 && <div className="flex flex-wrap gap-2">{m.suggestions.map(function(s: string,j: number) { return <button key={j} onClick={function() { send(s); }} className="px-3 py-1.5 rounded-xl glass text-xs text-white/50 hover:text-white/80 hover:bg-white/10 transition-all">{s}</button>; })}</div>}
               </div>
               {isUser && <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5"><MessageSquare className="w-4 h-4 text-accent-cyan" /></div>}

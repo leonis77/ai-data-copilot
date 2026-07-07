@@ -5,7 +5,7 @@ import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
 import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
-import { detectRelations } from "@/lib/semantic";
+import { detectRelations, detectRoles } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
 
@@ -68,21 +68,57 @@ export async function POST(request: NextRequest) {
       ecomCtx = "[电商订单数据] 你正在分析电商订单数据。关注：销售趋势、畅销商品、平均订单价值、退款异常、商品集中度。提供有商业价值的分析。\n\n";
     }
 
-    // Cross-dataset relations
+    // Cross-dataset relations — robust detection using on-the-fly role computation
+    // (does NOT rely on stored semanticRoles, which may be null in serverless cold starts)
     var crossCtx = "";
     var rels: DatasetRelation[] = [];
     try {
       var allDs = await listDatasets();
-      var dsMeta = allDs.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles }; });
-      rels = detectRelations(dsMeta);
+      if (allDs.length >= 2) {
+        // Compute semantic roles on-the-fly from column names for ALL datasets
+        // This ensures cross-dataset detection works even when stored semanticRoles is null
+        var allDsMeta = allDs.map(function(d: any) {
+          // Try stored semanticRoles first (full profile with sample-value verification)
+          if (d.semanticRoles && d.semanticRoles.columns && d.semanticRoles.columns.length > 0) {
+            return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles };
+          }
+          // Fallback: compute roles from column names using regex pattern matching
+          // (confidence ≥0.6 from patterns alone — sufficient for relation detection)
+          var dsColumns: string[] = Array.isArray(d.columns)
+            ? d.columns
+            : (typeof d.columns === "string" ? JSON.parse(d.columns as string) : []);
+          if (dsColumns.length === 0) {
+            return { id: d.id, originalName: d.originalName, semanticRoles: undefined };
+          }
+          var detectedRoles = detectRoles(dsColumns, []); // empty rows → pattern-only (confidence 0.7)
+          return {
+            id: d.id,
+            originalName: d.originalName,
+            semanticRoles: {
+              datasetId: d.id,
+              columns: detectedRoles,
+              summary: "",
+              availableDecisions: [],
+            },
+          };
+        });
+        rels = detectRelations(allDsMeta);
+      }
       if (rels.length > 0) {
         crossCtx = "跨数据集关联上下文：检测到以下关联关系:\n";
         for (var ri = 0; ri < rels.length; ri++) {
           crossCtx += "- " + rels[ri].description + " (关联字段: " + rels[ri].joinKey + ")\n";
         }
         crossCtx += "利用这些关联提供跨数据集洞察。但仅声称可以验证的数据。\n\n";
+        logger.info("Cross-dataset relations detected", {
+          count: rels.length,
+          types: rels.map(function(r) { return r.type; }),
+          computedOnTheFly: allDs.some(function(d: any) { return !d.semanticRoles || !d.semanticRoles.columns; }),
+        });
       }
-    } catch (e) {}
+    } catch (e) {
+      logger.warn("Cross-dataset relation detection failed", { message: e instanceof Error ? e.message : String(e) });
+    }
 
     // ⭐ 核心：AI主体架构知识注入（v3）
     let knowledgeCtx = "";
@@ -153,6 +189,7 @@ export async function POST(request: NextRequest) {
           actions: chain.actions.length,
           diagnoses: chain.diagnoses.length,
           crossDatasets: chain.crossDataset?.length || 0,
+          crossPlatforms: chain.metrics.crossPlatform?.length || 0,
           industry: chain.meta.industry.name,
           pipelineLatency: chain.meta.pipelineLatency,
         });
@@ -165,6 +202,7 @@ export async function POST(request: NextRequest) {
           applicableRules: chain.applicableRules,
           reasoningChain: chain.aiExplanation.reasoningChain,
           crossDataset: chain.crossDataset,
+          crossPlatform: chain.metrics.crossPlatform,
           meta: chain.meta,
         });
       }

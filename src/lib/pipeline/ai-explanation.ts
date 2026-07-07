@@ -23,6 +23,7 @@ import type {
   ReasoningStep,
   CrossDatasetSummary,
 } from "./types";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
 
 // ═══════════════════════════════════════════════
 // 主入口
@@ -95,6 +96,11 @@ function buildStructuredSystemPrompt(context: AIExplanationContext): string {
   // ═══ Layer 4.5: 跨数据集对比 ═══
   if (context.crossDatasets && context.crossDatasets.length > 0) {
     parts.push(formatCrossDatasetSection(context.crossDatasets));
+  }
+
+  // ═══ Layer 4.6: 跨平台利润对比 ═══
+  if (context.crossPlatformComparisons && context.crossPlatformComparisons.length > 0) {
+    parts.push(formatCrossPlatformSection(context.crossPlatformComparisons));
   }
 
   // ═══ Layer 5: 参考知识 ═══
@@ -229,9 +235,20 @@ function formatEvidenceCardsSection(cards: EvidenceCard[]): string {
       section += `\n关联规则：${card.ruleIds.join("、")}\n`;
     }
 
-    // 知识库参考
+    // 知识库参考（含置信度）
     if (card.knowledgeRefs.length > 0) {
-      section += `知识参考：${card.knowledgeRefs.join("、")}\n`;
+      section += `知识参考：`;
+      const refDetails: string[] = [];
+      for (const ref of card.knowledgeRefs) {
+        const confEntry = card.knowledgeConfidence
+          ? card.knowledgeConfidence.find(function(k) { return k.refId === ref; })
+          : undefined;
+        const confStr = confEntry
+          ? ` (置信度${Math.round(confEntry.confidence * 100)}%)`
+          : "";
+        refDetails.push(ref + confStr);
+      }
+      section += refDetails.join("、") + "\n";
     }
 
     section += "\n---\n\n";
@@ -309,27 +326,106 @@ function formatCrossDatasetSection(crossDatasets: CrossDatasetSummary[]): string
   return section;
 }
 
+/** 格式化跨平台利润对比数据 */
+function formatCrossPlatformSection(comparisons: CrossPlatformComparison[]): string {
+  let section = "## 🏪 跨平台利润对比（相同商品在不同平台的利润差异）\n\n";
+
+  for (const cmp of comparisons) {
+    section += `### 商品：${cmp.productName}\n\n`;
+
+    // 利润排名表
+    section += "| 平台 | 售价(¥) | 单品利润(¥) | 利润率 | 月利润(¥) | 判决 |\n";
+    section += "|------|---------|------------|--------|----------|------|\n";
+    for (const pr of cmp.platformResults) {
+      const vIcon =
+        pr.verdict === "buy_more" ? "📈" :
+        pr.verdict === "hold" ? "✅" :
+        pr.verdict === "reduce" ? "⚠️" : "🛑";
+      section += `| ${pr.platform} | ${pr.sellPrice.toFixed(2)} | ${pr.netProfitPerItem >= 0 ? "+" : ""}${pr.netProfitPerItem.toFixed(2)} | ${pr.profitMargin >= 0 ? "+" : ""}${pr.profitMargin}% | ${pr.netProfitMonthly >= 0 ? "+" : ""}${Math.abs(Math.round(pr.netProfitMonthly))} | ${vIcon} ${pr.verdict} |\n`;
+    }
+    section += "\n";
+
+    // 关键发现
+    section += `- **最佳平台**：${cmp.bestPlatform}（单品利润最高）\n`;
+    section += `- **最差平台**：${cmp.worstPlatform}（单品利润最低）\n`;
+    section += `- **跨平台价差**：¥${cmp.priceSpread.toFixed(2)}（${(cmp.priceSpreadRatio * 100).toFixed(1)}%）`;
+
+    if (cmp.priceSpreadAlert) {
+      section += ` ⚠️ 价差超过30%，存在窜货和消费者信任风险！`;
+    }
+    section += "\n";
+
+    // 平台利润差值分析
+    if (cmp.platformResults.length >= 2) {
+      const sorted = cmp.platformResults.slice().sort(function(a, b) { return b.netProfitPerItem - a.netProfitPerItem; });
+      const best = sorted[0];
+      const worst = sorted[sorted.length - 1];
+      const profitGap = best.netProfitPerItem - worst.netProfitPerItem;
+      section += `- **利润差值**：${best.platform}比${worst.platform}单品多赚 ¥${profitGap.toFixed(2)}\n`;
+
+      // 如果最差平台亏损但最佳平台盈利，分析原因
+      if (worst.netProfitPerItem < 0 && best.netProfitPerItem > 0) {
+        section += `- 🔴 **关键发现**：${worst.platform}亏损 ¥${Math.abs(worst.netProfitPerItem).toFixed(2)}/件，而${best.platform}盈利 ¥${best.netProfitPerItem.toFixed(2)}/件。同一商品在不同平台的表现差异巨大。\n`;
+      }
+    }
+
+    // AI建议
+    if (cmp.aiRecommendation) {
+      section += `\n**分析建议**：${cmp.aiRecommendation}\n`;
+    }
+
+    section += "\n---\n\n";
+  }
+
+  section += "> 关键分析任务：基于以上跨平台利润数据，告诉用户应该在哪个平台重点投入资源、哪个平台需要调整策略或退出。每项建议必须引用具体的平台利润数据。\n\n";
+
+  return section;
+}
+
 function formatAnalysisInstructions(context: AIExplanationContext): string {
   const evidenceCount = context.evidenceCards.length;
   const diagnosisCount = context.diagnoses.length;
   const ruleCount = context.applicableRules.length;
   const hasProfitData = context.profitResults.length > 0;
+  const hasCrossDataset = context.crossDatasets && context.crossDatasets.length > 0;
+  const hasCrossPlatform = context.crossPlatformComparisons && context.crossPlatformComparisons.length > 0;
 
-  return `## 🎯 你的分析任务
+  let instructions = `## 🎯 你的分析任务
 
-基于以上五层结构化数据，请按以下结构输出你的分析：
+基于以上${hasCrossPlatform ? "六" : hasCrossDataset ? "六" : "五"}层结构化数据，请按以下结构输出你的分析：
 
 ### 1. 核心发现（2-3个最重要的结论）
 每个结论必须：
 - 引用具体的证据卡索引（如"见证据卡#1"）
 - 包含量化的影响（金额或百分比）
-- 说清楚为什么这个发现重要
+- 说清楚为什么这个发现重要`;
+
+  // Add cross-dataset specific guidance
+  if (hasCrossDataset) {
+    instructions += `
+- 如有跨数据集关联发现，说明不同数据集之间的商品定价/销量差异意味着什么`;
+  }
+
+  if (hasCrossPlatform) {
+    instructions += `
+- 对比同一商品在不同平台的利润表现，明确指出哪个平台最值得投入、哪个需要调整`;
+  }
+
+  instructions += `
 
 ### 2. 利润归因分析${hasProfitData ? "" : "（当前数据不支持利润分析，可跳过此节）"}
 如果有亏损品或利润异常：
 - 逐项说明是哪个成本导致的问题（引用证据卡的 costAttribution）
 - 对比行业基准（如果知识库中有相关数据）
-- 区分"一次性因素"和"结构性因素"
+- 区分"一次性因素"和"结构性因素"`;
+
+  // Cross-platform specific profit analysis
+  if (hasCrossPlatform) {
+    instructions += `
+- **跨平台利润对比**：对于同一商品在不同平台利润差异巨大的情况，分析根本原因（平台费率差异？达人成本？定价策略？）`;
+  }
+
+  instructions += `
 
 ### 3. 诊断验证
 对自动诊断结果进行验证：
@@ -343,7 +439,14 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
 - **Why**：为什么（引用证据卡和诊断）
 - **HowMuch**：预期收益/止损金额（量化估算）
 - **Risk**：执行风险
-- **Priority**：紧急程度
+- **Priority**：紧急程度`;
+
+  if (hasCrossPlatform) {
+    instructions += `
+- **跨平台优化**：针对跨平台价差和利润差异，给出具体的平台资源调配建议（如"将京东的A品加量、抖音的A品降达人等级"）`;
+  }
+
+  instructions += `
 
 ### 5. 不确定性声明
 - 标注你对每项判断的置信度
@@ -364,6 +467,19 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
 - 证据卡数：${evidenceCount}
 - 诊断数：${diagnosisCount} · 适用规则数：${ruleCount}
 - 分析模式：AI主体 + 规则引擎验证 + 知识库参考${!hasProfitData ? "\n- ⚠️ 注意：当前数据缺少价格字段，无法进行利润分析。请基于已有指标和诊断给出建议，不要编造利润数字。" : ""}`;
+
+  if (hasCrossDataset) {
+    instructions += `\n- 🔗 跨数据集：已检测到 ${context.crossDatasets!.length} 组数据关联，包含同一商品在不同数据集的定价和销量对比`;
+  }
+  if (hasCrossPlatform) {
+    const alertCount = context.crossPlatformComparisons!.filter(function(c) { return c.priceSpreadAlert; }).length;
+    instructions += `\n- 🏪 跨平台对比：已分析 ${context.crossPlatformComparisons!.length} 组商品的跨平台利润差异`;
+    if (alertCount > 0) {
+      instructions += `，其中 ${alertCount} 组存在价差报警（>30%）`;
+    }
+  }
+
+  return instructions;
 }
 
 // ═══════════════════════════════════════════════

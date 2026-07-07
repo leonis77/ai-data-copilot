@@ -25,11 +25,19 @@ import { computeProductMetrics, computeStoreMetrics } from "@/lib/engines/metric
 import { diagnoseProducts } from "@/lib/engines/diagnosis-engine";
 import { generateActions } from "@/lib/engines/decision-engine";
 import { calculateProfit, PLATFORM_FEES_2026 } from "@/lib/profit/engine";
-import { injectKnowledgeV3 } from "@/lib/rag";
+import { injectKnowledgeV3, KNOWLEDGE } from "@/lib/rag";
 import { detectIndustry, assessKnowledgeCoverage } from "@/lib/rag/industry-detector";
 import { detectRoles } from "@/lib/semantic/roles";
 import { computeCrossTableMetrics } from "@/lib/semantic/relations";
 import type { CrossTableInput } from "@/lib/semantic/relations";
+
+// ═══ Cross-platform matching ═══
+import {
+  matchProductsAcrossPlatforms,
+  buildCrossPlatformComparison,
+  extractProductIdentity,
+} from "@/lib/cross-platform";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
 
 // ═══ Pipeline modules ═══
 import { generateAIExplanation } from "./ai-explanation";
@@ -182,6 +190,123 @@ export async function executeDecisionPipeline(
     }
   }
 
+  // ═══ Layer 4.6: 跨平台利润对比（Cross-Platform Profit Comparison）═══
+  // 当关联数据集来自不同平台时，对匹配商品进行利润级对比分析
+  const crossPlatformComparisons: CrossPlatformComparison[] = [];
+  if (crossDatasetSummaries.length > 0 && platform && profitResults.length > 0) {
+    for (const cd of crossDatasetSummaries) {
+      try {
+        const relatedDs = await loadDataset(cd.relatedDatasetId);
+        if (!relatedDs) continue;
+        const related = normalizeData(relatedDs);
+        const relatedPlatform = detectPlatformFromColumns(related.columns);
+
+        // Only compare if platforms differ
+        if (!relatedPlatform || relatedPlatform === platform) continue;
+
+        const relatedRoles = detectRoles(related.columns, related.rows.slice(0, 50));
+        const relatedNameField = findRoleField(relatedRoles, "entity_name");
+        const relatedPriceField = findRoleField(relatedRoles, "money");
+
+        if (!relatedNameField || !relatedPriceField) continue;
+
+        // Build ProductIdentity list from current dataset's profit results
+        const currentIdentities = profitResults.map(function(pr) {
+          return {
+            id: platform + "_" + pr.productName,
+            name: pr.productName,
+            platform: platform,
+            price: pr.sellPrice,
+            monthlySales: Math.abs(Math.round(pr.netProfitMonthly / Math.max(Math.abs(pr.netProfitPerItem), 0.01))),
+          };
+        });
+
+        // Build ProductIdentity list from related dataset matched entities
+        const relatedIdentities = cd.priceComparisons.map(function(pc) {
+          // Find product rows in related dataset for this entity
+          const entityRows = related.rows.filter(function(r) {
+            return String(r[relatedNameField] || "").trim() === pc.entity;
+          });
+          const avgPrice = entityRows.length > 0
+            ? entityRows.reduce(function(sum, r) { return sum + (Number(r[relatedPriceField]) || 0); }, 0) / entityRows.length
+            : pc.priceRelated;
+          return {
+            id: relatedPlatform + "_" + pc.entity,
+            name: pc.entity,
+            platform: relatedPlatform,
+            price: avgPrice,
+            monthlySales: entityRows.length,
+          };
+        });
+
+        // Match products across platforms using Jaccard similarity
+        const allIdentities = currentIdentities.concat(relatedIdentities);
+        const matches = matchProductsAcrossPlatforms(allIdentities, 0.30);
+
+        // For each match group, compute profit on both platforms
+        for (var mi = 0; mi < matches.length; mi++) {
+          var match = matches[mi];
+          var currentInMatch = match.products.filter(function(p) { return p.platform === platform; });
+          var relatedInMatch = match.products.filter(function(p) { return p.platform === relatedPlatform; });
+
+          if (currentInMatch.length === 0 || relatedInMatch.length === 0) continue;
+
+          // Build profit results for this matched group
+          var groupProfitResults: ProfitResult[] = [];
+
+          for (var ci = 0; ci < currentInMatch.length; ci++) {
+            var cp = currentInMatch[ci];
+            var existingProfit = profitResults.find(function(pr) { return pr.productName === cp.name; });
+            if (existingProfit) {
+              groupProfitResults.push(existingProfit);
+            } else {
+              var cpCost = estimatePurchaseCost(cp.name, rows, priceField!);
+              groupProfitResults.push(
+                calculateProfit({
+                  productName: cp.name,
+                  platform: platform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
+                  sellPrice: cp.price,
+                  purchaseCost: cpCost,
+                  monthlySales: cp.monthlySales,
+                }),
+              );
+            }
+          }
+
+          for (var ri3 = 0; ri3 < relatedInMatch.length; ri3++) {
+            var rp = relatedInMatch[ri3];
+            var rpCost = estimatePurchaseCost(rp.name, related.rows, relatedPriceField);
+            groupProfitResults.push(
+              calculateProfit({
+                productName: rp.name,
+                platform: relatedPlatform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
+                sellPrice: rp.price,
+                purchaseCost: rpCost,
+                monthlySales: rp.monthlySales,
+              }),
+            );
+          }
+
+          var comparison = buildCrossPlatformComparison(match, groupProfitResults);
+          if (comparison) {
+            crossPlatformComparisons.push(comparison);
+          }
+        }
+
+        logger.info("Cross-platform profit comparison computed", {
+          currentPlatform: platform,
+          relatedPlatform: relatedPlatform,
+          matches: matches.length,
+          comparisons: crossPlatformComparisons.length,
+        });
+      } catch (e) {
+        logger.warn("Cross-platform comparison failed for " + cd.relatedDatasetId, {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
   // ═══ Layer 5: AI解释（DeepSeek为主体） ═══
   const knowledgeInjection = await injectKnowledgeV3(input, "", {
     columns,
@@ -200,6 +325,7 @@ export async function executeDecisionPipeline(
     knowledgeBlock: knowledgeInjection.knowledgeBlock,
     industry: industry.name,
     crossDatasets: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
+    crossPlatformComparisons: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
   });
 
   // ═══ Layer 6: 行动建议 ═══
@@ -219,6 +345,8 @@ export async function executeDecisionPipeline(
     platform: platform || "unknown",
     pipelineLatency,
     webSearchTriggered: knowledgeInjection.stats.webSearchTriggered,
+    crossPlatforms: crossPlatformComparisons.length,
+    crossDatasets: crossDatasetSummaries.length,
   });
 
   return {
@@ -226,6 +354,7 @@ export async function executeDecisionPipeline(
       products: productMetrics,
       store: storeMetrics,
       profit: profitResults,
+      crossPlatform: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
     },
     diagnoses,
     evidenceCards,
@@ -357,6 +486,7 @@ function buildEvidenceCards(
     // 提取关联规则ID
     const ruleIds = inferRuleIds(r, platform);
 
+    const knowledgeRefs = findRelatedKnowledgeRefs(r);
     return {
       productName: r.productName,
       platform: r.platform,
@@ -385,7 +515,8 @@ function buildEvidenceCards(
       verdictReason: r.verdictReason,
       costAttribution,
       ruleIds,
-      knowledgeRefs: findRelatedKnowledgeRefs(r),
+      knowledgeRefs,
+      knowledgeConfidence: getKnowledgeConfidence(knowledgeRefs),
       cardIndex: index,
     };
   });
@@ -481,6 +612,18 @@ function findRelatedKnowledgeRefs(r: ProfitResult): string[] {
   if (r.costs.influencerCommission > 0) refs.push("platform_douyin_influencer");
 
   return refs;
+}
+
+/** 获取知识库条目的置信度（用于EvidenceCard的knowledgeConfidence字段） */
+function getKnowledgeConfidence(refs: string[]): Array<{ refId: string; confidence: number }> {
+  const result: Array<{ refId: string; confidence: number }> = [];
+  for (var r = 0; r < refs.length; r++) {
+    var entry = KNOWLEDGE.find(function(k) { return k.id === refs[r]; });
+    if (entry) {
+      result.push({ refId: refs[r], confidence: entry.confidence });
+    }
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════

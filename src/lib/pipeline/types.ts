@@ -89,6 +89,8 @@ export interface EvidenceCard {
   ruleIds: string[];
   /** 关联的知识库条目ID列表 */
   knowledgeRefs: string[];
+  /** 知识库条目置信度明细（每个引用条目的置信度） */
+  knowledgeConfidence?: Array<{ refId: string; confidence: number }>;
   /** 唯一索引（用于跨层引用） */
   cardIndex: number;
 }
@@ -292,4 +294,6 @@ export interface AIExplanationContext {
   industry: string;
   /** 跨数据集对比结果（可选） */
   crossDatasets?: CrossDatasetSummary[];
+  /** 跨平台利润对比结果（可选） */
+  crossPlatformComparisons?: CrossPlatformComparison[];
 }
