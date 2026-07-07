@@ -3,34 +3,28 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Upload, ArrowRight, Sparkles, BarChart3, AlertTriangle, Target } from "lucide-react";
-import { CountUp } from "@/components/ui/count-up";
-import { PieChart, BarChart } from "@/components/charts";
+import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { HealthCard } from "@/components/insights/health-card";
-import { DecisionCardUI } from "@/components/insights/decision-card";
-import { AIInsightPanel } from "@/components/insights/ai-insight-panel";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
-import { computeProductMetrics, diagnoseProducts, computeHealthScore, generateActions } from "@/lib/engines";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic";
 import { GenericOverview } from "@/components/insights/generic-overview";
 import CrossPlatformView from "@/components/insights/cross-platform";
-import { generateAllDecisions } from "@/lib/decisions";
-import type { DecisionCard } from "@/lib/decisions";
+import { ProfitBar } from "@/components/dashboard/profit-bar";
+import { ProfitRanking } from "@/components/dashboard/profit-ranking";
+import { CostStructure } from "@/components/dashboard/cost-structure";
+import { ActionCardView } from "@/components/insights/action-card-view";
+import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import { logger } from "@/lib/logger";
-import type { DecisionChain, EvidenceCard, PrioritizedAction } from "@/lib/pipeline/types";
-import type { CrossPlatformComparison } from "@/lib/cross-platform";
+import type { DecisionChain } from "@/lib/pipeline/types";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [stats, setStats] = useState<any>(null);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [analyzing, setAnalyzing] = useState(false);
   const [datasetName, setDatasetName] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [datasetData, setDatasetData] = useState<any>(null);
@@ -38,7 +32,7 @@ export default function DashboardPage() {
 
   useEffect(function() { loadData(""); }, []);
 
-  function handleSelect(newId: string) { setLoading(true); setAnalysis(null); loadData(newId); }
+  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); loadData(newId); }
 
   async function loadData(dsId: string) {
     try {
@@ -50,10 +44,6 @@ export default function DashboardPage() {
       if (!res.ok) { setLoading(false); return; }
       var data = await res.json();
       if (!data || !data.columns) { setLoading(false); return; }
-      if (data.rowCount && data.rowCount >= 5000) {
-        logger.warn("Large dataset truncated", { rowCount: data.rowCount, limit: 5000 });
-        // Show notification handled by parser returning rowCount
-      }
       var selCols: string[] = data.columns || [];
       var filteredRows = (data.rows || []).map(function(r: any) {
         var o: Record<string, unknown> = {};
@@ -80,33 +70,20 @@ export default function DashboardPage() {
             logger.info("Dashboard loaded DecisionChain from pipeline", {
               evidenceCards: chainData.evidenceCards?.length || 0,
               actions: chainData.actions?.length || 0,
+              diagnoses: chainData.diagnoses?.length || 0,
               crossPlatform: chainData.crossPlatform?.length || 0,
-              crossDataset: chainData.crossDataset?.length || 0,
             });
           }
         }
       } catch(e) {
-        logger.warn("DecisionChain fetch failed, dashboard falls back to local compute", {
+        logger.warn("DecisionChain fetch failed", {
           message: e instanceof Error ? e.message : String(e),
         });
       }
-      try {
-        var ar = await fetch("/api/analyze?dataset=" + id);
-        if (ar.ok) { var ad = await ar.json(); if (ad.summary) setAnalysis(ad); }
-      } catch(e) {}
     } catch(e) { setLoading(false); }
   }
 
-  async function runAnalysis() {
-    if (!datasetId) return; setAnalyzing(true);
-    try {
-      var summary = JSON.stringify({ rows: (datasetData?.rows || []).slice(0, 50), columns: datasetData?.columns || [], rowCount: (datasetData?.rows || []).length });
-      var ar = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataSummary: summary, question: "" }) });
-      if (ar.ok) { var ad = await ar.json(); setAnalysis(ad); }
-    } catch(e) { console.error(e); }
-    finally { setAnalyzing(false); }
-  }
-
+  // ═══ Loading state ═══
   if (loading) {
     return (
       <div className="min-h-screen pt-16">
@@ -119,6 +96,7 @@ export default function DashboardPage() {
     );
   }
 
+  // ═══ Empty state ═══
   if (!hasData) {
     return (
       <div className="min-h-screen pt-16 flex items-center justify-center">
@@ -130,15 +108,15 @@ export default function DashboardPage() {
             style={{ background: "radial-gradient(circle, rgba(124,92,255,0.15) 0%, transparent 70%)" }}>
             <BarChart3 className="w-10 h-10 text-indigo-400/60" />
           </motion.div>
-          <h2 className="text-2xl font-bold mb-3 text-white/80">{"\u4e0a\u4f20\u6570\u636e\u5f00\u59cb\u5206\u6790"}</h2>
+          <h2 className="text-2xl font-bold mb-3 text-white/80">上传数据开始分析</h2>
           <p className="text-white/30 mb-10 leading-relaxed">
-            {"\u62d6\u62fd\u4e0a\u4f20 Excel \u6216 CSV \u6587\u4ef6"}<br />{"AI \u5c06\u81ea\u52a8\u8bca\u65ad\u60a8\u7684\u7ecf\u8425\u72b6\u51b5"}
+            拖拽上传 Excel 或 CSV 文件<br />AI 将自动诊断您的经营状况
           </p>
           <Link href="/upload">
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
               <Upload className="w-5 h-5" />
-              {"\u4e0a\u4f20\u6570\u636e"}
+              上传数据
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </Link>
@@ -147,67 +125,23 @@ export default function DashboardPage() {
     );
   }
 
-  function findCol(cols: string[], patterns: RegExp[]): string | undefined {
-    for (var i = 0; i < patterns.length; i++) {
-      var found = cols.find(function(c) { return patterns[i].test(c); });
-      if (found) return found;
-    }
-    return undefined;
-  }
-
-  var productMetrics: any[] = [];
-  var diagnosis: any[] = [];
-  var healthScore: any = { score: 0 };
-  var actions: any[] = [];
-  if (datasetData?.rows?.length > 0) {
-    try {
-      var rows = datasetData.rows;
-      var cols = datasetData.columns;
-      var nameCol = findCol(cols, [/\u540d\u79f0/, /\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name/, /title/, /product/, /item/]);
-      var priceCol = findCol(cols, [/\u91d1\u989d/, /\u4ef7\u683c/, /\u5b9e\u4ed8/, /\u603b\u4ef7/, /amount/, /price/, /pay/, /total/, /revenue/]);
-      var qtyCol = findCol(cols, [/\u6570\u91cf/, /\u9500\u91cf/, /quantity/, /qty/, /count/, /num/]);
-      var stockCol = findCol(cols, [/\u5e93\u5b58/, /stock/, /inventory/]);
-      if (nameCol && priceCol) {
-        productMetrics = computeProductMetrics(rows, nameCol, priceCol, qtyCol, stockCol);
-        diagnosis = diagnoseProducts(productMetrics);
-        healthScore = computeHealthScore(productMetrics, diagnosis);
-        actions = generateActions(diagnosis);
-      }
-    } catch(e) {}
-  }
-
-  var criticalIssues = diagnosis.filter(function(d: any) { return d.level === "critical"; });
-  var numStats = stats ? Object.entries(stats.stats) : [];
-  var rankedCols = (numStats as any[]).sort(function(a, b) { return (b[1].max - b[1].min) - (a[1].max - a[1].min); });
-  var topMetrics = rankedCols.slice(0, 3);
-  var distCols = stats ? Object.keys(stats.distributions) : [];
-  var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
-  var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
-
+  // ═══ Derived data ═══
   var storeData = getStore();
   var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
-  var semanticRoles = storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles;
   var currentPlatform = storeData.datasets.find(function(d) { return d.id === datasetId; })?.platform || "";
   var relations: DatasetRelation[] = [];
   try { relations = detectRelations(storeData.datasets.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles || null }; })); } catch(e) {}
-  // Detect if user has data from multiple platforms
   var allPlatforms: string[] = storeData.datasets.map(function(d) { return d.platform || ""; }).filter(function(p) { return p !== ""; });
   var hasMultiPlatform = new Set(allPlatforms).size >= 2;
 
-  // Generate decisions for order data
-  var decisions: any[] = [];
-  if (dataProfile === "order" && datasetData.rows.length > 0) {
-    decisions = generateAllDecisions({
-      columns: datasetData.columns,
-      rows: datasetData.rows,
-      datasetName: datasetName,
-      productMetrics: productMetrics,
-      diagnosis: diagnosis,
-      healthScore: healthScore,
-    });
-  }
+  // Pipeline data (single source of truth)
+  var evidenceCards = decisionChain?.evidenceCards || [];
+  var diagnoses = decisionChain?.diagnoses || [];
+  var actions = decisionChain?.actions || [];
+  var aiSummary = decisionChain?.aiExplanation?.summary || "";
+  var crossPlatform = decisionChain?.metrics?.crossPlatform || [];
 
-  // Unknown/generic data rendering
+  // ═══ Unknown data ═══
   if (dataProfile === "unknown") {
     return (
       <div className="min-h-screen pt-16">
@@ -216,9 +150,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4 mb-2">
               <div>
                 <h1 className="text-3xl font-bold text-white/90">
-                  <span className="bg-gradient-to-r from-sky-400 to-cyan-400 bg-clip-text text-transparent">
-                    {"\u6570\u636e\u753b\u50cf"}
-                  </span>
+                  <span className="bg-gradient-to-r from-sky-400 to-cyan-400 bg-clip-text text-transparent">数据画像</span>
                 </h1>
                 {datasetName && <p className="text-sm text-white/30 mt-1">{datasetName}</p>}
               </div>
@@ -231,7 +163,7 @@ export default function DashboardPage() {
     );
   }
 
-  // Supply data rendering
+  // ═══ Supply data ═══
   if (dataProfile === "supply") {
     return (
       <div className="min-h-screen pt-16">
@@ -240,9 +172,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4 mb-2">
               <div>
                 <h1 className="text-3xl font-bold text-white/90">
-                  <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
-                    {"供货分析"}
-                  </span>
+                  <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">供货分析</span>
                 </h1>
                 {datasetName && <p className="text-sm text-white/30 mt-1">{datasetName}</p>}
               </div>
@@ -255,25 +185,18 @@ export default function DashboardPage() {
     );
   }
 
+  // ═══════════════════════════════════════════════
+  // Main Dashboard: Pipeline-driven business view
+  // ═══════════════════════════════════════════════
+
+  var criticalDiagnoses = diagnoses.filter(function(d: any) { return d.level === "critical"; });
+  var warningDiagnoses = diagnoses.filter(function(d: any) { return d.level === "warning"; });
+  var opportunityDiagnoses = diagnoses.filter(function(d: any) { return d.level === "opportunity"; });
+
   return (
     <div className="min-h-screen pt-16">
       <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Cross-table relation banner */}
-        {relations.length > 0 && (
-          <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="mb-6 p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm text-indigo-300/80">
-                {"检测到"} {relations.length} {"组数据关联关系："}
-                {relations[0].description}
-              </span>
-              <Link href="/chat?auto=compare" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-                AI {"跨平台分析"} {"→"}
-              </Link>
-            </div>
-          </motion.div>
-        )}
-        {/* Ambient background glow */}
+        {/* Ambient glow */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-[0.04]"
             style={{ background: "radial-gradient(circle, rgba(124,92,255,1) 0%, transparent 70%)", filter: "blur(80px)" }} />
@@ -281,191 +204,242 @@ export default function DashboardPage() {
             style={{ background: "radial-gradient(circle, rgba(0,212,255,1) 0%, transparent 70%)", filter: "blur(80px)" }} />
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-10">
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-6">
           <div className="flex items-center gap-4 mb-2">
             <div>
               <h1 className="text-3xl font-bold text-white/90">
-                <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                  {"\u7ecf\u8425\u8bca\u65ad"}
-                </span>
+                <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">经营诊断</span>
               </h1>
               {datasetName && <p className="text-sm text-white/30 mt-1">{datasetName}</p>}
             </div>
             <TableSelector onSelect={handleSelect} className="ml-auto" />
           </div>
+          {/* Cross-table relation banner */}
+          {relations.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm text-indigo-300/80">
+                检测到 {relations.length} 组数据关联关系：{relations[0].description}
+              </span>
+              <Link href="/chat?auto=compare" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+                AI 跨平台分析 →
+              </Link>
+            </div>
+          )}
         </motion.div>
 
-        {/* Level 1: ACTION - Decision Cards Stream */}
-        {decisions.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.5}} className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Target className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"今日经营决策"}</h2>
-              <span className="text-xs text-white/15 ml-2">{decisions.length} {"条建议"}</span>
+        {/* ═══ Row 1: Profit KPI Bar ═══ */}
+        {evidenceCards.length > 0 && (
+          <div className="mb-6">
+            <ProfitBar evidenceCards={evidenceCards} />
+          </div>
+        )}
+
+        {/* ═══ Row 2: Profit Ranking + Cost Structure ═══ */}
+        {evidenceCards.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+            <div className="lg:col-span-3">
+              <ProfitRanking evidenceCards={evidenceCards} />
             </div>
-            <div className="space-y-3">
-              {decisions.map(function(d: any, i: number) {
-                return <DecisionCardUI key={d.id || i} index={i} type={d.type} priority={d.priority} title={d.title} description={d.description} impact={d.impact} action={d.action} confidence={d.confidence} relatedMetric={d.relatedMetric} />;
+            <div className="lg:col-span-2">
+              <CostStructure evidenceCards={evidenceCards} />
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Row 3: Diagnoses Feed ═══ */}
+        {diagnoses.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm text-white/40 font-medium">经营诊断</span>
+              <span className="text-[10px] text-white/20">
+                {criticalDiagnoses.length > 0 ? "🔴 " + criticalDiagnoses.length + " 紧急 " : ""}
+                {warningDiagnoses.length > 0 ? "🟡 " + warningDiagnoses.length + " 警告 " : ""}
+                {opportunityDiagnoses.length > 0 ? "🟢 " + opportunityDiagnoses.length + " 机会" : ""}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {/* Critical first */}
+              {criticalDiagnoses.map(function(d: any, i: number) {
+                var linkedCards = evidenceCards.filter(function(c: any) {
+                  return d.products && d.products.some(function(p: string) { return c.productName === p || (typeof p === "string" && p.includes(c.productName)); });
+                });
+                return (
+                  <motion.div key={"crit-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                    className="rounded-xl p-4 border border-red-500/20 bg-red-500/[0.04]">
+                    <div className="flex items-start gap-3">
+                      <span className="text-red-400 text-sm mt-0.5">❌</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-red-300/90">{d.title}</h4>
+                        <p className="text-xs text-white/45 mt-1 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-xs text-indigo-400/70 mt-1">→ {d.action}</p>}
+                        {d.impact && <p className="text-xs text-green-400/60 mt-0.5">预期: {d.impact}</p>}
+                        {d.reference && <p className="text-[10px] text-white/25 mt-1">📎 {d.reference}</p>}
+                        {d.products && d.products.length > 0 && (
+                          <div className="flex items-center gap-1 mt-2">
+                            {d.products.map(function(p: string, pi: number) {
+                              var cardIdx = evidenceCards.findIndex(function(c: any) { return c.productName === p; });
+                              return (
+                                <span key={pi} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/25">
+                                  {p}{cardIdx >= 0 ? " · 卡片#" + cardIdx : ""}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+              {/* Warnings */}
+              {warningDiagnoses.map(function(d: any, i: number) {
+                return (
+                  <motion.div key={"warn-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.15 }}
+                    className="rounded-xl p-4 border border-amber-500/15 bg-amber-500/[0.03]">
+                    <div className="flex items-start gap-3">
+                      <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-amber-300/80">{d.title}</h4>
+                        <p className="text-xs text-white/40 mt-1 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-xs text-indigo-400/60 mt-1">→ {d.action}</p>}
+                        {d.reference && <p className="text-[10px] text-white/20 mt-1">📎 {d.reference}</p>}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+              {/* Opportunities */}
+              {opportunityDiagnoses.map(function(d: any, i: number) {
+                return (
+                  <motion.div key={"opp-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.3 }}
+                    className="rounded-xl p-4 border border-green-500/10 bg-green-500/[0.02]">
+                    <div className="flex items-start gap-3">
+                      <span className="text-green-400 text-sm mt-0.5">💡</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-green-300/70">{d.title}</h4>
+                        <p className="text-xs text-white/40 mt-1 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-xs text-indigo-400/60 mt-1">→ {d.action}</p>}
+                        {d.impact && <p className="text-xs text-green-400/50 mt-0.5">预期: {d.impact}</p>}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
               })}
             </div>
           </motion.div>
         )}
 
-      {/* Level 2: QUICK METRICS + Health */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-1">
-            <HealthCard score={healthScore?.score || 0} breakdown={healthScore?.breakdown} />
-          </div>
-          <div className="lg:col-span-2 space-y-6">
-            {actions.length > 0 && (
+        {/* Empty diagnosis state — show only if no evidence cards either */}
+        {diagnoses.length === 0 && evidenceCards.length === 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6 p-6 rounded-2xl border border-white/[0.04] text-center"
+            style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.3)" }}>
+            <Sparkles className="w-6 h-6 text-white/15 mx-auto mb-2" />
+            <p className="text-sm text-white/30">AI 正在分析您的经营数据...</p>
+            <p className="text-xs text-white/15 mt-1">若持续未显示，请确认数据中包含价格和商品名称字段</p>
+          </motion.div>
+        )}
+
+        {/* ═══ Row 4: Actions + Cross-platform ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Actions */}
+          {actions.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm text-white/40 font-medium">行动建议</span>
+                <span className="text-[10px] text-white/20">{actions.length} 条</span>
+              </div>
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {actions.map(function(act, ai) {
+                  return <ActionCardView key={ai} action={act} index={ai} />;
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Cross-platform comparison */}
+          {hasMultiPlatform && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.5 }}>
+              <CrossPlatformView
+                comparisons={crossPlatform as any || []}
+                coveredPlatforms={
+                  crossPlatform && (crossPlatform as any).length > 0
+                    ? Array.from(new Set(
+                        (crossPlatform as any).flatMap(function(c: any) {
+                          return c.platformResults.map(function(p: any) { return p.platform; });
+                        })
+                      ))
+                    : Array.from(new Set(allPlatforms))
+                }
+              />
+            </motion.div>
+          )}
+
+          {/* Single platform hint */}
+          {!hasMultiPlatform && currentPlatform && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+              className="rounded-2xl p-5 border border-indigo-500/10 bg-indigo-500/[0.03] flex items-center gap-3"
+              style={{ backdropFilter: "blur(16px)" }}>
+              <Sparkles className="w-5 h-5 text-indigo-400/40 shrink-0" />
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="w-4 h-4 text-indigo-400" />
-                  <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"\u4eca\u65e5\u6700\u91cd\u8981\u7684\u7ecf\u8425\u52a8\u4f5c"}</h2>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {actions.map(function(act: any, i: number) {
-                    var priorityColors: Record<string, string> = { P0: "border-red-500/30 bg-red-500/5", P1: "border-amber-500/30 bg-amber-500/5", P2: "border-sky-500/20 bg-sky-500/5" };
-                    var priorityBadge: Record<string, string> = { P0: "bg-red-500/20 text-red-300", P1: "bg-amber-500/20 text-amber-300", P2: "bg-sky-500/20 text-sky-300" };
-                    var confidenceIcons: Record<string, string> = { high: "⭐⭐⭐", medium: "⭐⭐", low: "⭐" };
-                    return (
-                      <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
-                        className={"relative overflow-hidden rounded-xl p-4 border " + (priorityColors[act.priority] || "border-white/10")}
-                        style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
-                        <div className="flex items-start gap-3">
-                          <span className={"shrink-0 px-2 py-0.5 rounded text-[10px] font-bold " + (priorityBadge[act.priority] || "")}>{act.priority}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white/85">{act.action}</p>
-                            <p className="text-xs text-white/40 mt-0.5">{act.target}</p>
-                            <div className="flex items-center gap-3 mt-2 text-[11px]">
-                              <span className="text-emerald-400/80">{"预计效果"}: {act.expected_impact}</span>
-                              <span className="text-white/25">{"置信度"}: {confidenceIcons[act.confidence] || "⭐⭐"}</span>
-                            </div>
-                            <p className="text-[11px] text-white/30 mt-1.5 leading-relaxed">{act.reason}</p>
-                            {act.reference && <p className="text-[10px] text-sky-400/40 mt-1 leading-relaxed">📚 {act.reference}</p>}
-                            <p className="text-[10px] text-amber-400/50 mt-1">⚠ {act.risk}</p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                <p className="text-sm text-white/50">
+                  当前仅{currentPlatform === "tmall" ? "天猫" : currentPlatform === "jd" ? "京东" : currentPlatform === "pdd" ? "拼多多" : currentPlatform === "douyin" ? "抖音" : currentPlatform}平台数据
+                </p>
+                <p className="text-xs text-white/25 mt-0.5">上传其他平台数据后将自动展示跨平台利润对比</p>
+              </div>
+              <Link href="/upload" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+                上传更多 →
+              </Link>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ═══ Row 5: AI Analysis (auto-expanded from Pipeline) ═══ */}
+        {aiSummary && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}
+            className="rounded-2xl p-6 border border-white/[0.06]"
+            style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.4)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-sm text-white/40 font-medium">AI 综合分析</h2>
+              <span className="text-[10px] text-white/15 ml-auto">
+                基于 {evidenceCards.length} 张证据卡 · {diagnoses.length} 条诊断 · {actions.length} 条建议
+              </span>
+            </div>
+            <div className="prose prose-sm prose-invert max-w-none text-sm text-white/70 leading-relaxed whitespace-pre-wrap">
+              {aiSummary}
+            </div>
+            {/* DecisionChain meta */}
+            {decisionChain?.meta && (
+              <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center gap-4 text-[10px] text-white/20">
+                <span>行业: {decisionChain.meta.industry?.name || "—"}</span>
+                {decisionChain.meta.pipelineLatency !== undefined && (
+                  <span>分析耗时: {(decisionChain.meta.pipelineLatency / 1000).toFixed(1)}s</span>
+                )}
+                {decisionChain.meta.freshnessScore !== undefined && (
+                  <span>知识时效: {Math.round(decisionChain.meta.freshnessScore * 100)}%</span>
+                )}
               </div>
             )}
-
-            {/* Level 2: PROBLEMS */}
-            {criticalIssues.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="relative overflow-hidden rounded-2xl p-5 border border-red-500/10"
-                style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                  <span className="text-xs text-red-400/70 uppercase tracking-wider font-medium">{"\u5173\u952e\u95ee\u9898"}</span>
-                </div>
-                <div className="space-y-2">
-                  {criticalIssues.map(function(d: any, i: number) {
-                    return <div key={i} className="flex items-start gap-2 text-sm"><span className="text-red-400 mt-0.5">{"\u2022"}</span><span className="text-white/60">{d.title}: {d.detail}</span></div>;
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </div>
-        </div>
-
-        {/* Level 3: DATA - Quick metrics + Charts */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          {topMetrics.map(function(entry: any, i: number) {
-            return (
-              <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="relative overflow-hidden rounded-xl p-5 border border-white/[0.05]"
-                style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
-                <CountUp end={Math.round(entry[1].avg)} duration={1.2} className="text-2xl font-bold bg-gradient-to-r from-white/90 to-white/50 bg-clip-text text-transparent block mb-1" />
-                <p className="text-xs text-white/30">{entry[0]} {"\u5e73\u5747\u503c"}</p>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {d0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8"
-            style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
           </motion.div>
         )}
 
-        {/* 🆕 跨平台利润对比 */}
-        {hasMultiPlatform && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
-            <CrossPlatformView
-              comparisons={decisionChain?.metrics?.crossPlatform || []}
-              coveredPlatforms={
-                decisionChain?.metrics?.crossPlatform
-                  ? Array.from(new Set(
-                      decisionChain.metrics.crossPlatform.flatMap(function(c) {
-                        return c.platformResults.map(function(p) { return p.platform; });
-                      })
-                    ))
-                  : Array.from(new Set(allPlatforms))
-              }
-            />
-          </motion.div>
-        )}
-
-        {/* 🆕 单平台提示 */}
-        {!hasMultiPlatform && currentPlatform && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.03]">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400/60" />
-              <p className="text-sm text-white/40">
-                {"当前仅上传了"} {currentPlatform === "tmall" ? "天猫" : currentPlatform === "jd" ? "京东" : currentPlatform === "pdd" ? "拼多多" : currentPlatform === "douyin" ? "抖音" : currentPlatform} {"平台数据。"}
-                {"上传其他平台数据后将自动展示跨平台利润对比。"}
-              </p>
-              <Link href="/upload" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
-                {"上传更多数据 →"}
-              </Link>
+        {/* Pipeline loading state */}
+        {!decisionChain && !aiSummary && evidenceCards.length === 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+            className="rounded-2xl p-6 border border-white/[0.04]"
+            style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.2)" }}>
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"0ms"}} />
+                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"150ms"}} />
+                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"300ms"}} />
+              </div>
+              <span className="text-sm text-white/25">AI 正在分析经营数据并生成诊断...</span>
             </div>
           </motion.div>
         )}
-
-        {/* AI Analysis */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">AI {"\u667a\u80fd\u5206\u6790"}</h2>
-            </div>
-            {!analysis && !analyzing && (
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={runAnalysis}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all">
-                <Sparkles className="w-4 h-4" />
-                {"\u5f00\u59cb\u5206\u6790"}
-              </motion.button>
-            )}
-          </div>
-          <AIInsightPanel analysis={analysis} loading={analyzing} />
-        </motion.div>
-
-        {/* Detailed data toggle */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{delay:0.5}} className="mt-8 pt-6 border-t border-white/[0.04]">
-          <details className="group">
-            <summary className="text-xs text-white/20 cursor-pointer hover:text-white/35 transition-colors list-none flex items-center gap-2">
-              <span className="group-open:hidden">{"▶ 查看详细数据"}</span>
-              <span className="hidden group-open:inline">{"▼ 收起详细数据"}</span>
-            </summary>
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {d0 && (
-                <div style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
-                </div>
-              )}
-              {d1 && (
-                <div style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <BarChart title={distCols[1]} data={Object.entries(d1).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
-                </div>
-              )}
-            </div>
-          </details>
-        </motion.div>
       </div>
     </div>
   );
