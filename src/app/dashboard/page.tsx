@@ -18,6 +18,7 @@ import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic";
 import { GenericOverview } from "@/components/insights/generic-overview";
+import CrossPlatformView from "@/components/insights/cross-platform";
 import { generateAllDecisions } from "@/lib/decisions";
 import type { DecisionCard } from "@/lib/decisions";
 import { logger } from "@/lib/logger";
@@ -119,34 +120,26 @@ export default function DashboardPage() {
     );
   }
 
-  // -- Column detection via semantic roles (from upload detectRoles) --
-  var storeData = getStore();
-  var semanticRoles = (storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles?.columns) || [];
-  function colByRole(roles: any[], targetRole: string) {
-    var found = roles.find(function(r) { return r.role === targetRole && r.confidence >= 0.6; });
-    return found ? found.column : undefined;
+  function findCol(cols: string[], patterns: RegExp[]): string | undefined {
+    for (var i = 0; i < patterns.length; i++) {
+      var found = cols.find(function(c) { return patterns[i].test(c); });
+      if (found) return found;
+    }
+    return undefined;
   }
 
   var productMetrics: any[] = [];
   var diagnosis: any[] = [];
   var healthScore: any = { score: 0 };
   var actions: any[] = [];
-  if (datasetData && datasetData.rows && datasetData.rows.length > 0) {
+  if (datasetData?.rows?.length > 0) {
     try {
       var rows = datasetData.rows;
-      var nameCol = colByRole(semanticRoles, "entity_name");
-      var priceCol = colByRole(semanticRoles, "money");
-      var qtyCol = colByRole(semanticRoles, "quantity");
-      var stockCol = colByRole(semanticRoles, "quantity");
-      // Fallback: if no semantic roles, try column name regex
-      if (!nameCol) {
-        var fn = datasetData.columns.find(function(c: string) { return c !== "sheet_name" && /名称|商品|产品|标题|宝贝|name|title|product|item/.test(c); });
-        if (fn) nameCol = fn;
-      }
-      if (!priceCol) {
-        var fp = datasetData.columns.find(function(c: string) { return /金额|价格|实付|总价|amount|price|pay|total|revenue/.test(c); });
-        if (fp) priceCol = fp;
-      }
+      var cols = datasetData.columns;
+      var nameCol = findCol(cols, [/\u540d\u79f0/, /\u5546\u54c1/, /\u4ea7\u54c1/, /\u6807\u9898/, /\u5b9d\u8d1d/, /name/, /title/, /product/, /item/]);
+      var priceCol = findCol(cols, [/\u91d1\u989d/, /\u4ef7\u683c/, /\u5b9e\u4ed8/, /\u603b\u4ef7/, /amount/, /price/, /pay/, /total/, /revenue/]);
+      var qtyCol = findCol(cols, [/\u6570\u91cf/, /\u9500\u91cf/, /quantity/, /qty/, /count/, /num/]);
+      var stockCol = findCol(cols, [/\u5e93\u5b58/, /stock/, /inventory/]);
       if (nameCol && priceCol) {
         productMetrics = computeProductMetrics(rows, nameCol, priceCol, qtyCol, stockCol);
         diagnosis = diagnoseProducts(productMetrics);
@@ -155,58 +148,24 @@ export default function DashboardPage() {
       }
     } catch(e) {}
   }
+
   var criticalIssues = diagnosis.filter(function(d: any) { return d.level === "critical"; });
   var numStats = stats ? Object.entries(stats.stats) : [];
-
-  // 智能图表列选择：用语义角色+列名排序，过滤无业务价值的列
-  function getColPriority(colName: string): number {
-    // 列名层面的快速判断
-    var cl = colName.toLowerCase();
-    if (/邮费|运费|快递|shipping|freight/.test(cl)) return 0;  // 邮费无业务价值
-    if (/税|tax/.test(cl)) return 0;
-    if (/编号|id|单号|电话|phone/.test(cl)) return 0;
-    // 角色层面的判断
-    for (var ri = 0; ri < semanticRoles.length; ri++) {
-      if (semanticRoles[ri].column === colName) {
-        var role = semanticRoles[ri].role;
-        if (role === "entity_name") return 6;
-        if (role === "quantity") return 7;
-        if (role === "money") return /退款|refund/.test(cl) ? 2 : /折扣|discount/.test(cl) ? 1 : 8;
-        if (role === "datetime") return 4;
-        if (role === "location") return 4;
-        if (role === "category") return 5;
-        return 2;
-      }
-    }
-    return 2;
-  }
-
-  // Metrics: 按业务优先级排序（同优先级按下范围排序）
-  var rankedCols = (numStats as any[]).sort(function(a, b) {
-    var pa = getColPriority(a[0]), pb = getColPriority(b[0]);
-    if (pa !== pb) return pb - pa;
-    return (b[1].max - b[1].min) - (a[1].max - a[1].min);
-  });
-  var topMetrics = rankedCols.filter(function(e) { return getColPriority(e[0]) >= 4; }).slice(0, 3);
-
-  // Distributions: 只展示 entity_name / category / datetime / location 类型的列
-  var distCols = stats ? Object.keys(stats.distributions).filter(function(c) {
-    var p = getColPriority(c);
-    return p >= 4; // 过滤掉低价值列
-  }) : [];
-  if (distCols.length < 2 && stats) {
-    // 回退：如果过滤后不够，用原始列表补足
-    var allDistCols = Object.keys(stats.distributions);
-    for (var di = 0; di < allDistCols.length && distCols.length < 2; di++) {
-      if (distCols.indexOf(allDistCols[di]) === -1) distCols.push(allDistCols[di]);
-    }
-  }
+  var rankedCols = (numStats as any[]).sort(function(a, b) { return (b[1].max - b[1].min) - (a[1].max - a[1].min); });
+  var topMetrics = rankedCols.slice(0, 3);
+  var distCols = stats ? Object.keys(stats.distributions) : [];
   var d0 = distCols.length > 0 && stats ? stats.distributions[distCols[0]] : null;
   var d1 = distCols.length > 1 && stats ? stats.distributions[distCols[1]] : null;
 
+  var storeData = getStore();
   var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
+  var semanticRoles = storeData.datasets.find(function(d) { return d.id === datasetId; })?.semanticRoles;
+  var currentPlatform = storeData.datasets.find(function(d) { return d.id === datasetId; })?.platform || "";
   var relations: DatasetRelation[] = [];
   try { relations = detectRelations(storeData.datasets.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles || null }; })); } catch(e) {}
+  // Detect if user has data from multiple platforms
+  var allPlatforms: string[] = storeData.datasets.map(function(d) { return d.platform || ""; }).filter(function(p) { return p !== ""; });
+  var hasMultiPlatform = new Set(allPlatforms).size >= 2;
 
   // Generate decisions for order data
   var decisions: any[] = [];
@@ -338,7 +297,31 @@ export default function DashboardPage() {
                   <h2 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"\u4eca\u65e5\u6700\u91cd\u8981\u7684\u7ecf\u8425\u52a8\u4f5c"}</h2>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  
+                  {actions.map(function(act: any, i: number) {
+                    var priorityColors: Record<string, string> = { P0: "border-red-500/30 bg-red-500/5", P1: "border-amber-500/30 bg-amber-500/5", P2: "border-sky-500/20 bg-sky-500/5" };
+                    var priorityBadge: Record<string, string> = { P0: "bg-red-500/20 text-red-300", P1: "bg-amber-500/20 text-amber-300", P2: "bg-sky-500/20 text-sky-300" };
+                    var confidenceIcons: Record<string, string> = { high: "⭐⭐⭐", medium: "⭐⭐", low: "⭐" };
+                    return (
+                      <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
+                        className={"relative overflow-hidden rounded-xl p-4 border " + (priorityColors[act.priority] || "border-white/10")}
+                        style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
+                        <div className="flex items-start gap-3">
+                          <span className={"shrink-0 px-2 py-0.5 rounded text-[10px] font-bold " + (priorityBadge[act.priority] || "")}>{act.priority}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white/85">{act.action}</p>
+                            <p className="text-xs text-white/40 mt-0.5">{act.target}</p>
+                            <div className="flex items-center gap-3 mt-2 text-[11px]">
+                              <span className="text-emerald-400/80">{"预计效果"}: {act.expected_impact}</span>
+                              <span className="text-white/25">{"置信度"}: {confidenceIcons[act.confidence] || "⭐⭐"}</span>
+                            </div>
+                            <p className="text-[11px] text-white/30 mt-1.5 leading-relaxed">{act.reason}</p>
+                            {act.reference && <p className="text-[10px] text-sky-400/40 mt-1 leading-relaxed">📚 {act.reference}</p>}
+                            <p className="text-[10px] text-amber-400/50 mt-1">⚠ {act.risk}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -380,6 +363,32 @@ export default function DashboardPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8"
             style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.3)", borderRadius: "1rem", padding: "1.5rem", border: "1px solid rgba(255,255,255,0.05)" }}>
             <PieChart title={distCols[0]} data={Object.entries(d0).slice(0, 8).map(function(e) { return { name: e[0] as string, value: e[1] as number }; })} />
+          </motion.div>
+        )}
+
+        {/* 🆕 跨平台利润对比 */}
+        {hasMultiPlatform && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
+            <CrossPlatformView
+              comparisons={[]}
+              coveredPlatforms={Array.from(new Set(allPlatforms))}
+            />
+          </motion.div>
+        )}
+
+        {/* 🆕 单平台提示 */}
+        {!hasMultiPlatform && currentPlatform && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.03]">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400/60" />
+              <p className="text-sm text-white/40">
+                {"当前仅上传了"} {currentPlatform === "tmall" ? "天猫" : currentPlatform === "jd" ? "京东" : currentPlatform === "pdd" ? "拼多多" : currentPlatform === "douyin" ? "抖音" : currentPlatform} {"平台数据。"}
+                {"上传其他平台数据后将自动展示跨平台利润对比。"}
+              </p>
+              <Link href="/upload" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+                {"上传更多数据 →"}
+              </Link>
+            </div>
           </motion.div>
         )}
 

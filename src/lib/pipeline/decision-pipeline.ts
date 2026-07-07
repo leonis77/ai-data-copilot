@@ -28,6 +28,8 @@ import { calculateProfit, PLATFORM_FEES_2026 } from "@/lib/profit/engine";
 import { injectKnowledgeV3 } from "@/lib/rag";
 import { detectIndustry, assessKnowledgeCoverage } from "@/lib/rag/industry-detector";
 import { detectRoles } from "@/lib/semantic/roles";
+import { computeCrossTableMetrics } from "@/lib/semantic/relations";
+import type { CrossTableInput } from "@/lib/semantic/relations";
 
 // ═══ Pipeline modules ═══
 import { generateAIExplanation } from "./ai-explanation";
@@ -38,6 +40,7 @@ import type {
   PrioritizedAction,
   NormalizedDataset,
   CostAttributionItem,
+  CrossDatasetSummary,
 } from "./types";
 import type { ProfitResult } from "@/lib/profit/engine";
 import type { ColumnRole } from "@/lib/semantic/types";
@@ -52,6 +55,7 @@ import type { Action } from "@/lib/engines/decision-engine";
 export async function executeDecisionPipeline(
   input: string,
   datasetId: string,
+  crossDatasetIds?: string[],
 ): Promise<DecisionChain> {
   const startTime = Date.now();
 
@@ -110,6 +114,74 @@ export async function executeDecisionPipeline(
   // ═══ Layer 4: 适用规则提取 ═══
   const applicableRules = extractApplicableRules(evidenceCards, platform, diagnoses);
 
+  // ═══ Layer 4.5: 跨数据集对比（Cross-Dataset Comparison）═══
+  const crossDatasetSummaries: CrossDatasetSummary[] = [];
+  if (crossDatasetIds && crossDatasetIds.length > 0 && nameField && priceField) {
+    const currentRoles = detectRoles(columns, rows.slice(0, 50));
+    for (const relatedId of crossDatasetIds) {
+      try {
+        const relatedDs = await loadDataset(relatedId);
+        if (!relatedDs) continue;
+        const related = normalizeData(relatedDs);
+        const relatedRoles = detectRoles(related.columns, related.rows.slice(0, 50));
+
+        const crossInput: CrossTableInput = {
+          id: datasetId,
+          originalName: ds.original_name as string || (ds as any).originalName || "当前数据集",
+          columns,
+          rows,
+          semanticRoles: currentRoles,
+        };
+        const crossInputB: CrossTableInput = {
+          id: relatedId,
+          originalName: related.originalName,
+          columns: related.columns,
+          rows: related.rows,
+          semanticRoles: relatedRoles,
+        };
+
+        const metrics = computeCrossTableMetrics(crossInput, crossInputB);
+
+        crossDatasetSummaries.push({
+          relatedDatasetName: related.originalName,
+          relatedDatasetId: relatedId,
+          relationType: "profit_analysis",
+          entityOverlap: {
+            matched: metrics.entityOverlap.matched,
+            totalCurrent: metrics.entityOverlap.totalA,
+            totalRelated: metrics.entityOverlap.totalB,
+            overlapRate: metrics.entityOverlap.rate,
+          },
+          priceComparisons: metrics.priceComparison.slice(0, 10).map((pc) => ({
+            entity: pc.entity,
+            priceCurrent: pc.priceA,
+            priceRelated: pc.priceB,
+            diff: pc.diff,
+            diffPercent: pc.diffPercent,
+          })),
+          quantityComparisons: metrics.quantityComparison.slice(0, 10).map((qc) => ({
+            entity: qc.entity,
+            qtyCurrent: qc.qtyA,
+            qtyRelated: qc.qtyB,
+            gap: qc.gap,
+          })),
+        });
+
+        logger.info("Cross-dataset comparison computed", {
+          currentDataset: datasetId,
+          relatedDataset: relatedId,
+          entityOverlap: metrics.entityOverlap,
+          priceComparisons: metrics.priceComparison.length,
+          quantityComparisons: metrics.quantityComparison.length,
+        });
+      } catch (e) {
+        logger.warn("Cross-dataset comparison failed for " + relatedId, {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
   // ═══ Layer 5: AI解释（DeepSeek为主体） ═══
   const knowledgeInjection = await injectKnowledgeV3(input, "", {
     columns,
@@ -127,6 +199,7 @@ export async function executeDecisionPipeline(
     applicableRules,
     knowledgeBlock: knowledgeInjection.knowledgeBlock,
     industry: industry.name,
+    crossDatasets: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
   });
 
   // ═══ Layer 6: 行动建议 ═══
@@ -159,6 +232,7 @@ export async function executeDecisionPipeline(
     applicableRules,
     aiExplanation,
     actions,
+    crossDataset: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
     meta: {
       industry,
       knowledgeCoverage: assessKnowledgeCoverage(

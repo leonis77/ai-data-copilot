@@ -18,4 +18,7 @@ export type {
   PipelineMeta,
   NormalizedDataset,
   AIExplanationContext,
+  CrossDatasetSummary,
+  CrossEntityPriceComparison,
+  CrossEntityQuantityComparison,
 } from "./types";

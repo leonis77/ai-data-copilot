@@ -21,6 +21,7 @@ import type {
   EvidenceCard,
   ApplicableRule,
   ReasoningStep,
+  CrossDatasetSummary,
 } from "./types";
 
 // ═══════════════════════════════════════════════
@@ -90,6 +91,11 @@ function buildStructuredSystemPrompt(context: AIExplanationContext): string {
 
   // ═══ Layer 4: 适用规则 ═══
   parts.push(formatRulesSection(context.applicableRules));
+
+  // ═══ Layer 4.5: 跨数据集对比 ═══
+  if (context.crossDatasets && context.crossDatasets.length > 0) {
+    parts.push(formatCrossDatasetSection(context.crossDatasets));
+  }
 
   // ═══ Layer 5: 参考知识 ═══
   parts.push(context.knowledgeBlock);
@@ -257,6 +263,47 @@ function formatRulesSection(rules: ApplicableRule[]): string {
       section += `  适用证据卡：#${rule.appliedToCardIndices.join("、#")}\n`;
     }
     section += "\n";
+  }
+
+  return section;
+}
+
+/** 格式化跨数据集对比数据 */
+function formatCrossDatasetSection(crossDatasets: CrossDatasetSummary[]): string {
+  let section = "## 🔗 跨数据集对比（检测到关联数据）\n\n";
+
+  for (const cd of crossDatasets) {
+    section += `### 关联数据集：${cd.relatedDatasetName}\n\n`;
+    section += `- 关系类型：利润对比分析\n`;
+    section += `- 实体重叠：${cd.entityOverlap.matched} 个商品匹配（覆盖率 ${cd.entityOverlap.overlapRate}%）\n`;
+    section += `  - 当前数据集独有：${cd.entityOverlap.totalCurrent - cd.entityOverlap.matched} 个商品\n`;
+    section += `  - 关联数据集独有：${cd.entityOverlap.totalRelated - cd.entityOverlap.matched} 个商品\n\n`;
+
+    // 价格对比表
+    if (cd.priceComparisons.length > 0) {
+      section += "**价格对比（匹配商品在两份数据中的均价差异）：**\n\n";
+      section += "| 商品 | 当前均价(¥) | 关联均价(¥) | 价差(¥) | 价差% |\n";
+      section += "|------|------------|------------|---------|-------|\n";
+      for (const pc of cd.priceComparisons) {
+        const arrow = pc.diff > 0 ? "📈" : pc.diff < 0 ? "📉" : "➡️";
+        section += `| ${pc.entity} | ${pc.priceCurrent.toFixed(2)} | ${pc.priceRelated.toFixed(2)} | ${arrow} ${pc.diff >= 0 ? "+" : ""}${pc.diff.toFixed(2)} | ${pc.diffPercent >= 0 ? "+" : ""}${pc.diffPercent}% |\n`;
+      }
+      section += "\n";
+    }
+
+    // 销量对比表
+    if (cd.quantityComparisons.length > 0) {
+      section += "**销量对比（匹配商品在两份数据中的销量差异）：**\n\n";
+      section += "| 商品 | 当前销量 | 关联销量 | 销量差 |\n";
+      section += "|------|---------|---------|--------|\n";
+      for (const qc of cd.quantityComparisons) {
+        const arrow = qc.gap > 0 ? "📈" : qc.gap < 0 ? "📉" : "➡️";
+        section += `| ${qc.entity} | ${qc.qtyCurrent} | ${qc.qtyRelated} | ${arrow} ${qc.gap >= 0 ? "+" : ""}${qc.gap} |\n`;
+      }
+      section += "\n";
+    }
+
+    section += "> 关键分析任务：比较同一商品在不同平台的定价和销量差异，识别跨平台价格不一致风险和利润优化机会。\n\n";
   }
 
   return section;

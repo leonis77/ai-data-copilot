@@ -22,14 +22,18 @@ export async function saveDataset(data: {
   columns: string[];
   rows: Record<string, unknown>[];
   summary: string;
+  platform?: string;
+  semanticRoles?: any;
 }) {
   try {
     const client = getClient();
-    const payload = {
+    const payload: Record<string, any> = {
       id: data.id, name: data.name, original_name: data.originalName,
       columns: data.columns, rows: data.rows, row_count: data.rows.length,
       summary: data.summary, created_at: new Date().toISOString(),
     };
+    if (data.platform) payload.platform = data.platform;
+    if (data.semanticRoles) payload.semantic_roles = data.semanticRoles;
     const jsonSize = JSON.stringify(payload).length;
     logger.info("Saving dataset", { id: data.id, rows: data.rows.length, jsonSize });
     const { error } = await client.from("datasets").upsert(payload);
@@ -80,10 +84,19 @@ export async function getLatestDataset() {
 export async function listDatasets() {
   try {
     const client = getClient();
-    const { data, error } = await client.from("datasets").select("id, name, original_name, row_count, columns, created_at").order("created_at", { ascending: false }).limit(20);
+    const { data, error } = await client.from("datasets").select("id, name, original_name, row_count, columns, created_at, semantic_roles, platform").order("created_at", { ascending: false }).limit(20);
     if (error) return [];
     return (data || []).map(function(d: any) {
-      return { id: d.id, name: d.name, originalName: d.original_name, rowCount: d.row_count, columns: d.columns, createdAt: d.created_at };
+      return {
+        id: d.id,
+        name: d.name,
+        originalName: d.original_name,
+        rowCount: d.row_count,
+        columns: d.columns,
+        createdAt: d.created_at,
+        semanticRoles: d.semantic_roles,
+        platform: d.platform,
+      };
     });
   } catch { return []; }
 }

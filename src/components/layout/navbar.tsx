@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, Upload, MessageSquare, FileText, Sparkles, TrendingUp, Home } from "lucide-react";
+import { BarChart3, Upload, MessageSquare, Sparkles, TrendingUp, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 
@@ -13,7 +13,6 @@ const navItems = [
   { href: "/dashboard", label: t.nav.diagnosis, icon: BarChart3 },
   { href: "/workspace", label: t.nav.workspace, icon: TrendingUp },
   { href: "/chat", label: t.nav.chat, icon: MessageSquare },
-  { href: "/report", label: t.nav.report, icon: FileText },
 ];
 
 export function Navbar() {

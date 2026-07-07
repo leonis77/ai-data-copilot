@@ -1,5 +1,5 @@
 export type DecisionPriority = "P0" | "P1" | "P2";
-export type DecisionType = "pricing" | "restock" | "new_product" | "clearance" | "anomaly";
+export type DecisionType = "pricing" | "restock" | "profit_optimization" | "inventory_alert";
 
 export interface DecisionCard {
   id: string;

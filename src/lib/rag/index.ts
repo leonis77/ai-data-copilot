@@ -1,7 +1,11 @@
-export { searchKnowledge } from "./knowledge";
-export { injectKnowledgeSync } from "./inject";
-export { injectRAG } from "./inject";
-export type { RAGContext } from "./inject";
+export { searchKnowledge, searchByTags, searchByPlatform, getKnowledgeStats, KNOWLEDGE } from "./knowledge";
+export type { KnowledgeEntry } from "./knowledge";
+export { injectKnowledge, injectKnowledgeSimple, injectKnowledgeV3 } from "./inject";
+export type { InjectionResult } from "./inject";
+export { freshnessCheck, batchFreshnessCheck, isExpired, needsReview, getStalenessWarning, buildLLMCrossCheckPrompt } from "./freshness";
+export type { FreshnessStatus, FreshnessResult } from "./freshness";
+export { detectIndustry, shouldWebSearch, assessKnowledgeCoverage } from "./industry-detector";
+export type { IndustryResult } from "./industry-detector";
 export { getIndustryKnowledge } from "./knowledge-base";
 export { computeUserBenchmarks, saveUserBenchmarks, getUserHistory, formatHistoryForPrompt } from "./user-benchmarks";
 export type { Benchmark, BenchmarkComparison } from "./user-benchmarks";

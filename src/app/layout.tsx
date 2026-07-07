@@ -4,8 +4,8 @@ import { Navbar } from "@/components/layout/navbar";
 import { PageTransition } from "@/components/layout/page-transition";
 
 export const metadata: Metadata = {
-  title: "AI Data Copilot - 智能数据分析助手",
-  description: "将 Excel 数据转化为智能决策建议",
+  title: "ProcureWise - 跨平台电商利润优化引擎",
+  description: "上传淘宝/京东/拼多多/抖音的销售数据+进货成本，AI自动计算真实利润并告诉你下一步该采购什么。2026年四大平台费率引擎，抖音达人分级ROI计算。",
 };
 
 export default function RootLayout({

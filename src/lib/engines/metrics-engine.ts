@@ -19,7 +19,12 @@ export interface StoreMetrics {
 }
 
 export function computeProductMetrics(rows: any[], nameField: string, priceField: string, qtyField?: string, stockField?: string): ProductMetrics[] {
-  const total = rows.reduce(function(s,r){return s+(Number(r[priceField])||0)},0);
+  // Use same price*qty formula as per-product revenue so contribution sums to 100%
+  const total = rows.reduce(function(s,r){
+    const price = Number(r[priceField]) || 0;
+    const qty = qtyField ? (Number(r[qtyField]) || 1) : 1;
+    return s + (price * qty);
+  }, 0);
   const map: Record<string, {revenue:number; sales:number; price:number; stock:number; count:number}> = {};
   for (const r of rows) {
     const name = String(r[nameField] || "unknown");

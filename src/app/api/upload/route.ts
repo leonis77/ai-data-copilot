@@ -4,7 +4,7 @@ import { analyzeSheetStructure } from "@/lib/parser-ai";
 import { logger } from "@/lib/logger";
 import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
-import { matchPlatformTemplate } from "@/lib/templates/matcher";
+import { saveToServerStore, getFromServerStore, getLatestFromServerStore } from "@/lib/server-store";
 
 var XLSX = require("xlsx");
 
@@ -98,33 +98,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parseError || "parse failed - file may be empty or format unsupported" }, { status: 400 });
     }
 
+    // Platform detection from column names
+    var platform = detectPlatformFromColumns(parsed.columns);
+
     // Save to Supabase (non-blocking)
     var semProfile: any = null;
     try { semProfile = buildSemanticProfile("", parsed.columns, parsed.rows.slice(0, 50)); } catch (e) { logger.warn("Semantic profile failed"); }
-    
+
     var id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     var saveRows = parsed.rows.slice(0, 500);
 
-    // Template matching (best-effort, non-blocking)
-    var templateMatch: any = null;
+    // Save to in-memory server store FIRST (synchronous, works without Supabase)
     try {
-      var matchResult = matchPlatformTemplate(parsed.columns);
-      if (matchResult) {
-        templateMatch = {
-          templateId: matchResult.template.id,
-          templateName: matchResult.template.name,
-          category: matchResult.template.category,
-          confidence: matchResult.confidence,
-          columnMapping: matchResult.columnMapping,
-        };
-        logger.info("Template matched: " + matchResult.template.name, { confidence: matchResult.confidence });
-      }
-    } catch (tmplErr) { logger.warn("Template matching skipped"); }
+      saveToServerStore({
+        id,
+        name: "dataset_" + Date.now(),
+        originalName: fileName,
+        columns: parsed.columns,
+        rows: saveRows,
+        rowCount: parsed.rows.length,
+        summary: parsed.summary,
+        createdAt: new Date().toISOString(),
+        semanticRoles: semProfile || undefined,
+        platform: platform || undefined,
+      });
+      logger.info("Dataset saved to in-memory store", { id, rows: saveRows.length, platform });
+    } catch (storeErr: any) {
+      logger.warn("In-memory store save failed", { message: storeErr.message });
+    }
 
+    // Save to Supabase (non-blocking - runs in background, failures are logged)
     try {
-      try {
-      await saveDataset({ id, name: "dataset_" + Date.now(), originalName: fileName, columns: parsed.columns, rows: saveRows, summary: parsed.summary });
-    } catch (dbError: any) { logger.warn("Supabase save failed (non-blocking)", { message: dbError.message }); }
+      await saveDataset({
+        id, name: "dataset_" + Date.now(), originalName: fileName,
+        columns: parsed.columns, rows: saveRows, summary: parsed.summary,
+        platform: platform || undefined, semanticRoles: semProfile || undefined,
+      });
     } catch (dbError: any) {
       logger.warn("Supabase save failed (non-blocking)", { message: dbError.message });
     }
@@ -132,8 +141,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       id, columns: parsed.columns, rows: parsed.rows,
       rowCount: parsed.rowCount, summary: parsed.summary, semanticRoles: semProfile,
+      platform: platform || null,
       sheets: (parsed as any).sheets || null,
-      templateMatch: templateMatch,
     });
   } catch (error) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });
@@ -144,6 +153,15 @@ export async function POST(request: NextRequest) {
 function XLSX_enc3(r: number, c: number): string {
   var col = String.fromCharCode(65 + c);
   return col + (r + 1);
+}
+
+/** 从列名检测所属平台 */
+function detectPlatformFromColumns(columns: string[]): string {
+  if (columns.some(function(c: string) { return /tmall|天猫|淘宝|taobao|买家会员|买家实际支付/i.test(c); })) return "tmall";
+  if (columns.some(function(c: string) { return /京东|jd|自营|pop/i.test(c); })) return "jd";
+  if (columns.some(function(c: string) { return /拼多多|pdd|拼团|百亿补贴/i.test(c); })) return "pdd";
+  if (columns.some(function(c: string) { return /抖音|douyin|达人|直播|千川|罗盘/i.test(c); })) return "douyin";
+  return "";
 }
 
 export async function DELETE(request: NextRequest) {
@@ -162,9 +180,57 @@ export async function GET(request: NextRequest) {
     var id = url.searchParams.get("id");
     var latest = url.searchParams.get("latest");
     var list = url.searchParams.get("list");
-    if (list === "true") { var datasets = await listDatasets(); return NextResponse.json({ datasets }); }
-    if (id) { var ds = await getDataset(id); if (!ds) return NextResponse.json({ error: "not found" }, { status: 404 }); return NextResponse.json(ds); }
-    if (latest === "true") { var lds = await getLatestDataset(); if (!lds) return NextResponse.json(null); return NextResponse.json(lds); }
+
+    if (list === "true") {
+      // Merge in-memory store + Supabase datasets, dedupe by id
+      var supabaseDatasets = await listDatasets();
+      var seenIds = new Set((supabaseDatasets || []).map(function(d: any) { return d.id; }));
+      // Add in-memory datasets not already in Supabase results
+      var memLatest = getLatestFromServerStore();
+      if (memLatest && !seenIds.has(memLatest.id)) {
+        supabaseDatasets.unshift({
+          id: memLatest.id, name: memLatest.name, originalName: memLatest.originalName,
+          rowCount: memLatest.rowCount, columns: memLatest.columns, createdAt: memLatest.createdAt,
+          semanticRoles: memLatest.semanticRoles || null, platform: memLatest.platform || null,
+        });
+        seenIds.add(memLatest.id);
+      }
+      return NextResponse.json({ datasets: supabaseDatasets });
+    }
+
+    if (id) {
+      // Check in-memory store first (fast path, works within same function instance)
+      var memDs = getFromServerStore(id);
+      if (memDs) {
+        return NextResponse.json({
+          id: memDs.id, name: memDs.name, original_name: memDs.originalName,
+          columns: memDs.columns, rows: memDs.rows, row_count: memDs.rowCount,
+          summary: memDs.summary, created_at: memDs.createdAt, semantic_roles: memDs.semanticRoles || null,
+          platform: memDs.platform || null,
+        });
+      }
+      // Fall back to Supabase
+      var ds = await getDataset(id);
+      if (!ds) return NextResponse.json({ error: "not found" }, { status: 404 });
+      return NextResponse.json(ds);
+    }
+
+    if (latest === "true") {
+      // Check in-memory store first
+      var memLatestDs = getLatestFromServerStore();
+      if (memLatestDs) {
+        return NextResponse.json({
+          id: memLatestDs.id, name: memLatestDs.name, original_name: memLatestDs.originalName,
+          columns: memLatestDs.columns, rows: memLatestDs.rows, row_count: memLatestDs.rowCount,
+          summary: memLatestDs.summary, created_at: memLatestDs.createdAt, semantic_roles: memLatestDs.semanticRoles || null,
+          platform: memLatestDs.platform || null,
+        });
+      }
+      var lds = await getLatestDataset();
+      if (!lds) return NextResponse.json(null);
+      return NextResponse.json(lds);
+    }
+
     return NextResponse.json({ error: "missing param" }, { status: 400 });
   } catch (error) {
     logger.error("GET error", { message: error instanceof Error ? error.message : String(error) });

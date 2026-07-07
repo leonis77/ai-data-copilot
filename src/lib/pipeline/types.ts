@@ -194,6 +194,56 @@ export interface PipelineMeta {
 }
 
 // ═══════════════════════════════════════════════
+// Cross-Dataset Comparison（跨数据集对比）
+// ═══════════════════════════════════════════════
+
+/** 单个实体的跨数据集价格对比 */
+export interface CrossEntityPriceComparison {
+  /** 实体名称（统一规范名） */
+  entity: string;
+  /** 当前数据集均价 */
+  priceCurrent: number;
+  /** 关联数据集均价 */
+  priceRelated: number;
+  /** 价差（related - current） */
+  diff: number;
+  /** 价差百分比 */
+  diffPercent: number;
+}
+
+/** 单个实体的跨数据集销量对比 */
+export interface CrossEntityQuantityComparison {
+  entity: string;
+  /** 当前数据集销量 */
+  qtyCurrent: number;
+  /** 关联数据集销量 */
+  qtyRelated: number;
+  /** 销量差 */
+  gap: number;
+}
+
+/** 跨数据集对比摘要 */
+export interface CrossDatasetSummary {
+  /** 关联数据集名称 */
+  relatedDatasetName: string;
+  /** 关联数据集ID */
+  relatedDatasetId: string;
+  /** 关系类型 */
+  relationType: string;
+  /** 实体重叠信息 */
+  entityOverlap: {
+    matched: number;
+    totalCurrent: number;
+    totalRelated: number;
+    overlapRate: number;
+  };
+  /** 价格对比列表（Top 10） */
+  priceComparisons: CrossEntityPriceComparison[];
+  /** 销量对比列表（Top 10） */
+  quantityComparisons: CrossEntityQuantityComparison[];
+}
+
+// ═══════════════════════════════════════════════
 // DecisionChain（顶层输出）
 // ═══════════════════════════════════════════════
 
@@ -211,6 +261,8 @@ export interface DecisionChain {
   aiExplanation: AIExplanation;
   /** 第6层：行动建议 */
   actions: PrioritizedAction[];
+  /** 跨数据集对比（可选） */
+  crossDataset?: CrossDatasetSummary[];
   /** 元数据 */
   meta: PipelineMeta;
 }
@@ -238,4 +290,6 @@ export interface AIExplanationContext {
   applicableRules: ApplicableRule[];
   knowledgeBlock: string;
   industry: string;
+  /** 跨数据集对比结果（可选） */
+  crossDatasets?: CrossDatasetSummary[];
 }

@@ -4,8 +4,9 @@ import { getFromServerStore } from "@/lib/server-store";
 import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
-import { injectKnowledge, injectKnowledgeV3, injectRAG } from "@/lib/rag";
+import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations } from "@/lib/semantic";
+import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
 
 export async function POST(request: NextRequest) {
@@ -69,10 +70,11 @@ export async function POST(request: NextRequest) {
 
     // Cross-dataset relations
     var crossCtx = "";
+    var rels: DatasetRelation[] = [];
     try {
       var allDs = await listDatasets();
       var dsMeta = allDs.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles }; });
-      var rels = detectRelations(dsMeta);
+      rels = detectRelations(dsMeta);
       if (rels.length > 0) {
         crossCtx = "跨数据集关联上下文：检测到以下关联关系:\n";
         for (var ri = 0; ri < rels.length; ri++) {
@@ -121,17 +123,36 @@ export async function POST(request: NextRequest) {
       datasetName: fallbackDs.original_name || fallbackDs.originalName || (fallbackDs as any).name || "Unnamed Dataset",
     };
 
+    // ⭐ 提取跨数据集关联ID（供Pipeline执行跨数据集对比）
+    var crossDatasetIds: string[] = [];
+    if (rels.length > 0) {
+      for (var ri2 = 0; ri2 < rels.length; ri2++) {
+        if (rels[ri2].type === "profit_analysis" || rels[ri2].type === "entity_overlap") {
+          // 取与当前数据集不相同的那个ID
+          var relatedId = rels[ri2].datasetA === datasetId ? rels[ri2].datasetB : rels[ri2].datasetA;
+          if (!crossDatasetIds.includes(relatedId)) {
+            crossDatasetIds.push(relatedId);
+          }
+        }
+      }
+    }
+
     // ⭐ 尝试使用 DecisionPipeline（经营决策链路贯通）
     // 如果成功，返回结构化的 DecisionChain
     // 如果失败，回退到原有的 routeAgent（向后兼容）
     try {
-      const chain = await executeDecisionPipeline(input || "请分析这些数据", datasetId);
+      const chain = await executeDecisionPipeline(
+        input || "请分析这些数据",
+        datasetId,
+        crossDatasetIds.length > 0 ? crossDatasetIds : undefined,
+      );
       if (chain && chain.evidenceCards.length > 0) {
         logger.info("Decision pipeline executed successfully", {
           datasetId,
           evidenceCards: chain.evidenceCards.length,
           actions: chain.actions.length,
           diagnoses: chain.diagnoses.length,
+          crossDatasets: chain.crossDataset?.length || 0,
           industry: chain.meta.industry.name,
           pipelineLatency: chain.meta.pipelineLatency,
         });
@@ -143,6 +164,7 @@ export async function POST(request: NextRequest) {
           actions: chain.actions,
           applicableRules: chain.applicableRules,
           reasoningChain: chain.aiExplanation.reasoningChain,
+          crossDataset: chain.crossDataset,
           meta: chain.meta,
         });
       }
@@ -152,17 +174,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // RAG enrichment for fallback routeAgent
+    // RAG enrichment for fallback routeAgent (already has knowledgeCtx in ctx.dataSummary)
     var enrichedInput = input;
-    try {
-      var ragCtx = await injectRAG(input, ds.id, dataSummary);
-      if (ragCtx.combined) {
-        enrichedInput = ragCtx.combined + "\n\n用户问题:\n" + input + "\n\n数据上下文:\n" + dataSummary;
-        ctx.dataSummary = ragCtx.combined;
-      }
-    } catch (e) {
-      logger.warn("RAG injection failed, using original input");
-    }
 
     // 回退到原有 Agent 路由（向后兼容）
     const result = await routeAgent(enrichedInput || "请分析这些数据", ctx);

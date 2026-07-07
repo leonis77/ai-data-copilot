@@ -9,6 +9,7 @@ export interface Action {
   confidence: "high" | "medium" | "low";
   reason: string;
   risk: string;
+  reference?: string;
 }
 
 export function computePriority(d: Diagnosis): { score: number; level: "P0"|"P1"|"P2" } {
@@ -50,6 +51,7 @@ export function generateActions(diagnoses: Diagnosis[]): Action[] {
         confidence: (d.level === "opportunity" ? "medium" : (d.level === "critical" ? "high" : "medium")) as "high" | "medium" | "low",
         reason: d.detail,
         risk: d.type === "priceup" ? "涨价可能影响销量" : d.type === "stockout" ? "缺货可能导致客户流失" : "执行后持续监控",
+        reference: d.reference,
       };
     })
     .sort(function(a, b) {

@@ -38,7 +38,7 @@ export async function analyzeSheetStructure(
     var client = getClient();
     var res = await withRetry(function() {
       return client.chat.completions.create({
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         messages: [{ role: "system", content: "You are an Excel structure analyzer. Output JSON only, no explanation." }, { role: "user", content: prompt }],
         temperature: 0, max_tokens: 500,
       });

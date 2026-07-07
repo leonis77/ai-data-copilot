@@ -70,7 +70,7 @@ function Workbench() {
           <Link href="/dashboard">
             <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}}
               className="group flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
-              <Sparkles className="w-5 h-5" />{"\u67e5\u770b\u7ecf\u8425\u8bca\u65ad"}
+              <Sparkles className="w-5 h-5" />{"\u67e5\u770b\u5229\u6da6\u770b\u677f"}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </Link>
@@ -90,12 +90,12 @@ function Workbench() {
 // Landing page when no data
 function LandingPage() {
   var features = [
-    { icon: Upload, title: "\u4e00\u952e\u4e0a\u4f20", desc: "\u62d6\u62fd\u4e0a\u4f20 Excel / CSV\uff0c\u81ea\u52a8\u89e3\u6790\u8bc6\u522b" },
-    { icon: Sparkles, title: "AI \u8bca\u65ad", desc: "DeepSeek \u81ea\u52a8\u53d1\u73b0\u7ecf\u8425\u95ee\u9898\u4e0e\u673a\u4f1a" },
-    { icon: BarChart3, title: "\u667a\u80fd\u5206\u6790", desc: "\u591a\u7ef4\u5ea6\u6307\u6807\u8ba1\u7b97\uff0c\u53ef\u89c6\u5316\u5448\u73b0" },
-    { icon: MessageSquare, title: "\u5bf9\u8bdd\u4ea4\u4e92", desc: "\u81ea\u7136\u8bed\u8a00\u95ee\u7b54\uff0c\u968f\u65f6\u63a2\u7d22\u6570\u636e" },
-    { icon: FileText, title: "\u81ea\u52a8\u62a5\u544a", desc: "\u4e00\u952e\u751f\u6210\u5206\u6790\u62a5\u544a\uff0c\u652f\u6301\u6253\u5370" },
-    { icon: Shield, title: "\u6570\u636e\u5b89\u5168", desc: "\u672c\u5730\u5904\u7406\uff0c\u6570\u636e\u4e0d\u51fa\u670d\u52a1\u5668" },
+    { icon: Upload, title: "\u4e00\u952e\u4e0a\u4f20\u00b7\u81ea\u52a8\u8bc6\u522b\u5e73\u53f0", desc: "\u62d6\u62fd Excel/CSV\uff0cAI\u81ea\u52a8\u8bc6\u522b\u6dd8\u5b9d/\u4eac\u4e1c/\u62fc\u591a\u591a/\u6296\u97f3\u6570\u636e\u683c\u5f0f" },
+    { icon: TrendingUp, title: "\u771f\u5b9e\u5229\u6da6\u8ba1\u7b97", desc: "2026\u5e74\u56db\u5927\u5e73\u53f0\u72ec\u7acb\u8d39\u7387\u5f15\u64ce\uff0c\u6dd8\u5b9d/\u4eac\u4e1c/\u62fc\u591a\u591a/\u6296\u97f3\u5404\u81ea\u8ba1\u7b97\u771f\u5b9e\u5229\u6da6" },
+    { icon: Target, title: "\u91c7\u8d2d\u51b3\u7b56\u5f15\u64ce", desc: "AI\u544a\u8bc9\u4f60\u54ea\u4e2a\u54c1\u8be5\u52a0\u91cf\u3001\u54ea\u4e2a\u8be5\u780d\u6389\u3001\u54ea\u4e2a\u4f9b\u5e94\u5546\u66f4\u5212\u7b97" },
+    { icon: Sparkles, title: "\u8fbe\u4ebaROI\u5206\u6790", desc: "\u6296\u97f3A/B/C/D\u7ea7\u8fbe\u4eba\u4f63\u91d1\u5206\u7ea7\u5236\u4e0b\uff0c\u81ea\u52a8\u8ba1\u7b97\u6bcf\u4e2a\u8fbe\u4eba\u7684\u771f\u5b9e\u6295\u653e\u56de\u62a5\u7387" },
+    { icon: AlertTriangle, title: "\u4e8f\u635f\u81ea\u52a8\u9884\u8b66", desc: "\u5229\u6da6\u7387\u8d1f\u3001\u4ef7\u683c\u5012\u6302\u3001\u8d27\u54c1\u79ef\u538b\u2014\u2014\u7ea2\u9ec4\u7eff\u4e09\u8272\u9884\u8b66\uff0c\u7acb\u5373\u53d1\u73b0\u95ee\u9898" },
+    { icon: Shield, title: "\u53cd\u5e7b\u89c9\u56db\u5c42\u9632\u7ebf", desc: "\u6bcf\u4e2a\u6570\u5b57\u53ef\u6eaf\u6e90\u5230\u539f\u59cb\u6570\u636e\u884c\uff0cAI\u4e0d\u786e\u5b9a\u65f6\u660e\u786e\u8bf4\u201c\u4e0d\u77e5\u9053\u201d" },
   ];
 
   return (
@@ -110,24 +110,24 @@ function LandingPage() {
           <motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
             <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-10 border border-white/[0.06]" style={{backdropFilter:"blur(12px)",background:"rgba(17,24,39,0.5)"}}>
               <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-sm text-white/50">AI {"\u9a71\u52a8\u7684\u7535\u5546\u7ecf\u8425\u8bca\u65ad\u5e73\u53f0"}</span>
+              <span className="text-sm text-white/50">{"\u8de8\u5e73\u53f0\u7535\u5546\u5229\u6da6\u4f18\u5316\u5f15\u64ce \u00b7 2026"}</span>
             </div>
           </motion.div>
 
           <motion.h1 initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.15}} className="text-5xl md:text-7xl font-black tracking-tight mb-6">
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">Commerce Copilot</span>
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">ProcureWise</span>
             <br />
-            <span className="text-white/80 text-2xl md:text-3xl font-normal mt-4 block">{"\u8ba9 AI \u6210\u4e3a\u60a8\u7684\u6570\u636e\u5206\u6790\u5e08"}</span>
+            <span className="text-white/80 text-2xl md:text-3xl font-normal mt-4 block">{"\u4e0a\u4f20\u6570\u636e \u00b7 AI\u81ea\u52a8\u8ba1\u7b97\u8de8\u5e73\u53f0\u5229\u6da6 \u00b7 \u544a\u8bc9\u4f60\u8be5\u8fdb\u4ec0\u4e48\u8d27"}</span>
           </motion.h1>
 
-          <motion.p initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}} className="text-lg text-white/30 max-w-xl mx-auto mb-12 leading-relaxed">
-            {"\u4e0a\u4f20\u8ba2\u5355\u6570\u636e \u00b7 AI \u81ea\u52a8\u8bca\u65ad \u00b7 \u83b7\u53d6\u53ef\u6267\u884c\u7684\u7ecf\u8425\u5efa\u8bae"}
+          <motion.p initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}} className="text-lg text-white/30 max-w-2xl mx-auto mb-12 leading-relaxed">
+            {"\u8986\u76d6\u6dd8\u5b9d/\u4eac\u4e1c/\u62fc\u591a\u591a/\u6296\u97f3 \u00b7 2026\u5e74\u771f\u5b9e\u8d39\u7387\u5f15\u64ce \u00b7 \u6296\u97f3\u8fbe\u4ebaABCD\u7ea7ROI\u81ea\u52a8\u8ba1\u7b97 \u00b7 \u4e0d\u662f\u53c8\u4e00\u4e2aAI\u5de5\u5177\uff0c\u662f\u5e2e\u4f60\u7b97\u6e05\u8d26\u3001\u591a\u8d5a\u94b1\u7684\u91c7\u8d2d\u519b\u5e08"}
           </motion.p>
 
           <motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.45}} className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/upload">
               <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group flex items-center gap-2 px-10 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
-                <Sparkles className="w-5 h-5" />{"\u5f00\u59cb\u5206\u6790"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <Upload className="w-5 h-5" />{"\u4e0a\u4f20\u6570\u636e \u00b7 30\u79d2\u770b\u5229\u6da6"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </Link>
           </motion.div>
@@ -155,7 +155,7 @@ function LandingPage() {
       </section>
 
       <footer className="border-t border-white/[0.04] py-10">
-        <div className="max-w-7xl mx-auto px-6 text-center"><p className="text-sm text-white/20">Commerce Copilot {"\u00a9"} 2025 {"\u00b7"} Powered by DeepSeek AI</p></div>
+        <div className="max-w-7xl mx-auto px-6 text-center"><p className="text-sm text-white/20">ProcureWise {"\u00a9"} 2026 {"\u00b7"} Powered by DeepSeek V4</p></div>
       </footer>
     </div>
   );

@@ -58,7 +58,7 @@ export async function generatePurchaseList(
     const client = getClient();
     const res = await withRetry(function() {
       return client.chat.completions.create({
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         messages: [
           { role: "system", content: "You are a supply chain analyst. Output only JSON." },
           { role: "user", content: buildPrompt(products, categoryName) },
