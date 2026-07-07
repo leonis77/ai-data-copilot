@@ -219,7 +219,7 @@ function formatEvidenceCardsSection(cards: EvidenceCard[]): string {
     section += `- 判决：${card.verdict}（置信度${Math.round(card.verdictConfidence * 100)}%）\n`;
     section += `- 单品利润：${card.profit.netPerItem >= 0 ? "+" : ""}¥${card.profit.netPerItem.toFixed(2)}\n`;
     section += `- 利润率：${card.profit.margin >= 0 ? "+" : ""}${card.profit.margin}%\n`;
-    section += `- 月利润：${card.profit.netMonthly >= 0 ? "+" : ""}¥${Math.abs(card.profit.netMonthly).toFixed(0)}\n\n`;
+    section += `- 月利润：${card.profit.netMonthly >= 0 ? "+" : "−"}¥${Math.abs(card.profit.netMonthly).toFixed(0)}\n\n`;
 
     // 成本归因表
     section += "**成本归因（每项占总成本的百分比）：**\n\n";
@@ -341,7 +341,7 @@ function formatCrossPlatformSection(comparisons: CrossPlatformComparison[]): str
         pr.verdict === "buy_more" ? "📈" :
         pr.verdict === "hold" ? "✅" :
         pr.verdict === "reduce" ? "⚠️" : "🛑";
-      section += `| ${pr.platform} | ${pr.sellPrice.toFixed(2)} | ${pr.netProfitPerItem >= 0 ? "+" : ""}${pr.netProfitPerItem.toFixed(2)} | ${pr.profitMargin >= 0 ? "+" : ""}${pr.profitMargin}% | ${pr.netProfitMonthly >= 0 ? "+" : ""}${Math.abs(Math.round(pr.netProfitMonthly))} | ${vIcon} ${pr.verdict} |\n`;
+      section += `| ${pr.platform} | ${pr.sellPrice.toFixed(2)} | ${pr.netProfitPerItem >= 0 ? "+" : ""}${pr.netProfitPerItem.toFixed(2)} | ${pr.profitMargin >= 0 ? "+" : ""}${pr.profitMargin}% | ${pr.netProfitMonthly >= 0 ? "+" : "−"}${Math.abs(Math.round(pr.netProfitMonthly))} | ${vIcon} ${pr.verdict} |\n`;
     }
     section += "\n";
 

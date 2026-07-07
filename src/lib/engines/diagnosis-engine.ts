@@ -1,5 +1,6 @@
 // Diagnosis engine - rule-based health assessment with knowledge-backed references
 import type { ProductMetrics, StoreMetrics } from "./metrics-engine";
+import type { ProfitResult } from "@/lib/profit/engine";
 import { searchKnowledge } from "@/lib/rag/knowledge";
 
 // Knowledge-backed reference data for diagnosis enrichment
@@ -82,6 +83,141 @@ export function diagnoseProducts(products: ProductMetrics[]): Diagnosis[] {
       detail: longTail.length + "个SKU（" + Math.round(longTail.length/products.length*100) + "%）贡献不足2%，建议精简",
       action: "精简低效SKU " + longTail.slice(0,3).map(function(p){return p.name}).join(","),
       reference: KNOWLEDGE_REFS.redundant.summary });
+  }
+
+  return results;
+}
+
+/**
+ * 利润诊断：从 ProfitResult[] 中检测亏损、平台固定费负担等利润相关问题。
+ *
+ * 这是对 diagnoseProducts() 的补充 — 后者只看库存/结构/价格，对利润数据无感知。
+ * Pipeline Layer 2 中调用本函数，将利润发现注入 Diagnosis[]。
+ */
+export function diagnoseProfitIssues(
+  profitResults: ProfitResult[],
+  platform: string,
+): Diagnosis[] {
+  const results: Diagnosis[] = [];
+  if (profitResults.length === 0) return results;
+
+  const dropProducts: ProfitResult[] = [];
+  const reduceProducts: ProfitResult[] = [];
+  const jdFeeBurdenProducts: ProfitResult[] = [];
+
+  for (const r of profitResults) {
+    // 严重亏损品 → critical
+    if (r.verdict === "drop" && r.profitMargin < -10) {
+      dropProducts.push(r);
+      results.push({
+        level: "critical",
+        type: "negative_margin_severe",
+        title: r.productName + " 严重亏损",
+        detail:
+          "月亏 ¥" +
+          Math.abs(Math.round(r.netProfitMonthly)).toLocaleString() +
+          "，单品利润 ¥" +
+          (r.netProfitPerItem >= 0 ? "+" : "−") +
+          Math.abs(r.netProfitPerItem).toFixed(2) +
+          "，利润率 " +
+          (r.profitMargin >= 0 ? "+" : "−") +
+          Math.abs(r.profitMargin) +
+          "%",
+        products: [r.productName],
+        action: "立即停止采购 " + r.productName + "，或用提价/换供应商扭转亏损",
+        impact: "止损后可节省约 ¥" + Math.abs(Math.round(r.netProfitMonthly)).toLocaleString() + "/月",
+        reference:
+          "依据 RULE_NEGATIVE_MARGIN_SEVERE：单品利润率低于-10%属于严重亏损，持续将影响整体现金流。证据卡 verdict=" +
+          r.verdict +
+          "，置信度 " +
+          Math.round(r.verdictConfidence * 100) +
+          "%",
+      });
+    }
+
+    // 微亏品 → warning
+    if (r.verdict === "reduce" && r.profitMargin < 0) {
+      reduceProducts.push(r);
+      results.push({
+        level: "warning",
+        type: "negative_margin",
+        title: r.productName + " 微亏",
+        detail:
+          "月亏 ¥" +
+          Math.abs(Math.round(r.netProfitMonthly)).toLocaleString() +
+          "，利润率 " +
+          (r.profitMargin >= 0 ? "+" : "−") +
+          Math.abs(r.profitMargin) +
+          "%。亏损幅度较小，建议减量观察或小幅提价。",
+        products: [r.productName],
+        action: "减量观察 " + r.productName + "，尝试小幅提价",
+        impact: "优化后预计改善 ¥" + Math.abs(Math.round(r.netProfitMonthly * 0.5)).toLocaleString() + "/月",
+        reference:
+          "依据 RULE_NEGATIVE_MARGIN：单品利润为负但幅度较小，需评估优化空间。证据卡 verdict=" +
+          r.verdict +
+          "，置信度 " +
+          Math.round(r.verdictConfidence * 100) +
+          "%",
+      });
+    }
+
+    // 京东月费分摊负担 → warning
+    if (
+      r.platformKey === "jd" &&
+      r.costs.fixedFeePerItem > 0 &&
+      r.profitMargin < 0.05
+    ) {
+      jdFeeBurdenProducts.push(r);
+      // 避免重复添加同一类诊断
+      if (jdFeeBurdenProducts.length === 1) {
+        results.push({
+          level: "warning",
+          type: "jd_fixed_fee_burden",
+          title: "京东月费分摊负担 (影响 " + (jdFeeBurdenProducts.length > 1 ? "多品" : r.productName) + ")",
+          detail:
+            "京东月费 ¥1,000 分摊到低销量单品导致单位成本偏高。" +
+            "月销 <100 件时固定费负担显著，当前部分商品月销不足，每件负担 ¥" +
+            r.costs.fixedFeePerItem.toFixed(0) +
+            "+ 的固定费用。",
+          products: jdFeeBurdenProducts.map(function(p) { return p.productName; }),
+          action: "评估京东POP模式是否适合当前品类，提升销量摊薄固定成本或考虑其他平台",
+          impact: "若能提升月销量至100件+，每件固定费成本从 ¥" + r.costs.fixedFeePerItem.toFixed(0) + " 降至 ¥10 以下",
+          reference:
+            "依据 RULE_JD_FIXED_FEE_BURDEN：京东月费 ¥1,000 分摊到低销量品导致单位成本偏高，月销 <100 件时影响显著。",
+        });
+      } else {
+        // 追加产品到已有诊断
+        var lastJdDiag = results[results.length - 1];
+        if (lastJdDiag.type === "jd_fixed_fee_burden" && lastJdDiag.products) {
+          lastJdDiag.products.push(r.productName);
+          lastJdDiag.title = "京东月费分摊负担 (影响 " + lastJdDiag.products.length + "品)";
+        }
+      }
+    }
+  }
+
+  // 平台级诊断：如果该平台所有商品都是 drop → critical
+  if (dropProducts.length === profitResults.length && profitResults.length > 0) {
+    const totalMonthlyLoss = dropProducts.reduce(function(s, r) { return s + r.netProfitMonthly; }, 0);
+    results.push({
+      level: "critical",
+      type: "platform_unprofitable",
+      title: "平台整体亏损",
+      detail:
+        platform +
+        "全品类 " +
+        dropProducts.length +
+        " 件商品均处于亏损状态，合计月亏 ¥" +
+        Math.abs(Math.round(totalMonthlyLoss)).toLocaleString() +
+        "。需要重新评估该平台的经营策略。",
+      products: dropProducts.map(function(p) { return p.productName; }),
+      action: "紧急评估 " + platform + " 平台策略：考虑削减品类、重新定价、或暂停该平台运营",
+      impact: "平台级止损潜力约 ¥" + Math.abs(Math.round(totalMonthlyLoss)).toLocaleString() + "/月",
+      reference:
+        "所有证据卡 verdict=drop，" +
+        dropProducts.length +
+        " 件商品全部触发 RULE_NEGATIVE_MARGIN_SEVERE。",
+    });
   }
 
   return results;

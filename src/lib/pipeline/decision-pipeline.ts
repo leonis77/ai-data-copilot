@@ -22,7 +22,7 @@ import { logger } from "@/lib/logger";
 
 // ═══ Existing engine modules ═══
 import { computeProductMetrics, computeStoreMetrics } from "@/lib/engines/metrics-engine";
-import { diagnoseProducts } from "@/lib/engines/diagnosis-engine";
+import { diagnoseProducts, diagnoseProfitIssues } from "@/lib/engines/diagnosis-engine";
 import { generateActions } from "@/lib/engines/decision-engine";
 import { calculateProfit, PLATFORM_FEES_2026 } from "@/lib/profit/engine";
 import { injectKnowledgeV3, KNOWLEDGE } from "@/lib/rag";
@@ -118,6 +118,23 @@ export async function executeDecisionPipeline(
 
   // ═══ Layer 3: 证据卡构建 ═══
   const evidenceCards = buildEvidenceCards(profitResults, platform);
+
+  // ═══ Layer 2.5: 利润诊断注入 ═══
+  // 证据卡已正确识别亏损/微亏/平台费负担，但 diagnoseProducts() 对利润无感知。
+  // 此处将证据卡中的利润发现转为 Diagnosis，确保诊断层准确反映经营状况。
+  if (profitResults.length > 0) {
+    const profitDiagnoses = diagnoseProfitIssues(profitResults, platform);
+    for (var pdi = 0; pdi < profitDiagnoses.length; pdi++) {
+      diagnoses.push(profitDiagnoses[pdi]);
+    }
+    if (profitDiagnoses.length > 0) {
+      logger.info("Profit diagnoses injected into diagnosis layer", {
+        profitDiagnosisCount: profitDiagnoses.length,
+        totalDiagnosisCount: diagnoses.length,
+        types: profitDiagnoses.map(function(d) { return d.type; }),
+      });
+    }
+  }
 
   // ═══ Layer 4: 适用规则提取 ═══
   const applicableRules = extractApplicableRules(evidenceCards, platform, diagnoses);
