@@ -171,7 +171,7 @@ function ComparisonCard({ comparison: comp }: { comparison: CrossPlatformCompari
                 <td className={`text-right px-3 py-2.5 font-mono ${
                   r.netProfitMonthly >= 0 ? "text-green-400/70" : "text-red-400/70"
                 }`}>
-                  {r.netProfitMonthly >= 0 ? "+" : ""}¥{Math.abs(r.netProfitMonthly).toFixed(0)}
+                  {r.netProfitMonthly >= 0 ? "+" : "−"}¥{Math.abs(r.netProfitMonthly).toFixed(0)}
                 </td>
                 <td className="text-center px-3 py-2.5">
                   <VerdictTag verdict={r.verdict} />

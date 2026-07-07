@@ -62,7 +62,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-white/25">预期收益</span>
             <span className={"text-xs font-mono font-medium " + (action.expectedProfitImpact >= 0 ? "text-green-400" : "text-red-400")}>
-              {action.expectedProfitImpact >= 0 ? "+" : ""}¥{Math.abs(Math.round(action.expectedProfitImpact)).toLocaleString()}
+              {action.expectedProfitImpact >= 0 ? "+" : "−"}¥{Math.abs(Math.round(action.expectedProfitImpact)).toLocaleString()}
             </span>
           </div>
         )}

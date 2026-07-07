@@ -84,7 +84,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
           <div className="text-center">
             <div className="text-[10px] text-white/30 mb-0.5">月利润</div>
             <div className={"text-sm font-mono " + (card.profit.netMonthly >= 0 ? "text-green-400" : "text-red-400")}>
-              {card.profit.netMonthly >= 0 ? "+" : ""}¥{Math.abs(Math.round(card.profit.netMonthly)).toLocaleString()}
+              {card.profit.netMonthly >= 0 ? "+" : "−"}¥{Math.abs(Math.round(card.profit.netMonthly)).toLocaleString()}
             </div>
           </div>
         </div>
