@@ -91,6 +91,8 @@ export interface EvidenceCard {
   knowledgeRefs: string[];
   /** 知识库条目置信度明细（每个引用条目的置信度） */
   knowledgeConfidence?: Array<{ refId: string; confidence: number }>;
+  /** 进货成本是否为估算值（非从数据中提取） */
+  purchaseCostEstimated?: boolean;
   /** 唯一索引（用于跨层引用） */
   cardIndex: number;
 }

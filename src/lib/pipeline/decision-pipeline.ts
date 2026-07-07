@@ -99,16 +99,16 @@ export async function executeDecisionPipeline(
   if (priceField && platform) {
     for (const p of productMetrics.slice(0, 50)) {
       // 尝试从数据中推断进货成本
-      const purchaseCost = estimatePurchaseCost(p.name, rows, priceField);
-      profitResults.push(
-        calculateProfit({
-          productName: p.name,
-          platform: platform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
-          sellPrice: p.avgPrice,
-          purchaseCost,
-          monthlySales: p.sales,
-        }),
-      );
+      const [purchaseCost, costEstimated] = estimatePurchaseCost(p.name, rows, priceField);
+      const result = calculateProfit({
+        productName: p.name,
+        platform: platform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
+        sellPrice: p.avgPrice,
+        purchaseCost,
+        monthlySales: p.sales,
+      });
+      result.purchaseCostEstimated = costEstimated;
+      profitResults.push(result);
     }
   }
 
@@ -277,31 +277,31 @@ export async function executeDecisionPipeline(
             if (existingProfit) {
               groupProfitResults.push(existingProfit);
             } else {
-              var cpCost = estimatePurchaseCost(cp.name, rows, priceField!);
-              groupProfitResults.push(
-                calculateProfit({
-                  productName: cp.name,
-                  platform: platform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
-                  sellPrice: cp.price,
-                  purchaseCost: cpCost,
-                  monthlySales: cp.monthlySales,
-                }),
-              );
+              var cpCostResult = estimatePurchaseCost(cp.name, rows, priceField!);
+              var cpResult = calculateProfit({
+                productName: cp.name,
+                platform: platform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
+                sellPrice: cp.price,
+                purchaseCost: cpCostResult[0],
+                monthlySales: cp.monthlySales,
+              });
+              cpResult.purchaseCostEstimated = cpCostResult[1];
+              groupProfitResults.push(cpResult);
             }
           }
 
           for (var ri3 = 0; ri3 < relatedInMatch.length; ri3++) {
             var rp = relatedInMatch[ri3];
-            var rpCost = estimatePurchaseCost(rp.name, related.rows, relatedPriceField);
-            groupProfitResults.push(
-              calculateProfit({
-                productName: rp.name,
-                platform: relatedPlatform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
-                sellPrice: rp.price,
-                purchaseCost: rpCost,
-                monthlySales: rp.monthlySales,
-              }),
-            );
+            var rpCostResult = estimatePurchaseCost(rp.name, related.rows, relatedPriceField);
+            var rpResult = calculateProfit({
+              productName: rp.name,
+              platform: relatedPlatform as "tmall" | "taobao" | "jd" | "pdd" | "douyin",
+              sellPrice: rp.price,
+              purchaseCost: rpCostResult[0],
+              monthlySales: rp.monthlySales,
+            });
+            rpResult.purchaseCostEstimated = rpCostResult[1];
+            groupProfitResults.push(rpResult);
           }
 
           var comparison = buildCrossPlatformComparison(match, groupProfitResults);
@@ -450,12 +450,12 @@ function detectPlatformFromColumns(columns: string[]): string {
   return "";
 }
 
-/** 从数据中估算进货成本 */
+/** 从数据中估算进货成本。返回 [cost, isEstimated] */
 function estimatePurchaseCost(
   productName: string,
   rows: Record<string, unknown>[],
   priceField: string,
-): number {
+): [number, boolean] {
   // 尝试找成本相关列（成本/进价/cost/purchase）
   const costPatterns = [/成本|进价|进货|purchase_cost|cost_price|批发价/i];
   for (const pattern of costPatterns) {
@@ -464,7 +464,7 @@ function estimatePurchaseCost(
       const productRows = rows.filter((r) => String(r[findNameField(rows)] || "") === productName);
       if (productRows.length > 0) {
         const costVal = Number(productRows[0][costCol]);
-        if (!isNaN(costVal) && costVal > 0) return costVal;
+        if (!isNaN(costVal) && costVal > 0) return [costVal, false];
       }
     }
   }
@@ -473,10 +473,10 @@ function estimatePurchaseCost(
   const productRows = rows.filter((r) => String(r[findNameField(rows)] || "") === productName);
   if (productRows.length > 0) {
     const price = Number(productRows[0][priceField]);
-    if (!isNaN(price) && price > 0) return Math.round(price * 0.55 * 100) / 100;
+    if (!isNaN(price) && price > 0) return [Math.round(price * 0.55 * 100) / 100, true];
   }
 
-  return 0;
+  return [0, true];
 }
 
 function findNameField(rows: Record<string, unknown>[]): string {
@@ -534,6 +534,7 @@ function buildEvidenceCards(
       ruleIds,
       knowledgeRefs,
       knowledgeConfidence: getKnowledgeConfidence(knowledgeRefs),
+      purchaseCostEstimated: r.purchaseCostEstimated || false,
       cardIndex: index,
     };
   });

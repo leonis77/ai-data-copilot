@@ -281,27 +281,69 @@ function formatEvidenceCardsSection(cards: EvidenceCard[]): string {
     return "## 📋 第三层：证据卡\n\n（当前数据不足以构建证据卡——可能缺少价格或成本字段）";
   }
 
-  let section = "## 📋 第三层：证据卡（每件商品×平台 的成本明细）\n\n";
-  section += "> 以下是规则引擎精确计算的成本和利润数据。每个数字都可以追溯到具体成本项。\n\n";
+  // 汇总统计：检测系统性问题
+  const lossCards = cards.filter(function(c) { return c.profit.netPerItem < 0; });
+  const jdCards = cards.filter(function(c) { return c.platformKey === "jd"; });
+  const jdLossCards = jdCards.filter(function(c) { return c.profit.netPerItem < 0; });
 
-  for (const card of cards) {
+  let section = "## 📋 第三层：证据卡（每件商品×平台 的成本明细）\n\n";
+  section += "> 以下是规则引擎精确计算的成本和利润数据。每个数字都可以追溯到具体成本项。\n";
+  section += `> 共 ${cards.length} 张证据卡：盈利 ${cards.length - lossCards.length} 个 · 亏损 ${lossCards.length} 个\n\n`;
+
+  // 系统性问题预警
+  if (jdLossCards.length > 0 && jdLossCards.length === jdCards.length) {
+    const avgFixedFee = jdCards.reduce(function(s, c) { return s + c.costBreakdown.fixedFeePerItem; }, 0) / jdCards.length;
+    section += `### ⚠️ 系统性问题预警\n\n`;
+    section += `**京东平台全部 ${jdCards.length} 个商品均亏损。**根本原因：京东月费 ¥1,000 分摊到低销量单品，平均每件负担 ¥${avgFixedFee.toFixed(0)} 的固定费用。\n`;
+    section += `这不是个别商品的问题，而是**平台固定成本结构 × 低销量** 导致的系统性亏损。\n`;
+    section += `→ 月销量需达到 100 件以上才能将固定费用摊薄至 ¥10/件以下。\n`;
+    section += `→ 或者评估是否需要用京东POP模式销售该品类，考虑转向无月费的淘宝/拼多多。\n\n`;
+  }
+
+  for (var ci = 0; ci < cards.length; ci++) {
+    var card = cards[ci];
     section += `### 证据卡 #${card.cardIndex}：${card.productName} · ${card.platform}\n\n`;
 
     // 基本信息
     section += `- 售价：¥${card.sellPrice.toFixed(2)}\n`;
-    section += `- 进货成本：¥${card.costBreakdown.purchaseCost.toFixed(2)}\n`;
+    section += `- 进货成本：¥${card.costBreakdown.purchaseCost.toFixed(2)}${card.purchaseCostEstimated ? " ⚠️ 估算值（数据中无进价列，按售价55%估算）" : ""}\n`;
     section += `- 判决：${card.verdict}（置信度${Math.round(card.verdictConfidence * 100)}%）\n`;
-    section += `- 单品利润：${card.profit.netPerItem >= 0 ? "+" : ""}¥${card.profit.netPerItem.toFixed(2)}\n`;
-    section += `- 利润率：${card.profit.margin >= 0 ? "+" : ""}${card.profit.margin}%\n`;
-    section += `- 月利润：${card.profit.netMonthly >= 0 ? "+" : "−"}¥${Math.abs(card.profit.netMonthly).toFixed(0)}\n\n`;
+    section += `- 单品利润：${card.profit.netPerItem >= 0 ? "+" : "−"}¥${Math.abs(card.profit.netPerItem).toFixed(2)}\n`;
+    section += `- 利润率：${card.profit.margin >= 0 ? "+" : "−"}${Math.abs(card.profit.margin).toFixed(1)}%\n`;
+    section += `- 月利润：${card.profit.netMonthly >= 0 ? "+" : "−"}¥${Math.abs(card.profit.netMonthly).toFixed(0)}\n`;
+    // 月销量反推
+    var monthlySales = 0;
+    if (Math.abs(card.profit.netPerItem) > 0.01) {
+      monthlySales = Math.round(Math.abs(card.profit.netMonthly / card.profit.netPerItem));
+      section += `- 月销量：约 ${monthlySales} 件\n`;
+    }
+    section += "\n";
 
     // 成本归因表
     section += "**成本归因（每项占总成本的百分比）：**\n\n";
     section += "| 成本项 | 金额(¥) | 占比 | 说明 |\n";
     section += "|--------|---------|------|------|\n";
-    for (const attr of card.costAttribution) {
-      const note = attr.benchmarkDeviation ? ` ${attr.benchmarkDeviation}` : "";
+    var maxAttr = card.costAttribution.length > 0 ? card.costAttribution[0] : null;
+    for (var ai = 0; ai < card.costAttribution.length; ai++) {
+      var attr = card.costAttribution[ai];
+      if (!maxAttr || attr.percentage > maxAttr.percentage) {
+        maxAttr = attr;
+      }
+      var note = attr.benchmarkDeviation ? " " + attr.benchmarkDeviation : "";
       section += `| ${attr.item} | ${attr.amount.toFixed(2)} | ${attr.percentage.toFixed(1)}% |${note} |\n`;
+    }
+
+    // 🔑 关键：标注最大成本驱动项
+    if (maxAttr && maxAttr.percentage > 30) {
+      section += `\n> 🔑 **最大成本驱动：${maxAttr.item}** — 占总成本的 ${maxAttr.percentage.toFixed(1)}%，金额 ¥${maxAttr.amount.toFixed(2)}/件。`;
+      if (maxAttr.item.includes("固定费用") && card.platformKey === "jd") {
+        var feePerItem = card.costBreakdown.fixedFeePerItem;
+        section += `\n> 📌 这是京东月费 ¥1,000 分摊到 ${monthlySales || "?"} 件的单品负担。若月销提升至 100 件，该项将降至 ¥10.00/件。`;
+      }
+      if (maxAttr.item.includes("进货") && card.purchaseCostEstimated) {
+        section += `\n> ⚠️ 注意：进货成本为估算值（按售价55%倒推），可能与实际有偏差。建议在数据中补充"进价"列以获取精确利润。`;
+      }
+      section += "\n";
     }
 
     // 关联规则
@@ -312,13 +354,14 @@ function formatEvidenceCardsSection(cards: EvidenceCard[]): string {
     // 知识库参考（含置信度）
     if (card.knowledgeRefs.length > 0) {
       section += `知识参考：`;
-      const refDetails: string[] = [];
-      for (const ref of card.knowledgeRefs) {
-        const confEntry = card.knowledgeConfidence
+      var refDetails: string[] = [];
+      for (var ri2 = 0; ri2 < card.knowledgeRefs.length; ri2++) {
+        var ref = card.knowledgeRefs[ri2];
+        var confEntry = card.knowledgeConfidence
           ? card.knowledgeConfidence.find(function(k) { return k.refId === ref; })
           : undefined;
-        const confStr = confEntry
-          ? ` (置信度${Math.round(confEntry.confidence * 100)}%)`
+        var confStr = confEntry
+          ? " (置信度" + Math.round(confEntry.confidence * 100) + "%)"
           : "";
         refDetails.push(ref + confStr);
       }
@@ -482,6 +525,7 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
 
 **核心原则：每个结论必须有数据支撑。没有数据支持的观点 = 编造 = 不可接受。**
 
+${hasProfitData && context.evidenceCards.some(function(c) { return c.purchaseCostEstimated; }) ? "**⚠️ 特别提醒：进货成本为估算值（数据中无进价列）。这意味着利润数据可能与实际有偏差。你必须在分析中明确告知用户这一局限性，并建议补充实际进价数据以获取精确利润。**\n" : ""}
 ---
 
 ### 必须覆盖的分析维度（6个维度，缺一不可）
@@ -499,11 +543,14 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
 #### 维度2：利润与成本效率${!hasProfitData ? " 【⚠️ 数据不足 — 缺少价格/成本字段，跳过此维度并说明】" : ""}
 分析要点：
 - 利润全景：总月利润多少？盈利品vs亏损品的利润贡献结构？
-- 亏损根因链：对于亏损品（verdict=drop/reduce），逐项分析是哪个成本导致的
+- **🔑 亏损根因链（最重要！对每个亏损品必须回答"亏在哪里"）**：
+  - **首要成本驱动**：每个亏损品占成本比最高的那一项是什么？引用证据卡中标注的"最大成本驱动"
   - 是进货成本太高？平台佣金太重？固定费用分摊？达人佣金？还是多项叠加？
+  - **区分系统性问题 vs 个别商品问题**：如果同平台全部商品都亏损且首因都是固定费用→这是平台成本结构问题，不是商品问题
   - 对比同平台盈利品的成本结构，找出差异
 - 成本异常检测：哪些成本项偏离行业基准？（引用证据卡 costAttribution 中的 benchmarkDeviation）
-- 必须引用：证据卡#N的具体成本归因数据，规则ID，利润率数值
+- **⚠️ 进货成本估算说明**：如果证据卡标注了"进货成本为估算值"，必须告知用户实际利润可能与此有偏差，建议补充进货价数据
+- 必须引用：证据卡#N的"最大成本驱动"标注，具体成本归因数据，规则ID，利润率数值
 
 #### 维度3：产品组合风险
 分析要点：
@@ -598,6 +645,7 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
 | 利润数据 | ${hasProfitData ? profitCount + "盈/" + lossCount + "亏 · 合计" + (totalMonthlyProfit >= 0 ? "+" : "−") + "¥" + Math.abs(Math.round(totalMonthlyProfit)).toLocaleString() : "❌ 无"} | ${hasProfitData ? "✅" : "❌"} |
 | 库存数据 | ${hasInventoryData ? "✅ " + context.metrics.filter(function(p) { return (p.stock || 0) > 0; }).length + "个品有库存记录" : "❌ 无"} | ${hasInventoryData ? "✅" : "❌"} |
 | 成本归因 | ${hasProfitData ? "✅ " + evidenceCount + "张证据卡" : "❌ 无"} | ${hasProfitData ? "✅" : "❌"} |
+| 进货成本来源 | ${hasProfitData ? (context.evidenceCards.some(function(c) { return c.purchaseCostEstimated; }) ? "⚠️ 估算值（按售价55%倒推）" : "✅ 从数据列提取") : "—"} | ${hasProfitData ? (context.evidenceCards.some(function(c) { return c.purchaseCostEstimated; }) ? "⚠️ 偏差风险" : "✅") : "—"} |
 | 诊断结果 | ${diagnosisCount} 条（critical:${context.diagnoses.filter(function(d) { return d.level === "critical"; }).length} warning:${context.diagnoses.filter(function(d) { return d.level === "warning"; }).length}） | ${diagnosisCount > 0 ? "✅" : "⚠️"} |
 | 规则触发 | ${ruleCount} 条 | ${ruleCount > 0 ? "✅" : "⚠️"} |
 | 跨平台对比 | ${hasCrossPlatform ? "✅ " + context.crossPlatformComparisons!.length + "组商品" : "❌ 无"} | ${hasCrossPlatform ? "✅" : "❌"} |

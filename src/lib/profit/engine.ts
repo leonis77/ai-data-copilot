@@ -109,6 +109,8 @@ export interface ProfitResult {
   profitMargin: number;
   /** ROI */
   roi: number;
+  /** 进货成本是否为估算值（未从数据中提取到成本列） */
+  purchaseCostEstimated?: boolean;
   /** AI判决 */
   verdict: "buy_more" | "hold" | "reduce" | "drop";
   verdictConfidence: number;
