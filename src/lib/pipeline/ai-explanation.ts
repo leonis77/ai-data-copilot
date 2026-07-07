@@ -121,34 +121,108 @@ function formatMetricsSection(
   store: StoreMetrics,
   profitResults: ProfitResult[],
 ): string {
-  let section = "## 📊 第一层：指标（已精确计算）\n\n";
+  let section = "## 📊 第一层：指标（已精确计算，可直接引用）\n\n";
 
-  // 店铺级指标
+  // ═══ 店铺级指标 ═══
   section += "### 店铺总览\n";
   section += `- GMV：¥${store.gmv.toLocaleString()}\n`;
   section += `- 订单数：${store.orderCount}\n`;
   section += `- 客单价：¥${store.avgOrderValue.toFixed(2)}\n`;
-  section += `- TOP3 SKU占比：${store.topSkuRatio}%\n`;
-  section += `- 长尾SKU占比：${store.longTailRatio}%\n\n`;
+  section += `- 商品总数：${products.length} 个\n`;
+  section += `- TOP3 SKU占比：${store.topSkuRatio}%（${store.topSkuRatio > 60 ? "⚠️ 爆款依赖风险" : store.topSkuRatio > 40 ? "适度集中" : "分散"}）\n`;
+  section += `- 长尾SKU占比：${store.longTailRatio}%（${store.longTailRatio > 60 ? "⚠️ 长尾冗余" : "健康"}）\n`;
 
-  // 商品级指标（Top 10）
-  const topProducts = products.slice(0, 10);
-  section += "### 商品排行（按营收Top 10）\n\n";
-  section += "| 商品 | 营收(¥) | 销量 | 均价(¥) | 贡献度 |\n";
-  section += "|------|---------|------|---------|--------|\n";
-  for (const p of topProducts) {
-    section += `| ${p.name} | ${p.revenue.toLocaleString()} | ${p.sales} | ${p.avgPrice.toFixed(2)} | ${p.contribution}% |\n`;
+  // 营收集中度分析
+  if (products.length >= 5) {
+    const top1Share = products[0]?.contribution || 0;
+    const top5Share = products.slice(0, 5).reduce(function(s, p) { return s + p.contribution; }, 0);
+    const bottom5Share = products.slice(-5).reduce(function(s, p) { return s + p.contribution; }, 0);
+    section += `- 营收集中度：TOP1占${top1Share}% · TOP5占${top5Share}% · 末5位仅占${bottom5Share}%\n`;
   }
 
-  // 利润结果摘要
-  if (profitResults.length > 0) {
-    section += "\n### 利润摘要\n\n";
-    section += "| 商品 | 平台 | 售价(¥) | 单品利润(¥) | 利润率 | 判决 |\n";
-    section += "|------|------|---------|------------|--------|------|\n";
-    for (const r of profitResults.slice(0, 10)) {
-      const vIcon = r.verdict === "buy_more" ? "📈" : r.verdict === "hold" ? "✅" : r.verdict === "reduce" ? "⚠️" : "🛑";
-      section += `| ${r.productName} | ${r.platform} | ${r.sellPrice.toFixed(2)} | ${r.netProfitPerItem >= 0 ? "+" : ""}${r.netProfitPerItem.toFixed(2)} | ${r.profitMargin >= 0 ? "+" : ""}${r.profitMargin}% | ${vIcon} ${r.verdict} |\n`;
+  // 库存健康概览
+  const withStock = products.filter(function(p) { return p.stock !== undefined && p.stock > 0; });
+  if (withStock.length > 0) {
+    const lowStock = withStock.filter(function(p) { return p.stock! < 10 && (p.turnover || 0) > 3; });
+    const deadStock = withStock.filter(function(p) { return (p.turnover || 0) < 0.5 && p.stock! > 20; });
+    const totalInventoryValue = withStock.reduce(function(s, p) { return s + (p.avgPrice * (p.stock || 0)); }, 0);
+    section += `- 库存总价值：约¥${Math.round(totalInventoryValue).toLocaleString()} · `;
+    section += `缺货风险品：${lowStock.length}个 · 滞销品：${deadStock.length}个\n`;
+  }
+  section += "\n";
+
+  // ═══ 商品级指标 ═══
+  // Top 10 营收排行
+  const topProducts = products.slice(0, Math.min(10, products.length));
+  section += "### 商品营收排行 TOP" + topProducts.length + "\n\n";
+  section += "| 排名 | 商品 | 营收(¥) | 销量 | 均价(¥) | 贡献度 | 库存 | 周转率 |\n";
+  section += "|------|------|---------|------|---------|--------|------|--------|\n";
+  for (var ti = 0; ti < topProducts.length; ti++) {
+    var p = topProducts[ti];
+    var stockStr = p.stock !== undefined ? String(p.stock) : "-";
+    var turnoverStr = p.turnover !== undefined ? p.turnover.toFixed(1) : "-";
+    section += `| ${ti + 1} | ${p.name} | ${p.revenue.toLocaleString()} | ${p.sales} | ${p.avgPrice.toFixed(2)} | ${p.contribution}% | ${stockStr} | ${turnoverStr} |\n`;
+  }
+  section += "\n";
+
+  // 底部5名（低贡献品）
+  if (products.length > 5) {
+    const bottomProducts = products.slice(-5).reverse();
+    section += "### 营收末5位（低贡献品）\n\n";
+    section += "| 排名 | 商品 | 营收(¥) | 销量 | 均价(¥) | 贡献度 |\n";
+    section += "|------|------|---------|------|---------|--------|\n";
+    for (var bi = 0; bi < bottomProducts.length; bi++) {
+      var bp = bottomProducts[bi];
+      section += `| ${products.length - 5 + bi + 1} | ${bp.name} | ${bp.revenue.toLocaleString()} | ${bp.sales} | ${bp.avgPrice.toFixed(2)} | ${bp.contribution}% |\n`;
     }
+    section += "\n";
+  }
+
+  // ═══ 产品分级 ═══
+  // 按营收-贡献度将产品分为4个象限
+  if (products.length >= 4) {
+    var avgContribution = 100 / products.length;
+    var stars = products.filter(function(p) { return p.contribution > avgContribution * 1.5 && p.contribution > 5; });
+    var cashCows = products.filter(function(p) { return p.contribution > avgContribution && p.contribution <= avgContribution * 1.5; });
+    var questionMarks = products.filter(function(p) { return p.contribution <= avgContribution && p.contribution > 1; });
+    var dogs = products.filter(function(p) { return p.contribution <= 1; });
+
+    section += "### 产品矩阵分级（基于营收贡献度）\n\n";
+    section += "> 用于理解产品组合健康度。贡献度 = 单品营收 ÷ 总营收 × 100%\n\n";
+    section += `- 🌟 **明星产品**（贡献度>${(avgContribution * 1.5).toFixed(1)}%）：${stars.length}个 — ${stars.map(function(s) { return s.name; }).join("、") || "无"}\n`;
+    section += `- 💰 **现金牛**（贡献度${avgContribution.toFixed(1)}%-${(avgContribution * 1.5).toFixed(1)}%）：${cashCows.length}个 — ${cashCows.map(function(c) { return c.name; }).join("、") || "无"}\n`;
+    section += `- ❓ **问题产品**（贡献度1%-${avgContribution.toFixed(1)}%）：${questionMarks.length}个\n`;
+    section += `- 🐕 **瘦狗产品**（贡献度<1%）：${dogs.length}个 — ${dogs.map(function(d) { return d.name; }).join("、") || "无"}\n`;
+    section += "\n";
+  }
+
+  // ═══ 利润结果摘要 ═══
+  if (profitResults.length > 0) {
+    // 利润总览
+    var totalMonthlyProfit = profitResults.reduce(function(s, r) { return s + r.netProfitMonthly; }, 0);
+    var profitCount = profitResults.filter(function(r) { return r.netProfitPerItem > 0; }).length;
+    var lossCount = profitResults.filter(function(r) { return r.netProfitPerItem <= 0; }).length;
+    var totalMonthlyLoss = profitResults.filter(function(r) { return r.netProfitMonthly < 0; }).reduce(function(s, r) { return s + Math.abs(r.netProfitMonthly); }, 0);
+    var avgMargin = profitResults.length > 0 ? profitResults.reduce(function(s, r) { return s + r.profitMargin; }, 0) / profitResults.length : 0;
+
+    section += "### 利润总览\n\n";
+    section += `- 合计月利润：${totalMonthlyProfit >= 0 ? "+" : "−"}¥${Math.abs(Math.round(totalMonthlyProfit)).toLocaleString()}\n`;
+    section += `- 盈利品：${profitCount}个 · 亏损品：${lossCount}个\n`;
+    section += `- 平均利润率：${avgMargin >= 0 ? "+" : "−"}${Math.abs(avgMargin).toFixed(1)}%\n`;
+    section += `- 月亏损总额：−¥${Math.round(totalMonthlyLoss).toLocaleString()}\n`;
+    section += `- 利润率分布：最高 ${Math.max.apply(null, profitResults.map(function(r) { return r.profitMargin; })).toFixed(1)}% · 最低 ${Math.min.apply(null, profitResults.map(function(r) { return r.profitMargin; })).toFixed(1)}%\n\n`;
+
+    // 利润排行表（含判决）
+    section += "### 商品利润排行\n\n";
+    section += "| 商品 | 平台 | 售价(¥) | 单品利润(¥) | 利润率 | 月利润(¥) | 判决 |\n";
+    section += "|------|------|---------|------------|--------|----------|------|\n";
+    var sortedByProfit = profitResults.slice().sort(function(a, b) { return b.netProfitMonthly - a.netProfitMonthly; });
+    for (var ri = 0; ri < Math.min(sortedByProfit.length, 12); ri++) {
+      var r = sortedByProfit[ri];
+      var vIcon = r.verdict === "buy_more" ? "📈" : r.verdict === "hold" ? "✅" : r.verdict === "reduce" ? "⚠️" : "🛑";
+      section += `| ${r.productName} | ${r.platform} | ${r.sellPrice.toFixed(2)} | ${r.netProfitPerItem >= 0 ? "+" : "−"}${Math.abs(r.netProfitPerItem).toFixed(2)} | ${r.profitMargin >= 0 ? "+" : "−"}${Math.abs(r.profitMargin).toFixed(1)}% | ${r.netProfitMonthly >= 0 ? "+" : "−"}${Math.abs(Math.round(r.netProfitMonthly)).toLocaleString()} | ${vIcon} ${r.verdict} |\n`;
+    }
+    section += "\n";
   }
 
   return section;
@@ -386,100 +460,175 @@ function formatAnalysisInstructions(context: AIExplanationContext): string {
   const evidenceCount = context.evidenceCards.length;
   const diagnosisCount = context.diagnoses.length;
   const ruleCount = context.applicableRules.length;
+  const productCount = context.metrics.length;
   const hasProfitData = context.profitResults.length > 0;
   const hasCrossDataset = context.crossDatasets && context.crossDatasets.length > 0;
   const hasCrossPlatform = context.crossPlatformComparisons && context.crossPlatformComparisons.length > 0;
+  const hasInventoryData = context.metrics.some(function(p) { return p.stock !== undefined && p.stock > 0; });
 
-  let instructions = `## 🎯 你的分析任务
+  // 汇总统计数据，供分析指令中引用
+  const totalRevenue = context.metrics.reduce(function(s, p) { return s + p.revenue; }, 0);
+  const totalMonthlyProfit = context.profitResults.reduce(function(s, r) { return s + r.netProfitMonthly; }, 0);
+  const lossCount = context.profitResults.filter(function(r) { return r.netProfitMonthly < 0; }).length;
+  const profitCount = context.profitResults.filter(function(r) { return r.netProfitMonthly > 0; }).length;
+  const dropCount = context.evidenceCards.filter(function(c) { return c.verdict === "drop"; }).length;
+  const reduceCount = context.evidenceCards.filter(function(c) { return c.verdict === "reduce"; }).length;
+  const buyMoreCount = context.evidenceCards.filter(function(c) { return c.verdict === "buy_more"; }).length;
 
-基于以上${hasCrossPlatform ? "六" : hasCrossDataset ? "六" : "五"}层结构化数据，请按以下结构输出你的分析：
+  let instructions = `## 🎯 你的分析任务：多维度经营诊断
 
-### 1. 核心发现（2-3个最重要的结论）
-每个结论必须：
-- 引用具体的证据卡索引（如"见证据卡#1"）
-- 包含量化的影响（金额或百分比）
-- 说清楚为什么这个发现重要`;
+你是一位**电商经营分析师**。上面已经给了你精确计算好的指标、诊断、证据卡和规则。
+你的任务不是重复这些数据，而是**从多个维度交叉分析，发现数据背后的经营规律和风险**。
 
-  // Add cross-dataset specific guidance
-  if (hasCrossDataset) {
-    instructions += `
-- 如有跨数据集关联发现，说明不同数据集之间的商品定价/销量差异意味着什么`;
-  }
+**核心原则：每个结论必须有数据支撑。没有数据支持的观点 = 编造 = 不可接受。**
 
-  if (hasCrossPlatform) {
-    instructions += `
-- 对比同一商品在不同平台的利润表现，明确指出哪个平台最值得投入、哪个需要调整`;
-  }
+---
 
-  instructions += `
+### 必须覆盖的分析维度（6个维度，缺一不可）
 
-### 2. 利润归因分析${hasProfitData ? "" : "（当前数据不支持利润分析，可跳过此节）"}
-如果有亏损品或利润异常：
-- 逐项说明是哪个成本导致的问题（引用证据卡的 costAttribution）
-- 对比行业基准（如果知识库中有相关数据）
-- 区分"一次性因素"和"结构性因素"`;
+对以下每个维度，你必须给出分析结论。如果某个维度因数据不足无法分析，**明确说明"数据不足"**，而不是跳过或编造。
+每个有数据的维度，至少引用2个具体数据点（证据卡#、规则ID、指标表格中的数值）。
 
-  // Cross-platform specific profit analysis
-  if (hasCrossPlatform) {
-    instructions += `
-- **跨平台利润对比**：对于同一商品在不同平台利润差异巨大的情况，分析根本原因（平台费率差异？达人成本？定价策略？）`;
-  }
+#### 维度1：营收结构健康度
+分析要点：
+- 营收集中度：是否过度依赖少数产品？TOP1/TOP3占比多少？单一产品风险多大？
+- 长尾效率：末位产品是否在消耗资源（库存资金、运营精力）但贡献极低？
+- 产品矩阵评价：明星/现金牛/问题/瘦狗四象限分布是否合理？
+- 必须引用：产品营收排行表中的具体贡献度%，产品矩阵分级数据
 
-  instructions += `
+#### 维度2：利润与成本效率${!hasProfitData ? " 【⚠️ 数据不足 — 缺少价格/成本字段，跳过此维度并说明】" : ""}
+分析要点：
+- 利润全景：总月利润多少？盈利品vs亏损品的利润贡献结构？
+- 亏损根因链：对于亏损品（verdict=drop/reduce），逐项分析是哪个成本导致的
+  - 是进货成本太高？平台佣金太重？固定费用分摊？达人佣金？还是多项叠加？
+  - 对比同平台盈利品的成本结构，找出差异
+- 成本异常检测：哪些成本项偏离行业基准？（引用证据卡 costAttribution 中的 benchmarkDeviation）
+- 必须引用：证据卡#N的具体成本归因数据，规则ID，利润率数值
 
-### 3. 诊断验证
-对自动诊断结果进行验证：
-- 确认哪些诊断是准确的，引用规则ID
-- 修正你认为不准确的诊断，说明原因
-- 指出自动诊断未发现但你注意到了的问题
+#### 维度3：产品组合风险
+分析要点：
+- 爆款依赖风险：如果TOP3占比>60%，一旦爆款出问题（断货/差评/平台限流），店铺GMV会跌多少？
+- 亏损品拖累：${lossCount > 0 ? lossCount + "个亏损品每月合计吞噬多少利润？哪些亏损品在'补贴'盈利品？" : "当前无亏损品，产品组合健康"}
+- 产品生命周期：哪些品在上升期（高增长低基数）？哪些在衰退期（持续下滑）？
+- 必须引用：产品排行表、利润排行表、诊断中的 stockout/deadstock/hitdep 类型
 
-### 4. 行动建议（按优先级排序）
-每条建议包含：
-- **What**：具体做什么
-- **Why**：为什么（引用证据卡和诊断）
-- **HowMuch**：预期收益/止损金额（量化估算）
-- **Risk**：执行风险
-- **Priority**：紧急程度`;
+#### 维度4：库存周转效率${!hasInventoryData ? " 【⚠️ 数据不足 — 缺少库存字段，跳过此维度并说明】" : ""}
+分析要点：
+- 资金占用：库存总价值多少？占月GMV的百分比？资金周转是否高效？
+- 缺货风险：高周转+低库存的产品有哪些？断货会造成多少销售损失？
+- 滞销积压：低周转+高库存的产品有哪些？建议如何处理（降价清仓/捆绑销售/退货）？
+- 必须引用：产品表中的库存列和周转率列，诊断中的 stockout/deadstock 类型
 
-  if (hasCrossPlatform) {
-    instructions += `
-- **跨平台优化**：针对跨平台价差和利润差异，给出具体的平台资源调配建议（如"将京东的A品加量、抖音的A品降达人等级"）`;
-  }
+#### 维度5：平台经营表现${!hasProfitData ? " 【⚠️ 数据不足 — 跳过】" : ""}
+分析要点：
+- 平台费率结构：当前平台的佣金率、固定费用、结算周期对利润的影响
+- 平台特有成本：${context.industry}行业在${detectPlatformFromResults(context.profitResults)}的典型成本陷阱是什么？
+- 如果平台是京东：月费¥1,000分摊到各品的负担是否合理？
+- 如果平台是抖音：达人佣金是否过高？是否需要降级达人等级或转自播？
+- 如果平台是拼多多：财税合规的隐性资金成本是否被忽视？
+- 必须引用：平台费率规则ID（RULE_PLATFORM_*），证据卡中的相关成本项
 
-  instructions += `
+#### 维度6：跨平台对比洞察${!hasCrossPlatform ? " 【⚠️ 无跨平台数据 — 跳过此维度并说明】" : ""}
+分析要点：
+- 同品不同平台利润差异的根本原因（费率？达人？定价？固定成本？）
+- 哪个平台是"现金牛"（高利润+高销量）？哪个是"陷阱"（看似有销量实则亏损）？
+- 平台资源如何重新分配？（如"A品在京东亏损但在抖音盈利，建议京东减量抖音加量"）
+- 跨平台价差是否超过30%？是否有窜货和消费者信任风险？
+- 必须引用：跨平台利润对比表中的具体平台利润数据
 
-### 5. 不确定性声明
-- 标注你对每项判断的置信度
-- 数据不足以支撑某些结论时，明确说明
-- 需要用户补充什么信息来提供更精准的分析
+---
 
-## ⚠️ 约束
+### 综合输出结构
 
-1. **数值来源**：每个具体数字必须引用证据卡索引（如"证据卡#2显示..."）
-2. **规则引用**：每个诊断判断必须引用规则ID（如"依据RULE_NEGATIVE_MARGIN..."）
-3. **不编造**：不要编造证据卡中没有的数据
-4. **置信度**：不确定时标注置信度百分比
-5. **中文输出**：全部使用中文，专业术语可保留英文
+按以下结构组织你的分析（每个部分都必须包含对应的维度和数据引用）：
 
-## 📊 当前状态
+### 1. 核心发现（至少3个，基于上述6个维度的交叉分析）
+格式要求：
+- **发现N**：[一句话结论]
+  - 数据依据：引用至少2个数据点（证据卡#N / 规则ID / 指标表数值）
+  - 影响量化：金额或百分比
+  - 涉及维度：标注来自哪个分析维度（如"维度1+维度2交叉"）
 
-- 行业：${context.industry}
-- 证据卡数：${evidenceCount}
-- 诊断数：${diagnosisCount} · 适用规则数：${ruleCount}
-- 分析模式：AI主体 + 规则引擎验证 + 知识库参考${!hasProfitData ? "\n- ⚠️ 注意：当前数据缺少价格字段，无法进行利润分析。请基于已有指标和诊断给出建议，不要编造利润数字。" : ""}`;
+### 2. 交叉维度洞察
+从至少2个维度的交叉中提取更深层的发现。例如：
+- "高营收+负利润"模式：某个品营收排名高但利润为负 → 营收陷阱
+- "高库存+低利润"模式：资金被低效品占用 → 资本效率问题
+- "跨平台+成本结构"模式：同一品在不同平台的成本结构差异
 
-  if (hasCrossDataset) {
-    instructions += `\n- 🔗 跨数据集：已检测到 ${context.crossDatasets!.length} 组数据关联，包含同一商品在不同数据集的定价和销量对比`;
-  }
-  if (hasCrossPlatform) {
-    const alertCount = context.crossPlatformComparisons!.filter(function(c) { return c.priceSpreadAlert; }).length;
-    instructions += `\n- 🏪 跨平台对比：已分析 ${context.crossPlatformComparisons!.length} 组商品的跨平台利润差异`;
-    if (alertCount > 0) {
-      instructions += `，其中 ${alertCount} 组存在价差报警（>30%）`;
-    }
-  }
+### 3. 诊断验证与补充
+- 确认准确诊断：列出经你验证确认的诊断，引用规则ID和证据卡
+- 修正可疑诊断：如果某个诊断与证据卡数据矛盾，说明矛盾点
+- 补充遗漏：指出自动诊断未覆盖但你从数据中注意到的问题
+
+### 4. 行动建议（按优先级排列：P0立即 > P1本周 > P2本月）
+每条建议格式：
+- **优先级**：[P0/P1/P2]
+- **行动**：具体做什么（Who + What + When）
+- **依据**：引用证据卡#N + 规则ID + 诊断类型（至少2个引用）
+- **量化影响**：预期收益/止损金额（必须有计算逻辑，不能拍脑袋）
+- **执行风险**：low/medium/high + 风险说明
+- **验证指标**：执行后用什么指标判断是否成功？
+
+### 5. 数据充分性评估
+- 哪些分析维度数据充分（置信度高）？
+- 哪些维度数据不足（置信度低）？缺少什么具体字段？
+- 如果用户补充什么数据，可以让分析更精准？（具体到字段名）
+
+---
+
+## ⚠️ 硬性约束（违反任何一条 = 分析不合格）
+
+1. **无数据不结论**：每个判断必须引用至少1个具体数据来源（证据卡#N、规则ID、指标表格数值、诊断类型）
+2. **量化优先**：能用金额和百分比的地方，不能用模糊词汇（"较多""较少""可能""大概"）
+3. **交叉验证**：重要结论（如"应该下架XX产品"）必须从至少2个维度交叉验证
+4. **区分事实与推断**：规则引擎算出来的是事实（可直接引用），你推理出来的是推断（需标注置信度）
+5. **不编造数据**：证据卡中没有的成本数字、行业基准、竞品价格——一律不能编造
+6. **中文输出**：全部中文，专业术语保留英文（如GMV、SKU、ROI）
+7. **标注置信度**：每个核心发现和行动建议标注你的置信度（高>80% / 中50-80% / 低<50%）
+
+---
+
+## 📊 当前分析上下文
+
+| 数据维度 | 可用数据 | 充分度 |
+|---------|---------|--------|
+| 行业 | ${context.industry} | ✅ |
+| 商品数 | ${productCount} 个 | ✅ |
+| 营收数据 | GMV ¥${Math.round(totalRevenue).toLocaleString()} | ✅ |
+| 利润数据 | ${hasProfitData ? profitCount + "盈/" + lossCount + "亏 · 合计" + (totalMonthlyProfit >= 0 ? "+" : "−") + "¥" + Math.abs(Math.round(totalMonthlyProfit)).toLocaleString() : "❌ 无"} | ${hasProfitData ? "✅" : "❌"} |
+| 库存数据 | ${hasInventoryData ? "✅ " + context.metrics.filter(function(p) { return (p.stock || 0) > 0; }).length + "个品有库存记录" : "❌ 无"} | ${hasInventoryData ? "✅" : "❌"} |
+| 成本归因 | ${hasProfitData ? "✅ " + evidenceCount + "张证据卡" : "❌ 无"} | ${hasProfitData ? "✅" : "❌"} |
+| 诊断结果 | ${diagnosisCount} 条（critical:${context.diagnoses.filter(function(d) { return d.level === "critical"; }).length} warning:${context.diagnoses.filter(function(d) { return d.level === "warning"; }).length}） | ${diagnosisCount > 0 ? "✅" : "⚠️"} |
+| 规则触发 | ${ruleCount} 条 | ${ruleCount > 0 ? "✅" : "⚠️"} |
+| 跨平台对比 | ${hasCrossPlatform ? "✅ " + context.crossPlatformComparisons!.length + "组商品" : "❌ 无"} | ${hasCrossPlatform ? "✅" : "❌"} |
+| 跨数据集 | ${hasCrossDataset ? "✅ " + context.crossDatasets!.length + "组关联" : "❌ 无"} | ${hasCrossDataset ? "✅" : "❌"} |
+
+**判决分布**：📈加量${buyMoreCount} · ✅持有${evidenceCount - dropCount - reduceCount - buyMoreCount} · ⚠️减量${reduceCount} · 🛑止损${dropCount}
+
+${!hasProfitData ? "\n⚠️ **重要**：当前数据缺少价格字段，无法计算利润和成本。请基于营收、销量、库存等可用数据进行分析，**严禁编造任何利润数字**。在维度2和维度5中说明数据不足。\n" : ""}
+${hasProfitData && lossCount > 0 ? "\n🔴 **注意**：有" + lossCount + "个亏损品合计月亏¥" + Math.abs(Math.round(context.profitResults.filter(function(r) { return r.netProfitMonthly < 0; }).reduce(function(s, r) { return s + r.netProfitMonthly; }, 0))).toLocaleString() + "。这是最需要关注的问题，必须在维度2和交叉维度洞察中深入分析。\n" : ""}
+${hasProfitData && dropCount > evidenceCount * 0.5 ? "\n🚨 **严重警告**：超过半数商品被判为drop（止损），这可能意味着平台策略或定价策略存在系统性问题，而非个别商品问题。必须在维度5（平台表现）和交叉维度洞察中分析系统性原因。\n" : ""}`;
 
   return instructions;
+}
+
+/** 从利润结果中提取平台名 */
+function detectPlatformFromResults(profitResults: ProfitResult[]): string {
+  if (profitResults.length === 0) return "未知平台";
+  var platforms: Record<string, number> = {};
+  for (var i = 0; i < profitResults.length; i++) {
+    var p = profitResults[i].platform;
+    platforms[p] = (platforms[p] || 0) + 1;
+  }
+  var best = "";
+  var bestCount = 0;
+  for (var key in platforms) {
+    if (platforms[key] > bestCount) {
+      bestCount = platforms[key];
+      best = key;
+    }
+  }
+  return best || "未知平台";
 }
 
 // ═══════════════════════════════════════════════
@@ -496,9 +645,11 @@ function extractReasoningSteps(
   // 尝试从回复中提取结构化的章节
   const sectionPatterns = [
     { regex: /###?\s*\d*\.?\s*核心发现[：:]/i, title: "核心发现" },
+    { regex: /###?\s*\d*\.?\s*交叉维度[洞察分析]*[：:]/i, title: "交叉维度洞察" },
     { regex: /###?\s*\d*\.?\s*利润归因[分析]*[：:]/i, title: "利润归因分析" },
-    { regex: /###?\s*\d*\.?\s*诊断验证[：:]/i, title: "诊断验证" },
+    { regex: /###?\s*\d*\.?\s*诊断验证[与補充]*[：:]/i, title: "诊断验证" },
     { regex: /###?\s*\d*\.?\s*行动建议[：:]/i, title: "行动建议" },
+    { regex: /###?\s*\d*\.?\s*数据充分性[评估]*[：:]/i, title: "数据充分性评估" },
     { regex: /###?\s*\d*\.?\s*不确定性[声明]*[：:]/i, title: "不确定性声明" },
   ];
 
