@@ -57,6 +57,27 @@ export function getLatestFromServerStore(): ServerDataset | null {
   return all[0];
 }
 
+/** 返回所有服务端存储的数据集（供 agent route 做跨数据集检测的 Supabase 回退） */
+export function listFromServerStore(): Array<{
+  id: string;
+  originalName: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  semanticRoles?: Record<string, unknown>;
+  platform?: string;
+}> {
+  return Array.from(store.values()).map(function(d) {
+    return {
+      id: d.id,
+      originalName: d.originalName,
+      columns: d.columns,
+      rows: d.rows,
+      semanticRoles: d.semanticRoles,
+      platform: d.platform,
+    };
+  });
+}
+
 export function deleteFromServerStore(id: string): void {
   store.delete(id);
 }

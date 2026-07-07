@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataset, listDatasets } from "@/lib/db";
-import { getFromServerStore } from "@/lib/server-store";
+import { getFromServerStore, listFromServerStore } from "@/lib/server-store";
 import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = body.input || "";
     const datasetId = body.datasetId || "";
+    const frontendRelatedIds: string[] = Array.isArray(body.relatedDatasetIds) ? body.relatedDatasetIds : [];
 
     const ds = await getDataset(datasetId);
     // Fall back to in-memory store if Supabase is unavailable
@@ -73,7 +74,27 @@ export async function POST(request: NextRequest) {
     var crossCtx = "";
     var rels: DatasetRelation[] = [];
     try {
-      var allDs = await listDatasets();
+      var allDs: any[] = await listDatasets();
+      // ⭐ 回退：Supabase 不可用时从 server-store 获取数据集列表
+      if (!allDs || allDs.length < 2) {
+        var serverStoreDs = listFromServerStore();
+        if (serverStoreDs.length > 0) {
+          logger.info("listDatasets returned " + (allDs?.length || 0) + " datasets, falling back to server-store with " + serverStoreDs.length);
+          // 合并两个来源（去重），优先使用 Supabase 数据（含 semanticRoles）
+          var supabaseIds = new Set((allDs || []).map(function(d: any) { return d.id; }));
+          for (var ssi = 0; ssi < serverStoreDs.length; ssi++) {
+            if (!supabaseIds.has(serverStoreDs[ssi].id)) {
+              allDs.push({
+                id: serverStoreDs[ssi].id,
+                originalName: serverStoreDs[ssi].originalName,
+                columns: serverStoreDs[ssi].columns,
+                semanticRoles: serverStoreDs[ssi].semanticRoles || null,
+                platform: serverStoreDs[ssi].platform || null,
+              });
+            }
+          }
+        }
+      }
       if (allDs.length >= 2) {
         // Compute semantic roles on-the-fly from column names for ALL datasets
         // This ensures cross-dataset detection works even when stored semanticRoles is null
@@ -114,6 +135,7 @@ export async function POST(request: NextRequest) {
           count: rels.length,
           types: rels.map(function(r) { return r.type; }),
           computedOnTheFly: allDs.some(function(d: any) { return !d.semanticRoles || !d.semanticRoles.columns; }),
+          source: (allDs || []).length > 0 ? "supabase+serverstore" : "none",
         });
       }
     } catch (e) {
@@ -161,6 +183,13 @@ export async function POST(request: NextRequest) {
 
     // ⭐ 提取跨数据集关联ID（供Pipeline执行跨数据集对比）
     var crossDatasetIds: string[] = [];
+    // 优先使用前端传来的关联数据集ID（最可靠，因为浏览器端已做过检测）
+    for (var fri = 0; fri < frontendRelatedIds.length; fri++) {
+      if (frontendRelatedIds[fri] && frontendRelatedIds[fri] !== datasetId && !crossDatasetIds.includes(frontendRelatedIds[fri])) {
+        crossDatasetIds.push(frontendRelatedIds[fri]);
+      }
+    }
+    // 补充后端检测到的关联关系
     if (rels.length > 0) {
       for (var ri2 = 0; ri2 < rels.length; ri2++) {
         if (rels[ri2].type === "profit_analysis" || rels[ri2].type === "entity_overlap") {
@@ -172,6 +201,11 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    logger.info("Cross-dataset IDs resolved", {
+      frontendProvided: frontendRelatedIds.length,
+      backendDetected: rels.length,
+      finalIds: crossDatasetIds,
+    });
 
     // ⭐ 尝试使用 DecisionPipeline（经营决策链路贯通）
     // 如果成功，返回结构化的 DecisionChain

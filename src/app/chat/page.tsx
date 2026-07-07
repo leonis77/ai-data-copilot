@@ -40,8 +40,28 @@ export default function ChatPage() {
   var [checking, setChecking] = useState(true);
   var sr = useRef<HTMLDivElement>(null);
 
+  var autoSent = useRef(false);
   useEffect(function() { checkData(); }, []);
   useEffect(function() { if (sr.current) sr.current.scrollTop = sr.current.scrollHeight; }, [msgs]);
+  // ⭐ 跨数据集关联入口：Dashboard banner 点"AI 跨平台分析" → 自动触发对比
+  useEffect(function() {
+    if (autoSent.current) return;
+    if (typeof window === "undefined") return;
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("auto") === "compare" && hasData && !loading) {
+      autoSent.current = true;
+      // 检查是否确实有多个数据集
+      var saved = getStore();
+      if (saved.datasets.length >= 2) {
+        // 清理 URL（不刷新页面）
+        var url = new URL(window.location.href);
+        url.searchParams.delete("auto");
+        window.history.replaceState({}, "", url.toString());
+        // 自动发送跨平台分析请求
+        send("帮我对比分析所有已上传数据的跨平台利润情况，找出同一商品在不同平台的定价和利润差异");
+      }
+    }
+  }, [hasData, loading]);
 
   function checkData() {
     try {
@@ -63,7 +83,16 @@ export default function ChatPage() {
     setMsgs(function(p: Msg[]) { return [...p, { role: "user", content: msg }]; }); setLoading(true);
     try {
       var saved = getStore(); var dsId = saved.activeId || "";
-      var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId }) });
+      // ⭐ 从浏览器 store 获取所有关联数据集ID，传给后端做跨数据集/跨平台分析
+      var relatedIds: string[] = [];
+      if (saved.datasets.length > 1) {
+        for (var rdi = 0; rdi < saved.datasets.length; rdi++) {
+          if (saved.datasets[rdi].id !== dsId) {
+            relatedIds.push(saved.datasets[rdi].id);
+          }
+        }
+      }
+      var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds }) });
       if (!res.ok) throw new Error("fail");
       var data = await res.json();
       var isDecisionChain = data.type === "decision_chain";

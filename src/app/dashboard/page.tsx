@@ -267,8 +267,8 @@ export default function DashboardPage() {
                 {"检测到"} {relations.length} {"组数据关联关系："}
                 {relations[0].description}
               </span>
-              <Link href="/chat" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-                AI {"分析"} {"→"}
+              <Link href="/chat?auto=compare" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                AI {"跨平台分析"} {"→"}
               </Link>
             </div>
           </motion.div>
