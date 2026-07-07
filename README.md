@@ -35,6 +35,30 @@
 
 `订单表` `供货表` `推广报表` `售后表` `库存表` `商品目录` `财务流水` `通用数据表`
 
+### ⭐ 经营决策链路（Phase 1 新增）
+
+```
+数据 → 指标 → 诊断 → 证据卡 → 规则 → AI解释 → 行动建议 → 预期收益 → 风险
+```
+
+不再是"数据 → AI → 黑盒文本"，而是 9 层透明链路：
+
+| 层级 | 模块 | 产出 |
+|:--:|------|------|
+| 1 | 指标引擎 | 商品/店铺级指标（GMV/客单价/TOP3占比/贡献度） |
+| 2 | 诊断引擎 | 缺货/滞销/可提价/爆款依赖/SKU冗余（含知识库引用） |
+| 3 | 证据卡 | 8项成本逐项归因（佣金/达人/运费险/退货损耗/广告/财税…） |
+| 4 | 规则引擎 | 8条经营规则（亏损预警/达人分级/平台费率/财税合规） |
+| 5 | AI 解释 (DeepSeek V4) | 结构化 5 层上下文 → 首席采购决策分析师 |
+| 6 | 决策引擎 | P0/P1/P2 优先级行动建议 + 预期收益 + 风险等级 |
+
+### 四平台利润计算引擎
+
+- **四平台独立费率**：天猫/京东/拼多多/抖音（2026年7月最新数据）
+- **8项成本明细**：平台佣金 + 固定费用 + 运费险 + 达人佣金 + 运费 + 广告费 + 退货损耗 + 财税合规成本
+- **达人佣金分级**：抖音A/B+/C/D四级，佣金率3-4倍差距
+- **真实利润** = 售价 − 全部显性成本
+
 ### 跨表利润计算
 
 上传 订单 + 供货 + 推广 + 售后 → 系统自动计算每个 SKU 的真实净利润：
@@ -61,6 +85,12 @@ Layer 4: 决策建议 → "P0：调整苹果定价，止损 ¥800/月"
 
 AI 只做高层解读和决策生成，数学计算全部由引擎预计算。
 
+### 反幻觉体系
+
+- **Prompt 硬约束**：每个数字必须溯源到证据卡索引
+- **规则引擎验证**：所有成本和利润由 JS 规则引擎精确计算，AI 只负责解释
+- **证据卡绑定**：每条建议绑定证据卡索引 + 规则ID，完整可追溯
+
 ---
 
 ## 架构设计
@@ -85,6 +115,7 @@ AI 只做高层解读和决策生成，数学计算全部由引擎预计算。
     │
     ├──→ 推广分析 (ROI排行 + 异常告警)
     ├──→ 利润计算 (跨表单品净利润)
+    ├──→ ⭐ DecisionPipeline (Phase 1: 9层透明决策链路)
     └──→ AI 分层分析 (角色感知 + 类型专用 prompt)
     │
     ▼
@@ -98,6 +129,7 @@ Dashboard / 经营日报
 | **模板优先 > AI 兜底** | 能用模板就不用 AI（成本、速度、准确度） |
 | **角色是唯一真相源** | 所有下游逻辑从 semanticRoles 派生，不自己猜列名 |
 | **计算归引擎，解读归 AI** | 数学能确定的绝不丢给 AI 猜 |
+| **经营决策链路贯通** | 7 个引擎模块从"独立孤岛"变为"串联链路" |
 | **品类无关，角色驱动** | 水果/数码/服装/工业品，同一套逻辑 |
 | **计算下沉到客户端** | Supabase 只做持久化，所有分析在浏览器完成 |
 
@@ -113,7 +145,8 @@ Dashboard / 经营日报
 | 组件 | Radix UI + Lucide Icons |
 | 动效 | Framer Motion |
 | 图表 | ECharts |
-| AI | DeepSeek Chat API |
+| AI | DeepSeek V4 Pro / V4 Flash |
+| 知识库 | 静态知识条目 + WebSearch 实时验证 |
 | 数据库 | Supabase (PostgreSQL, 免费额度) |
 | 部署 | Vercel |
 
@@ -133,7 +166,7 @@ src/
     api/
       upload/route.ts             # 解析 + 语义分析 + 模板匹配
       analyze/route.ts            # 分层 AI 分析管道
-      agent/route.ts              # Agent + 跨表 context
+      agent/route.ts              # ⭐ Agent + 跨表context + DecisionPipeline
       chat/route.ts               # 对话 API
   components/
     ui/                           # GlassCard, CountUp, Skeleton, TableSelector, SheetPicker
@@ -150,25 +183,35 @@ src/
       index.ts                    # 统一导出
       tmall.ts, jd.ts, pdd.ts,    # 旧版模板 (向后兼容)
       douyin.ts, generic.ts
-    semantic/                     # 语义分析引擎
-      types.ts, roles.ts, relations.ts, index.ts
+    pipeline/                     # ⭐ 经营决策链路编排器 (Phase 1)
+      decision-pipeline.ts        # 核心：Layer 0-6 全链路编排
+      ai-explanation.ts           # 结构化 5 层 System Prompt
+      types.ts                    # DecisionChain / EvidenceCard 等
     engines/                      # 分析引擎
       metrics-engine.ts           # 商品/店铺指标
-      diagnosis-engine.ts         # 健康诊断
-      decision-engine.ts          # 决策优先级
+      diagnosis-engine.ts         # 健康诊断（含知识库引用）
+      decision-engine.ts          # 决策优先级 (P0/P1/P2)
       marketing-engine.ts         # 推广分析 (ROI + 异常 + 建议)
-      profit-engine.ts            # 跨表利润计算
-      index.ts
+    profit/
+      engine.ts                   # 利润计算引擎（四平台费率 + 8项成本）
+    rag/                          # 知识引擎
+      inject.ts                   # 知识注入 v3（AI 主体架构）
+      knowledge.ts                # 知识库搜索
+      industry-detector.ts        # 15 行业自动检测
+      freshness.ts                # 知识新鲜度（四层联防）
+    semantic/                     # 语义分析引擎
+      types.ts, roles.ts, relations.ts, index.ts
     classifier.ts                 # 角色指纹表格分类器 (8 种类型)
     business-concepts.ts          # 角色 → 业务概念翻译层 (55+ 规则)
     business-model.ts             # 多表业务模型自动构建
     entities.ts                   # 通用实体引擎 (4 策略模糊匹配)
+    cross-platform.ts             # 跨平台 SKU 匹配 + 利润对比
+    search/                       # WebSearch 平台数据搜索
     parser.ts                     # Excel/CSV 规则解析
     parser-ai.ts                  # AI 引导解析 (规则失败时启用)
     ai.ts                         # AI 分析 (分层上下文 + 类型专用 prompt)
     store/index.ts                # localStorage 状态管理
     db.ts                         # Supabase 客户端
-    verify.ts                     # 数据溯源校验
     logger.ts                     # 结构化日志
 ```
 
@@ -217,6 +260,21 @@ npm run dev     # http://localhost:3000
 ---
 
 ## 更新日志
+
+- **2026-07-07** ⭐ **Phase 1 — 经营决策链路贯通**
+  - 新建 DecisionPipeline 编排器，串联 7 个已有引擎模块
+  - Evidence Card 结构化证据卡输出（8项成本逐项归因）
+  - AI 结构化 5 层 System Prompt（指标→诊断→证据→规则→知识）
+  - 8 条经营规则定义（亏损预警/达人分级/平台费率/财税合规）
+  - 行动建议绑定证据卡索引 + 规则ID + 预期收益金额
+  - 向后兼容：Pipeline 失败自动回退 routeAgent
+
+- **2026-07-06** 知识引擎 AI 主体架构重构
+  - DeepSeek V4 作为主推理引擎，知识库降级为可信缓存
+  - WebSearch 实时验证层（全国政策变动追踪）
+  - 15 行业自动检测引擎
+  - 利润计算引擎（四平台真实费率 + 8项成本明细）
+  - 跨平台 SKU 匹配 + 利润对比
 
 - **2026-06-17** 15 套平台模板 + 推广分析引擎 + 跨表利润引擎 + 8 种表格分类 + 业务概念翻译层 + 实体模糊匹配引擎
 - **2026-06-16** CSV 引号解析修复 + 多 Sheet UI + Dashboard 语义角色驱动
