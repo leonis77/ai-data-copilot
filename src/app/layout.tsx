@@ -27,9 +27,17 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="dark">
       <head>
-        {/* PWA manifest */}
+        {/* PWA manifest (also served as /site.webmanifest for Firefox/Android) */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#6366F1" />
+        {/* Favicon — standard + high-DPI */}
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        {/* Apple Touch Icon — iOS Safari, Home Screen */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" />
         {/* Google Fonts 预连接 — 消除移动端 FOIT 白屏 */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

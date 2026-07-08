@@ -1,6 +1,6 @@
 /**
- * Generate PWA icon PNG files (192x192 and 512x512)
- * Creates solid #6366F1 (indigo) icons with "PW" branding
+ * Generate PWA icon PNG files — all sizes needed by browsers/devices.
+ * Creates solid #6366F1 (indigo) icons.
  * Run: node scripts/generate-icons.cjs
  */
 const zlib = require("zlib");
@@ -36,10 +36,8 @@ function createChunk(type, data) {
 }
 
 function createPNG(width, height, r, g, b) {
-  // PNG signature
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
-  // IHDR: 13 bytes
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
@@ -49,7 +47,6 @@ function createPNG(width, height, r, g, b) {
   ihdr[11] = 0; // filter
   ihdr[12] = 0; // interlace
 
-  // IDAT: raw pixel data (filter byte 0x00 per row, then RGB triplets)
   const rowLen = 1 + width * 3;
   const raw = Buffer.alloc(height * rowLen);
   for (let y = 0; y < height; y++) {
@@ -69,14 +66,34 @@ function createPNG(width, height, r, g, b) {
   return Buffer.concat([sig, createChunk("IHDR", ihdr), createChunk("IDAT", compressed), iend]);
 }
 
-// Generate icons in brand indigo color
 const publicDir = path.join(__dirname, "..", "public");
 if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
 
-const icon192 = createPNG(192, 192, 99, 102, 241); // #6366F1
-const icon512 = createPNG(512, 512, 99, 102, 241);
+const R = 99, G = 102, B = 241; // #6366F1 brand indigo
 
-fs.writeFileSync(path.join(publicDir, "icon-192.png"), icon192);
-fs.writeFileSync(path.join(publicDir, "icon-512.png"), icon512);
-console.log("✅ PWA icons generated: icon-192.png (%d KB), icon-512.png (%d KB)",
-  (icon192.length / 1024).toFixed(1), (icon512.length / 1024).toFixed(1));
+// All sizes needed for cross-browser + PWA support
+const sizes = [
+  { name: "favicon-16x16.png",      w: 16 },
+  { name: "favicon-32x32.png",      w: 32 },
+  { name: "apple-touch-icon.png",   w: 180 }, // iOS primary
+  { name: "apple-touch-icon-120x120.png",  w: 120 },
+  { name: "apple-touch-icon-152x152.png",  w: 152 },
+  { name: "apple-touch-icon-180x180.png",  w: 180 },
+  { name: "icon-192.png",           w: 192 }, // PWA
+  { name: "icon-512.png",           w: 512 }, // PWA
+  { name: "android-chrome-192x192.png", w: 192 },
+  { name: "android-chrome-512x512.png", w: 512 },
+];
+
+for (const s of sizes) {
+  const png = createPNG(s.w, s.w, R, G, B);
+  fs.writeFileSync(path.join(publicDir, s.name), png);
+  console.log("  %s (%d×%d, %d B)", s.name, s.w, s.w, png.length);
+}
+
+// Also create site.webmanifest (Firefox / some Android browsers look for this name)
+const manifestSrc = path.join(__dirname, "..", "public", "manifest.json");
+const manifestDst = path.join(__dirname, "..", "public", "site.webmanifest");
+fs.copyFileSync(manifestSrc, manifestDst);
+console.log("  site.webmanifest (copied from manifest.json)");
+console.log("✅ All PWA icons + webmanifest generated");
