@@ -29,10 +29,11 @@ export default function DashboardPage() {
   const [datasetId, setDatasetId] = useState("");
   const [datasetData, setDatasetData] = useState<any>(null);
   const [decisionChain, setDecisionChain] = useState<DecisionChain | null>(null);
+  const [pipelineError, setPipelineError] = useState(false);
 
   useEffect(function() { loadData(""); }, []);
 
-  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); loadData(newId); }
+  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setPipelineError(false); loadData(newId); }
 
   async function loadData(dsId: string) {
     try {
@@ -56,26 +57,42 @@ export default function DashboardPage() {
       setHasData(true);
       setDatasetName(data.original_name || "");
       setLoading(false);
+      // Build related dataset IDs for cross-platform analysis
+      var storeData = getStore();
+      var relatedIds: string[] = [];
+      if (storeData.datasets.length > 1) {
+        for (var i = 0; i < storeData.datasets.length; i++) {
+          if (storeData.datasets[i].id !== id) {
+            relatedIds.push(storeData.datasets[i].id);
+          }
+        }
+      }
       // Fetch DecisionChain from backend pipeline
       try {
         var chainRes = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id }),
+          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds }),
         });
         if (chainRes.ok) {
           var chainData = await chainRes.json();
           if (chainData.type === "decision_chain") {
             setDecisionChain(chainData as DecisionChain);
+            setPipelineError(false);
             logger.info("Dashboard loaded DecisionChain from pipeline", {
               evidenceCards: chainData.evidenceCards?.length || 0,
               actions: chainData.actions?.length || 0,
               diagnoses: chainData.diagnoses?.length || 0,
               crossPlatform: chainData.crossPlatform?.length || 0,
             });
+          } else {
+            setPipelineError(true);
           }
+        } else {
+          setPipelineError(true);
         }
       } catch(e) {
+        setPipelineError(true);
         logger.warn("DecisionChain fetch failed", {
           message: e instanceof Error ? e.message : String(e),
         });
@@ -138,8 +155,9 @@ export default function DashboardPage() {
   var evidenceCards = decisionChain?.evidenceCards || [];
   var diagnoses = decisionChain?.diagnoses || [];
   var actions = decisionChain?.actions || [];
-  var aiSummary = decisionChain?.aiExplanation?.summary || "";
-  var crossPlatform = decisionChain?.metrics?.crossPlatform || [];
+  // API sends content and crossPlatform as top-level fields (not nested under aiExplanation/metrics)
+  var aiSummary = (decisionChain as any)?.content || "";
+  var crossPlatform = (decisionChain as any)?.crossPlatform || [];
 
   // ═══ Unknown data ═══
   if (dataProfile === "unknown") {
@@ -395,6 +413,26 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* ═══ Row 4.5: Evidence Cards ═══ */}
+        {evidenceCards.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5 }} className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm text-white/40 font-medium">证据卡</span>
+              <span className="text-[10px] text-white/20">{evidenceCards.length} 张</span>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {evidenceCards.slice(0, 3).map(function(card, ci) {
+                return <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />;
+              })}
+            </div>
+            {evidenceCards.length > 3 && (
+              <p className="text-[10px] text-white/15 text-center mt-2">
+                +{evidenceCards.length - 3} 张更多证据卡 · 切换到 Chat 查看全部
+              </p>
+            )}
+          </motion.div>
+        )}
+
         {/* ═══ Row 5: AI Analysis (auto-expanded from Pipeline) ═══ */}
         {aiSummary && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}
@@ -403,6 +441,15 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-indigo-400" />
               <h2 className="text-sm text-white/40 font-medium">AI 综合分析</h2>
+              {decisionChain?.aiExplanation?.confidence !== undefined && (
+                <span className={"text-[10px] px-2 py-0.5 rounded-full " + (
+                  decisionChain.aiExplanation.confidence >= 0.8 ? "bg-green-500/10 text-green-400/70" :
+                  decisionChain.aiExplanation.confidence >= 0.5 ? "bg-amber-500/10 text-amber-400/70" :
+                  "bg-red-500/10 text-red-400/70"
+                )}>
+                  置信度 {Math.round(decisionChain.aiExplanation.confidence * 100)}%
+                </span>
+              )}
               <span className="text-[10px] text-white/15 ml-auto">
                 基于 {evidenceCards.length} 张证据卡 · {diagnoses.length} 条诊断 · {actions.length} 条建议
               </span>
@@ -425,8 +472,28 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
+        {/* Pipeline error state */}
+        {pipelineError && !decisionChain && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+            className="rounded-2xl p-6 border border-red-500/15 bg-red-500/[0.03]"
+            style={{ backdropFilter: "blur(16px)" }}>
+            <div className="flex items-center gap-4">
+              <span className="text-red-400 text-lg">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm text-red-300/80 font-medium">AI 分析暂时不可用</p>
+                <p className="text-xs text-white/30 mt-1">Pipeline 执行失败，请尝试刷新页面或切换数据集后重试。</p>
+              </div>
+              <button
+                onClick={() => { setPipelineError(false); setDecisionChain(null); loadData(datasetId); }}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-white/60 hover:text-white/80 transition-colors shrink-0">
+                重试
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Pipeline loading state */}
-        {!decisionChain && !aiSummary && evidenceCards.length === 0 && (
+        {!decisionChain && !pipelineError && !aiSummary && evidenceCards.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
             className="rounded-2xl p-6 border border-white/[0.04]"
             style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.2)" }}>

@@ -267,6 +267,8 @@ export interface DecisionChain {
   actions: PrioritizedAction[];
   /** 跨数据集对比（可选） */
   crossDataset?: CrossDatasetSummary[];
+  /** 跨平台对比（可选，从 metrics.crossPlatform 提升到顶层便于访问） */
+  crossPlatform?: CrossPlatformComparison[];
   /** 元数据 */
   meta: PipelineMeta;
 }

@@ -238,6 +238,9 @@ export async function POST(request: NextRequest) {
           crossDataset: chain.crossDataset,
           crossPlatform: chain.metrics.crossPlatform,
           meta: chain.meta,
+          // Full nested objects for typed frontend access
+          metrics: { products: chain.metrics.products, store: chain.metrics.store, profit: chain.metrics.profit },
+          aiExplanation: chain.aiExplanation,
         });
       }
     } catch (pipelineErr) {

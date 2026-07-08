@@ -9,10 +9,11 @@ var ROLE_PATTERNS: Record<string, RegExp> = {
   identifier: /\u7f16\u53f7|id$|\u5355\u53f7|\u7535\u8bdd|phone|sku|code|\u7801|\u8ba2\u5355\u53f7/i,
   location: /\u5730\u5740|\u7701|\u5e02|addr|region|location|\u6536\u8d27/i,
   quantity: /\u6570\u91cf|\u4ef6\u6570|qty|quantity|count|volume|\u9500\u91cf|\u5e93\u5b58/i,
-  category: /\u5206\u7c7b|\u7c7b\u578b|\u72b6\u6001|category|type|status|\u54c1\u7c7b|\u7c7b\u76ee|\u5e73\u53f0/i,
+  // \u26a0\ufe0f platform MUST come before category \u2014 both match "\u5e73\u53f0" but platform is the correct role
+  platform: /\u5e73\u53f0|platform|\u6e20\u9053|channel|\u5e97\u94fa|shop|\u5e97\u94fa\u540d/i,
+  category: /\u5206\u7c7b|\u7c7b\u578b|\u72b6\u6001|category|type|status|\u54c1\u7c7b|\u7c7b\u76ee/i,
   // \ud83c\udd95 2026\u5e74\u65b0\u589e\uff1a\u6296\u97f3\u7535\u5546\u4e13\u5c5e\u5b57\u6bb5
   influencer: /\u8fbe\u4eba|\u4e3b\u64ad|influencer|KOL|\u4f63\u91d1\u7387|\u8fbe\u4eba\u7b49\u7ea7|\u8fbe\u4eba\u5206\u7ea7|\u5751\u4f4d\u8d39/i,
-  platform: /\u5e73\u53f0|platform|\u6e20\u9053|channel|\u5e97\u94fa|shop|\u5e97\u94fa\u540d/i,
   return_refund: /\u9000\u8d27|\u9000\u6b3e|refund|return|\u552e\u540e|\u4ec5\u9000\u6b3e/i,
 };
 

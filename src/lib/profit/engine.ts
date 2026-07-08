@@ -38,8 +38,7 @@ export interface PlatformFeeConfig {
   depositMax: number;
   /** 运费险比例 */
   shippingInsuranceRate: number;
-  /** 达人佣金（抖音专属） */
-  influencerCommissionRate?: number;
+  /** 达人佣金分级（抖音专属） */
   influencerGradeRates?: {
     A: number;
     B_plus: number;
@@ -186,7 +185,6 @@ export const PLATFORM_FEES_2026: Record<string, PlatformFeeConfig> = {
     annualFeeNote: "0元入驻，34个一级类目保证金最高降85%",
     depositMin: 500, depositMax: 50000,
     shippingInsuranceRate: 0.02,
-    influencerCommissionRate: 0.20,
     influencerGradeRates: {
       A: 0.10,
       B_plus: 0.15,

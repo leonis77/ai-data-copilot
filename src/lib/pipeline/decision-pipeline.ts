@@ -379,6 +379,7 @@ export async function executeDecisionPipeline(
     aiExplanation,
     actions,
     crossDataset: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
+    crossPlatform: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
     meta: {
       industry,
       knowledgeCoverage: assessKnowledgeCoverage(

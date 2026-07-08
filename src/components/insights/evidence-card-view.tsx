@@ -51,6 +51,11 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
           </span>
           <span className="font-semibold text-sm text-white/90">{card.productName}</span>
           <span className="text-xs text-white/25">{card.platform}</span>
+          {card.purchaseCostEstimated && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/70" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
+              ⚠️ 成本估算
+            </span>
+          )}
         </div>
         <div className={"flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium " + v.bg + " " + v.text}>
           <span>{v.icon}</span>

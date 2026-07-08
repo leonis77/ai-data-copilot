@@ -30,6 +30,7 @@ interface Msg {
   reasoningChain?: ReasoningStep[];
   applicableRules?: ApplicableRule[];
   meta?: PipelineMeta;
+  aiConfidence?: number;
 }
 
 export default function ChatPage() {
@@ -111,6 +112,7 @@ export default function ChatPage() {
         reasoningChain: isDecisionChain ? data.reasoningChain : undefined,
         applicableRules: isDecisionChain ? data.applicableRules : undefined,
         meta: isDecisionChain ? data.meta : undefined,
+        aiConfidence: isDecisionChain ? data.aiExplanation?.confidence : undefined,
       }]; });
     } catch(e) {
       setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: "\u62b1\u6b49\uff0cAI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002" }]; });
@@ -180,6 +182,17 @@ export default function ChatPage() {
                     {m.actions.map(function(act, ai) {
                       return <ActionCardView key={ai} action={act} index={ai} />;
                     })}
+                  </div>
+                )}
+                {m.aiConfidence !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <span className={"text-[10px] px-2 py-0.5 rounded-full " + (
+                      m.aiConfidence >= 0.8 ? "bg-green-500/10 text-green-400/70" :
+                      m.aiConfidence >= 0.5 ? "bg-amber-500/10 text-amber-400/70" :
+                      "bg-red-500/10 text-red-400/70"
+                    )}>
+                      AI 置信度 {Math.round(m.aiConfidence * 100)}%
+                    </span>
                   </div>
                 )}
                 {m.suggestions && m.suggestions.length > 0 && <div className="flex flex-wrap gap-2">{m.suggestions.map(function(s: string,j: number) { return <button key={j} onClick={function() { send(s); }} className="px-3 py-1.5 rounded-xl glass text-xs text-white/50 hover:text-white/80 hover:bg-white/10 transition-all">{s}</button>; })}</div>}
