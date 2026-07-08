@@ -15,10 +15,17 @@ export async function POST(request: NextRequest) {
     const input = body.input || "";
     const datasetId = body.datasetId || "";
     const frontendRelatedIds: string[] = Array.isArray(body.relatedDatasetIds) ? body.relatedDatasetIds : [];
+    // ⭐ 客户端内联数据集（localStorage 直传，绕过 serverless 存储不共享）
+    const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string }> =
+      body.inlineDatasets && typeof body.inlineDatasets === "object" ? body.inlineDatasets : {};
 
     const ds = await getDataset(datasetId);
-    // Fall back to in-memory store if Supabase is unavailable
-    const fallbackDs = ds || getFromServerStore(datasetId);
+    // Fall back to in-memory store, then to client-provided inline data
+    let fallbackDs: any = ds || getFromServerStore(datasetId);
+    if (!fallbackDs && inlineDatasets[datasetId] && inlineDatasets[datasetId].rows?.length > 0) {
+      const inl = inlineDatasets[datasetId];
+      fallbackDs = { columns: inl.columns, rows: inl.rows, originalName: inl.originalName || "", original_name: inl.originalName || "" };
+    }
     if (!fallbackDs) return NextResponse.json({ error: "dataset not found" }, { status: 400 });
 
     const cols: string[] = Array.isArray(fallbackDs.columns) ? fallbackDs.columns : JSON.parse(fallbackDs.columns as string);
@@ -215,6 +222,7 @@ export async function POST(request: NextRequest) {
         input || "请分析这些数据",
         datasetId,
         crossDatasetIds.length > 0 ? crossDatasetIds : undefined,
+        Object.keys(inlineDatasets).length > 0 ? inlineDatasets : undefined,
       );
       if (chain && chain.evidenceCards.length > 0) {
         logger.info("Decision pipeline executed successfully", {

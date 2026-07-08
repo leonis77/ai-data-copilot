@@ -13,7 +13,7 @@ import { SheetPicker } from "@/components/ui/sheet-picker";
 import type { SheetInfo } from "@/components/ui/sheet-picker";
 import { matchTemplate, applyTemplate } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
-import { addDataset } from "@/lib/store";
+import { addDataset, saveDatasetRows } from "@/lib/store";
 import { classifyByRoles } from "@/lib/classifier";
 
 async function fileToBase64(file: File): Promise<string> {
@@ -124,6 +124,10 @@ export default function UploadPage() {
 
       const profile = detectProfile(data.columns, data.semanticRoles);
       addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles);
+      // ⭐ 保存行数据到 localStorage，避免 Vercel serverless 实例切换导致 404
+      if (data.rows && data.rows.length > 0) {
+        saveDatasetRows(data.id, data.rows, data.columns);
+      }
     } catch (e: any) {
       if (e.name === "AbortError") {
         setError("上传超时（30 秒）。移动网络可能不稳定，请切换 Wi-Fi 后重试。");

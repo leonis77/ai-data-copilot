@@ -9,7 +9,7 @@ import { ProductRank } from "@/components/workspace/product-rank";
 import { CategoryBreakdown } from "@/components/workspace/category-breakdown";
 import { RegionMap } from "@/components/workspace/region-map";
 import { AnomalyDetection } from "@/components/workspace/anomaly-detection";
-import { getStore } from "@/lib/store";
+import { getStore, getDatasetRows } from "@/lib/store";
 import { t } from "@/lib/i18n";
 
 const TABS = [
@@ -43,6 +43,14 @@ export default function WorkspacePage() {
     const s = getStore();
     if (!s.activeId) { setLoading(false); return; }
     setHasData(true);
+    // ⭐ 优先从 localStorage 读取（Vercel serverless 实例不共享内存）
+    const localData = getDatasetRows(s.activeId);
+    if (localData && localData.rows.length > 0) {
+      setData({ columns: localData.columns, rows: localData.rows });
+      setLoading(false);
+      return;
+    }
+    // 回退到服务端 API
     fetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 

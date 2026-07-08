@@ -60,15 +60,23 @@ import type { Action } from "@/lib/engines/decision-engine";
 // 主入口：执行完整经营决策链路
 // ═══════════════════════════════════════════════
 
+/** 客户端内联数据集（从浏览器 localStorage 随请求发来，绕过 serverless 存储不共享问题） */
+export interface InlineDataset {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  originalName?: string;
+}
+
 export async function executeDecisionPipeline(
   input: string,
   datasetId: string,
   crossDatasetIds?: string[],
+  inlineDatasets?: Record<string, InlineDataset>,
 ): Promise<DecisionChain> {
   const startTime = Date.now();
 
   // ═══ Layer 0: 数据加载 ═══
-  const ds = await loadDataset(datasetId);
+  const ds = await loadDataset(datasetId, inlineDatasets);
   if (!ds) {
     throw new Error(`Dataset not found: ${datasetId}`);
   }
@@ -145,7 +153,7 @@ export async function executeDecisionPipeline(
     const currentRoles = detectRoles(columns, rows.slice(0, 50));
     for (const relatedId of crossDatasetIds) {
       try {
-        const relatedDs = await loadDataset(relatedId);
+        const relatedDs = await loadDataset(relatedId, inlineDatasets);
         if (!relatedDs) continue;
         const related = normalizeData(relatedDs);
         const relatedRoles = detectRoles(related.columns, related.rows.slice(0, 50));
@@ -213,7 +221,7 @@ export async function executeDecisionPipeline(
   if (crossDatasetSummaries.length > 0 && platform && profitResults.length > 0) {
     for (const cd of crossDatasetSummaries) {
       try {
-        const relatedDs = await loadDataset(cd.relatedDatasetId);
+        const relatedDs = await loadDataset(cd.relatedDatasetId, inlineDatasets);
         if (!relatedDs) continue;
         const related = normalizeData(relatedDs);
         const relatedPlatform = detectPlatformFromColumns(related.columns);
@@ -400,7 +408,22 @@ export async function executeDecisionPipeline(
 
 async function loadDataset(
   datasetId: string,
+  inlineDatasets?: Record<string, InlineDataset>,
 ): Promise<Record<string, unknown> | null> {
+  // ⭐ 优先使用客户端内联数据（Vercel serverless 实例不共享内存，
+  //    Supabase 未配置时这是唯一可靠的数据来源）
+  if (inlineDatasets && inlineDatasets[datasetId]) {
+    const inl = inlineDatasets[datasetId];
+    if (inl.rows && inl.rows.length > 0) {
+      return {
+        columns: inl.columns,
+        rows: inl.rows,
+        originalName: inl.originalName || "",
+        original_name: inl.originalName || "",
+      };
+    }
+  }
+
   // Try Supabase first
   try {
     const ds = await getDataset(datasetId);

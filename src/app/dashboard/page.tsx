@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore } from "@/lib/store";
+import { getStore, getDatasetRows } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
@@ -41,10 +41,19 @@ export default function DashboardPage() {
       if (!id) { var saved = getStore(); id = saved.activeId || ""; }
       if (!id) { setLoading(false); return; }
       setDatasetId(id);
-      var res = await fetch("/api/upload?id=" + id);
-      if (!res.ok) { setLoading(false); return; }
-      var data = await res.json();
+      // ⭐ 优先从 localStorage 读取数据（Vercel serverless 实例不共享内存）
+      var localData = getDatasetRows(id);
+      var data: any = null;
+      if (localData && localData.rows.length > 0) {
+        data = { columns: localData.columns, rows: localData.rows };
+      } else {
+        // 回退到服务端 API（Supabase 或其他持久化存储）
+        var res = await fetch("/api/upload?id=" + id);
+        if (!res.ok) { setLoading(false); return; }
+        data = await res.json();
+      }
       if (!data || !data.columns) { setLoading(false); return; }
+      var storeData = getStore();
       var selCols: string[] = data.columns || [];
       var filteredRows = (data.rows || []).map(function(r: any) {
         var o: Record<string, unknown> = {};
@@ -55,10 +64,9 @@ export default function DashboardPage() {
       var parsed = computeStats(filteredRows, selCols);
       setStats(parsed);
       setHasData(true);
-      setDatasetName(data.original_name || "");
+      setDatasetName(data.original_name || storeData.datasets.find(function(d) { return d.id === id; })?.originalName || "");
       setLoading(false);
       // Build related dataset IDs for cross-platform analysis
-      var storeData = getStore();
       var relatedIds: string[] = [];
       if (storeData.datasets.length > 1) {
         for (var i = 0; i < storeData.datasets.length; i++) {
@@ -67,12 +75,25 @@ export default function DashboardPage() {
           }
         }
       }
+      // ⭐ 构建内联数据集：当前 + 所有关联数据集的行数据（从 localStorage 直传后端 Pipeline）
+      var inlineDatasets: Record<string, any> = {};
+      if (localData && localData.rows.length > 0) {
+        inlineDatasets[id] = { columns: localData.columns, rows: localData.rows, originalName: data.original_name || "" };
+      }
+      for (var ri = 0; ri < relatedIds.length; ri++) {
+        var relRows = getDatasetRows(relatedIds[ri]);
+        if (relRows && relRows.rows.length > 0) {
+          var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[ri]; });
+          // 关联数据集仅用于实体匹配/价格对比，取前 200 行即可（控制请求体大小）
+          inlineDatasets[relatedIds[ri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "" };
+        }
+      }
       // Fetch DecisionChain from backend pipeline
       try {
         var chainRes = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds }),
+          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
         });
         if (chainRes.ok) {
           var chainData = await chainRes.json();

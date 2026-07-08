@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbulb } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore } from "@/lib/store";
+import { getStore, getDatasetRows } from "@/lib/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { EvidenceCard, PrioritizedAction, CrossDatasetSummary, ApplicableRule, ReasoningStep, PipelineMeta } from "@/lib/pipeline/types";
@@ -93,7 +93,22 @@ export default function ChatPage() {
           }
         }
       }
-      var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds }) });
+      // ⭐ 内联数据集：当前 + 关联数据集行数据（localStorage 直传，绕过 serverless 存储不共享）
+      var inlineDatasets: Record<string, any> = {};
+      var activeRows = getDatasetRows(dsId);
+      if (activeRows && activeRows.rows.length > 0) {
+        var activeMeta = saved.datasets.find(function(d) { return d.id === dsId; });
+        inlineDatasets[dsId] = { columns: activeRows.columns, rows: activeRows.rows, originalName: activeMeta?.originalName || "" };
+      }
+      for (var rri = 0; rri < relatedIds.length; rri++) {
+        var relRows = getDatasetRows(relatedIds[rri]);
+        if (relRows && relRows.rows.length > 0) {
+          var relMeta = saved.datasets.find(function(d) { return d.id === relatedIds[rri]; });
+          // 关联数据集仅用于实体匹配/价格对比，取前 200 行即可（控制请求体大小）
+          inlineDatasets[relatedIds[rri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "" };
+        }
+      }
+      var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
       if (!res.ok) throw new Error("fail");
       var data = await res.json();
       var isDecisionChain = data.type === "decision_chain";

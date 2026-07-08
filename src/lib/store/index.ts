@@ -90,6 +90,7 @@ export function removeDataset(id: string) {
     s.datasets = s.datasets.filter(function(d) { return d.id !== id; });
     if (s.activeId === id) s.activeId = s.datasets.length > 0 ? s.datasets[0].id : "";
     setStore(s);
+    removeDatasetRows(id); // ⭐ 同步清除行数据
     return s;
   } catch (e) {
     logger.error("removeDataset failed", { message: e instanceof Error ? e.message : String(e) });
@@ -105,9 +106,50 @@ export function saveColumnConfig(config: AppStore["columnConfig"]) {
   }
 }
 
+/** 保存数据集完整行数据（最多 500 行，独立 key 避免撑爆主 store） */
+export function saveDatasetRows(id: string, rows: Record<string, unknown>[], columns: string[]): void {
+  try {
+    const payload = { id, columns, rows: rows.slice(0, 500), savedAt: Date.now() };
+    const data = JSON.stringify(payload);
+    if (data.length > 2 * 1024 * 1024) {
+      logger.warn("Dataset rows too large, truncating", { id, size: data.length });
+      payload.rows = payload.rows.slice(0, Math.floor(500 * 2 * 1024 * 1024 / data.length));
+    }
+    localStorage.setItem(KEY + "_data_" + id, JSON.stringify(payload));
+  } catch (e) {
+    logger.error("saveDatasetRows failed", { id, message: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+/** 读取数据集完整行数据 */
+export function getDatasetRows(id: string): { rows: Record<string, unknown>[]; columns: string[] } | null {
+  try {
+    const raw = localStorage.getItem(KEY + "_data_" + id);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return { rows: parsed.rows || [], columns: parsed.columns || [] };
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 清理指定数据集的存储数据 */
+export function removeDatasetRows(id: string): void {
+  try {
+    localStorage.removeItem(KEY + "_data_" + id);
+  } catch {}
+}
+
 export function clearStore() {
   try {
     localStorage.removeItem(KEY);
+    // 同时清理所有数据行
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(KEY + "_data_")) keys.push(k);
+    }
+    keys.forEach(function(k) { localStorage.removeItem(k); });
   } catch (e) {
     logger.error("clearStore failed", { message: e instanceof Error ? e.message : String(e) });
   }
