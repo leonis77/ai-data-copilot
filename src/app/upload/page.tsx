@@ -186,9 +186,9 @@ export default function UploadPage() {
       </motion.div>
 
       {!result ? (
-        <motion.div key="upload"><GlassCard gradient className="p-10">
+        <motion.div key="upload"><GlassCard gradient className="p-6 md:p-10">
           <div {...getRootProps()}
-            className={"relative border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all " +
+            className={"relative border-2 border-dashed rounded-2xl p-8 md:p-16 text-center cursor-pointer transition-all touch-manipulation " +
               (isDragActive ? "border-indigo-400 bg-indigo-500/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
             <input {...getInputProps()} />
             {file ? (
