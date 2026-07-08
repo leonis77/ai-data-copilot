@@ -19,9 +19,9 @@ export function Navbar() {
   const pathname = usePathname();
   return (
     <motion.nav
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-white/[0.06]"
       style={{ backdropFilter: "blur(20px)", background: "rgba(11,15,23,0.8)" }}
     >

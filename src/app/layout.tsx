@@ -25,6 +25,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="dark">
       <head>
+        {/* Google Fonts 预连接 — 消除移动端 FOIT 白屏 */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* 禁用缓存 — 确保部署后手机加载最新资源 */}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />

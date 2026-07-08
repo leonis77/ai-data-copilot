@@ -37,6 +37,8 @@ function detectProfile(columns: string[], semanticRoles?: any): string {
 }
 
 export default function UploadPage() {
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 移动端限制 20MB，避免 OOM
+  const FETCH_TIMEOUT = 30000; // 30 秒超时，防止移动网络慢时一直挂起
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -62,6 +64,9 @@ export default function UploadPage() {
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") {
       setError("仅支持 xlsx / xls / csv"); return;
     }
+    if (f.size > MAX_FILE_SIZE) {
+      setError("文件过大（最大 20MB），移动端超大文件可能导致内存不足。请在电脑上处理后再上传。"); return;
+    }
     setError(""); setFile(f); setResult(null); setCols([]); setTemplate(null);
     setSheets(null); setSelectedSheet(""); setFileDataB64("");
   }, []);
@@ -86,10 +91,15 @@ export default function UploadPage() {
       const b64 = fileDataB64 || await fileToBase64(file);
       if (!fileDataB64) setFileDataB64(b64);
 
+      // ⭐ 移动端超时控制：30 秒无响应则中断，防止网络差时一直挂起
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT);
       const res = await fetch("/api/upload", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, fileData: b64, sheetName: sheet || undefined }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         const err = await res.json().catch(function() { return {}; });
         throw new Error(err.error || "解析失败");
@@ -113,7 +123,13 @@ export default function UploadPage() {
 
       const profile = detectProfile(data.columns, data.semanticRoles);
       addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles);
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) {
+      if (e.name === "AbortError") {
+        setError("上传超时（30 秒）。移动网络可能不稳定，请切换 Wi-Fi 后重试。");
+      } else {
+        setError(e.message);
+      }
+    }
     finally { setUploading(false); }
   };
 
