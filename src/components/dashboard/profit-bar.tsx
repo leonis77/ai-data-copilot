@@ -75,7 +75,7 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
       </div>
 
       {/* 3 mini cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         {/* Top earner */}
         {topEarner && topEarner.profit.netMonthly > 0 && (
           <div className="rounded-xl p-3 border border-green-500/10 bg-green-500/[0.04]">

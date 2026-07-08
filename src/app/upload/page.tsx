@@ -53,6 +53,7 @@ export default function UploadPage() {
   const [fileDataB64, setFileDataB64] = useState("");
 
   const clearAll = function() {
+    if (!confirm("确定清除所有缓存数据？这将删除所有已上传的数据集和配置，此操作不可撤销。")) return;
     localStorage.removeItem("aicopilot");
     setFile(null); setResult(null); setCols([]); setTemplate(null);
     setSheets(null); setSelectedSheet(""); setFileDataB64("");
@@ -191,12 +192,12 @@ export default function UploadPage() {
           <Upload className="w-4 h-4 text-primary-light" />
           <span className="text-sm text-white/60">数据上传</span>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-4">
           <span className="gradient-text">上传数据</span>
           <span className="text-white/90">，AI 自动解析</span>
         </h1>
-        <p className="text-white/40 text-lg">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
-        <button onClick={clearAll} className="absolute top-0 right-0 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1">
+        <p className="text-white/40 text-sm sm:text-lg">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
+        <button onClick={clearAll} className="absolute top-2 right-2 z-10 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1">
           <Trash2 className="w-3 h-3" />清除缓存
         </button>
       </motion.div>

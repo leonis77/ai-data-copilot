@@ -96,16 +96,16 @@ function ComparisonCard({ comparison: comp }: { comparison: CrossPlatformCompari
   return (
     <div className="glass-sm rounded-xl overflow-hidden">
       {/* 商品名 + 价差预警 */}
-      <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-white font-medium text-sm">{comp.productName}</span>
+      <div className="px-4 sm:px-5 py-3 border-b border-white/10 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className="text-white font-medium text-sm truncate max-w-[160px] sm:max-w-none">{comp.productName}</span>
           {comp.priceSpreadAlert && (
-            <span className="text-red-400 text-xs bg-red-500/10 px-2 py-0.5 rounded-full animate-pulse">
+            <span className="text-red-400 text-xs bg-red-500/10 px-2 py-0.5 rounded-full animate-pulse shrink-0">
               🔴 价差异常
             </span>
           )}
         </div>
-        <span className="text-white/40 text-xs">
+        <span className="text-white/40 text-xs shrink-0">
           跨平台价差：¥{comp.priceSpread.toFixed(0)}（{Math.round(comp.priceSpreadRatio * 100)}%）
         </span>
       </div>

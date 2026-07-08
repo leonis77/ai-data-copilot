@@ -1,0 +1,24 @@
+{
+  "name": "ProcureWise - 跨平台电商利润优化引擎",
+  "short_name": "ProcureWise",
+  "description": "上传淘宝/京东/拼多多/抖音的销售数据，AI自动计算真实利润并告诉你下一步该采购什么",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0F17",
+  "theme_color": "#6366F1",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "lang": "zh-CN"
+}

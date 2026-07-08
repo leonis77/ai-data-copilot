@@ -36,7 +36,7 @@ function Workbench() {
         </motion.div>
 
         {/* Data cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.1}}
             className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
             style={{backdropFilter:"blur(20px)",background:"radial-gradient(circle at 30% 20%,rgba(124,92,255,0.08),transparent 40%),rgba(17,24,39,0.5)"}}>
@@ -100,7 +100,8 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="fixed inset-0 pointer-events-none">
+      {/* Ambient glow — hidden on mobile to save GPU */}
+      <div className="fixed inset-0 pointer-events-none hidden sm:block">
         <div className="absolute top-0 left-1/3 w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{background:"radial-gradient(circle,rgba(124,92,255,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
         <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full opacity-[0.03]" style={{background:"radial-gradient(circle,rgba(0,212,255,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
       </div>
@@ -114,13 +115,13 @@ function LandingPage() {
             </div>
           </motion.div>
 
-          <motion.h1 initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.15}} className="text-5xl md:text-7xl font-black tracking-tight mb-6">
+          <motion.h1 initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.15}} className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight mb-6 px-2">
             <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">ProcureWise</span>
             <br />
-            <span className="text-white/80 text-2xl md:text-3xl font-normal mt-4 block">{"\u4e0a\u4f20\u6570\u636e \u00b7 AI\u81ea\u52a8\u8ba1\u7b97\u8de8\u5e73\u53f0\u5229\u6da6 \u00b7 \u544a\u8bc9\u4f60\u8be5\u8fdb\u4ec0\u4e48\u8d27"}</span>
+            <span className="text-white/80 text-lg sm:text-2xl md:text-3xl font-normal mt-4 block">{"\u4e0a\u4f20\u6570\u636e \u00b7 AI\u81ea\u52a8\u8ba1\u7b97\u8de8\u5e73\u53f0\u5229\u6da6 \u00b7 \u544a\u8bc9\u4f60\u8be5\u8fdb\u4ec0\u4e48\u8d27"}</span>
           </motion.h1>
 
-          <motion.p initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}} className="text-lg text-white/30 max-w-2xl mx-auto mb-12 leading-relaxed">
+          <motion.p initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}} className="text-sm sm:text-base md:text-lg text-white/30 max-w-2xl mx-auto mb-12 leading-relaxed px-4">
             {"\u8986\u76d6\u6dd8\u5b9d/\u4eac\u4e1c/\u62fc\u591a\u591a/\u6296\u97f3 \u00b7 2026\u5e74\u771f\u5b9e\u8d39\u7387\u5f15\u64ce \u00b7 \u6296\u97f3\u8fbe\u4ebaABCD\u7ea7ROI\u81ea\u52a8\u8ba1\u7b97 \u00b7 \u4e0d\u662f\u53c8\u4e00\u4e2aAI\u5de5\u5177\uff0c\u662f\u5e2e\u4f60\u7b97\u6e05\u8d26\u3001\u591a\u8d5a\u94b1\u7684\u91c7\u8d2d\u519b\u5e08"}
           </motion.p>
 
@@ -135,8 +136,8 @@ function LandingPage() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0B0F17] to-transparent" />
       </section>
 
-      <section className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {features.map(function(feature, i) {
             return (
               <motion.div key={i} initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:i*0.08,duration:0.5}}

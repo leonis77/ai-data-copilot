@@ -17,6 +17,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+import { AnimatePresence } from "@/components/layout/animate-presence";
+
 export default function RootLayout({
   children,
 }: {
@@ -25,6 +27,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="dark">
       <head>
+        {/* PWA manifest */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#6366F1" />
         {/* Google Fonts 预连接 — 消除移动端 FOIT 白屏 */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -40,9 +45,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-white touch-manipulation">
         <Navbar />
-        <PageTransition>
-          <main className="pt-16">{children}</main>
-        </PageTransition>
+        <AnimatePresence mode="wait">
+          <PageTransition>
+            <main className="pt-16">{children}</main>
+          </PageTransition>
+        </AnimatePresence>
       </body>
     </html>
   );

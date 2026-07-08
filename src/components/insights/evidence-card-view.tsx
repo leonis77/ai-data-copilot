@@ -69,7 +69,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
       {/* Body */}
       <div className="px-4 py-3 space-y-3">
         {/* Profit summary */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="text-center">
             <div className="text-[10px] text-white/30 mb-0.5">售价</div>
             <div className="text-sm font-mono text-white/80">¥{card.sellPrice.toFixed(2)}</div>

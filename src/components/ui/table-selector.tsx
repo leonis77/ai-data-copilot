@@ -58,7 +58,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
         <ChevronDown className={"w-3 h-3 transition-transform " + (open ? "rotate-180" : "")} />
       </button>
       {open && (
-        <div className="absolute top-full mt-2 left-0 w-72 glass rounded-xl shadow-xl z-50 py-2 max-h-72 overflow-y-auto">
+        <div className="absolute top-full mt-2 left-0 right-0 w-72 max-w-[90vw] glass rounded-xl shadow-xl z-50 py-2 max-h-72 overflow-y-auto">
           <div className="px-3 py-1.5 text-xs text-white/30">{items.length > 0 ? "已上传 " + items.length + " 个数据集" : "暂无数据"}</div>
           {items.map(function(item) {
             const isActive = item.id === active;

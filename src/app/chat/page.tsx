@@ -133,7 +133,7 @@ export default function ChatPage() {
         <div className="w-20 h-20 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6"><Sparkles className="w-10 h-10 text-indigo-400/50" /></div>
         <h2 className="text-2xl font-bold mb-3">{"\u8bf7\u5148\u4e0a\u4f20\u6570\u636e"}</h2><p className="text-white/40 mb-8">AI {"\u52a9\u624b\u9700\u8981\u7ecf\u8425\u6570\u636e\u624d\u80fd\u4e3a\u4f60\u63d0\u4f9b\u5206\u6790"}</p>
         <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25"><Upload className="w-5 h-5" />{"\u4e0a\u4f20\u6570\u636e"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
-      </motion.div>) : (<GlassCard className="flex flex-col h-[calc(100vh-12rem)]">
+      </motion.div>) : (<div className="flex flex-col h-[calc(100dvh-12rem)] glass rounded-2xl overflow-hidden">
         <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
           {msgs.map(function(m,i) {
             var isUser = m.role === "user";
@@ -206,7 +206,7 @@ export default function ChatPage() {
           <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"\u544a\u8bc9 AI \u52a9\u624b\u4f60\u60f3\u4e86\u89e3\u4ec0\u4e48..."} className="flex-1 glass px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 outline-none focus:border-indigo-400/50 transition-all" />
           <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center disabled:opacity-30 transition-opacity"><ArrowRight className="w-5 h-5 text-white" /></motion.button>
         </div>
-      </GlassCard>)}
+      </div>)}
     </div></div>
   );
 }
