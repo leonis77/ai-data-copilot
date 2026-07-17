@@ -266,6 +266,18 @@ export async function getExecution(id: string): Promise<Execution | null> {
   } catch { return null; }
 }
 
+export async function listExecutions(actionTaskId: string): Promise<Execution[]> {
+  try {
+    const client = getClient();
+    const { data, error } = await client.from("executions")
+      .select("*")
+      .eq("action_task_id", actionTaskId)
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    return data.map(mapExecution);
+  } catch { return []; }
+}
+
 // ═══════════════════════════════════════════════
 // Outcome CRUD
 // ═══════════════════════════════════════════════

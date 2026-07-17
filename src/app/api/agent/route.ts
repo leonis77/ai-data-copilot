@@ -318,6 +318,8 @@ export async function POST(request: NextRequest) {
               expectedProfitImpact: Number(a.expectedProfitImpact) || 0,
               riskLevel: (a.riskLevel as "low" | "medium" | "high") || "medium",
             });
+            // ⭐ 把持久化的 actionTaskId 回写到 chain snapshot，供前端执行/结果录入使用
+            actions[ai] = Object.assign({}, a, { actionTaskId: taskId });
           }
 
           const response = serializeDecisionChain(chain);

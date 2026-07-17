@@ -7,6 +7,7 @@ import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbul
 import { GlassCard } from "@/components/ui/glass-card";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
+import { logger } from "@/lib/logger";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { EvidenceCard, PrioritizedAction, CrossDatasetSummary, ApplicableRule, ReasoningStep, PipelineMeta } from "@/lib/pipeline/types";
@@ -15,7 +16,10 @@ import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { CrossDatasetView } from "@/components/insights/cross-dataset-view";
 import CrossPlatformView from "@/components/insights/cross-platform";
+import ExecutionTracker from "@/components/insights/execution-tracker";
 import type { AgentApiResponse, DecisionChainResponse } from "@/lib/agent/api-types";
+import type { Execution, Outcome } from "@/lib/loop/types";
+import { fetchLoopHistory } from "@/lib/loop/client";
 import { parseApiError } from "@/lib/errors";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
@@ -41,6 +45,9 @@ export default function ChatPage() {
   var [loading, setLoading] = useState(false);
   var [hasData, setHasData] = useState(false);
   var [checking, setChecking] = useState(true);
+  var [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
+  var [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
+  var [chatDsId, setChatDsId] = useState("");
   var sr = useRef<HTMLDivElement>(null);
 
   var autoSent = useRef(false);
@@ -124,6 +131,27 @@ export default function ChatPage() {
       if (responseData.type === "insufficient_data" && responseData.limitations.length > 0) {
         content += "\n\n**\u9700\u8981\u8865\u5145\uff1a**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
       }
+
+      // Fetch loop history for execution tracker
+      var newExecutions: Record<string, Execution[]> = {};
+      var newOutcomes: Record<string, Outcome[]> = {};
+      if (isDecisionChain && decisionData?.actions?.length) {
+        try {
+          setChatDsId(dsId);
+          var loopData = await fetchLoopHistory(dsId);
+          for (const dd of loopData.decisions) {
+            for (const t of (dd.actionTasks || [])) {
+              if (dd.executions && dd.executions[t.id]) newExecutions[t.id] = dd.executions[t.id];
+              if (dd.outcomes && dd.outcomes[t.id]) newOutcomes[t.id] = dd.outcomes[t.id];
+            }
+          }
+          setLoopExecutions(function(p) { return Object.assign({}, p, newExecutions); });
+          setLoopOutcomes(function(p) { return Object.assign({}, p, newOutcomes); });
+        } catch (e) {
+          logger.warn("Chat loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
+        }
+      }
+
       setMsgs(function(p: Msg[]) { return [...p, {
         role: "assistant",
         content: content || "",
@@ -204,10 +232,42 @@ export default function ChatPage() {
                   </div>
                 )}
                 {m.actions && m.actions.length > 0 && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-3">
                     <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u884c\u52a8\u5efa\u8bae ({m.actions.length})</div>
                     {m.actions.map(function(act, ai) {
-                      return <ActionCardView key={ai} action={act} index={ai} />;
+                      return (
+                        <div key={ai} className="space-y-2">
+                          <ActionCardView action={act} index={ai} />
+                          {act.actionTaskId && (
+                            <ExecutionTracker
+                              actionTaskId={act.actionTaskId}
+                              title={act.title || act.action}
+                              description={act.description || act.reason}
+                              priority={act.priority}
+                              riskLevel={act.riskLevel}
+                              expectedProfitImpact={act.expectedProfitImpact}
+                              executions={loopExecutions[act.actionTaskId] || []}
+                              outcomes={loopOutcomes[act.actionTaskId] || []}
+                              onRefresh={function() {
+                                if (!chatDsId) return;
+                                fetchLoopHistory(chatDsId).then(function(data) {
+                                  var execMap: Record<string, Execution[]> = {};
+                                  var outcomeMap: Record<string, Outcome[]> = {};
+                                  for (const dd of data.decisions) {
+                                    for (const t of (dd.actionTasks || [])) {
+                                      if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+                                      if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+                                    }
+                                  }
+                                  setLoopExecutions(function(p) { return Object.assign({}, p, execMap); });
+                                  setLoopOutcomes(function(p) { return Object.assign({}, p, outcomeMap); });
+                                });
+                              }}
+                              compact
+                            />
+                          )}
+                        </div>
+                      );
                     })}
                   </div>
                 )}

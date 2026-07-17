@@ -155,6 +155,10 @@ export interface AIExplanation {
 
 /** 扩展的优先级行动建议（继承自 decision-engine 的 Action） */
 export interface PrioritizedAction extends Action {
+  /** 展示标题（优先使用 title，否则回退到 action） */
+  title?: string;
+  /** 展示描述（优先使用 description，否则回退到 reason） */
+  description?: string;
   /** 关联的证据卡索引 */
   evidenceRefs: number[];
   /** 关联的诊断来源 */
@@ -165,6 +169,8 @@ export interface PrioritizedAction extends Action {
   expectedProfitImpact: number;
   /** 风险等级 */
   riskLevel: "low" | "medium" | "high";
+  /** 闭环执行任务ID（由 /api/agent 持久化后回写） */
+  actionTaskId?: string;
 }
 
 // ═══════════════════════════════════════════════

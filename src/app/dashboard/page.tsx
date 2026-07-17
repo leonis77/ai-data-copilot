@@ -18,9 +18,12 @@ import { ProfitRanking } from "@/components/dashboard/profit-ranking";
 import { CostStructure } from "@/components/dashboard/cost-structure";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
+import ExecutionTracker from "@/components/insights/execution-tracker";
 import { logger } from "@/lib/logger";
 import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
+import type { Execution, Outcome } from "@/lib/loop/types";
+import { fetchLoopHistory } from "@/lib/loop/client";
 import { getPlatformLabel } from "@/lib/platform/detect";
 import { parseApiError } from "@/lib/errors";
 
@@ -34,10 +37,12 @@ export default function DashboardPage() {
   const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
   const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
   const [pipelineError, setPipelineError] = useState("");
+  const [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
+  const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
 
   useEffect(function() { loadData(""); }, []);
 
-  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); loadData(newId); }
+  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); setLoopExecutions({}); setLoopOutcomes({}); loadData(newId); }
 
   async function loadData(dsId: string) {
     try {
@@ -123,6 +128,24 @@ export default function DashboardPage() {
         logger.warn("DecisionChain fetch failed", {
           message: e instanceof Error ? e.message : String(e),
         });
+      }
+
+      // Fetch loop history (executions + outcomes) for execution tracker
+      try {
+        var loopData = await fetchLoopHistory(id);
+        var execMap: Record<string, Execution[]> = {};
+        var outcomeMap: Record<string, Outcome[]> = {};
+        for (const dd of loopData.decisions) {
+          const actionTasks = dd.actionTasks || [];
+          for (const t of actionTasks) {
+            if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+            if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+          }
+        }
+        setLoopExecutions(execMap);
+        setLoopOutcomes(outcomeMap);
+      } catch (e) {
+        logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
       }
     } catch(e) { setLoading(false); }
   }
@@ -396,7 +419,37 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-2 max-h-[500px] overflow-y-auto">
                 {actions.map(function(act, ai) {
-                  return <ActionCardView key={ai} action={act} index={ai} />;
+                  return (
+                    <div key={ai} className="space-y-2">
+                      <ActionCardView action={act} index={ai} />
+                      {act.actionTaskId && (
+                        <ExecutionTracker
+                          actionTaskId={act.actionTaskId}
+                          title={act.title || act.action}
+                          description={act.description || act.reason}
+                          priority={act.priority}
+                          riskLevel={act.riskLevel}
+                          expectedProfitImpact={act.expectedProfitImpact}
+                          executions={loopExecutions[act.actionTaskId] || []}
+                          outcomes={loopOutcomes[act.actionTaskId] || []}
+                          onRefresh={function() {
+                            fetchLoopHistory(datasetId).then(function(data) {
+                              var execMap: Record<string, Execution[]> = {};
+                              var outcomeMap: Record<string, Outcome[]> = {};
+                              for (const dd of data.decisions) {
+                                for (const t of (dd.actionTasks || [])) {
+                                  if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+                                  if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+                                }
+                              }
+                              setLoopExecutions(execMap);
+                              setLoopOutcomes(outcomeMap);
+                            });
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
                 })}
               </div>
             </motion.div>

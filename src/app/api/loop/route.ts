@@ -7,6 +7,7 @@ import {
   updateExecutionStatus,
   saveOutcome,
   listOutcomes,
+  listExecutions,
 } from "@/lib/loop/db";
 
 // ═══ GET /api/loop?datasetId=... ═══
@@ -21,10 +22,26 @@ export async function GET(request: NextRequest) {
 
     const runs = await listAnalysisRuns(datasetId, 5);
     const decisions = await listDecisions(datasetId, 5);
-    const tasksByDecision: Array<{ decision: any; actionTasks: any[] }> = [];
+    const tasksByDecision: Array<{
+      decision: any;
+      actionTasks: any[];
+      executions?: Record<string, any[]>;
+      outcomes?: Record<string, any[]>;
+    }> = [];
     for (const d of decisions) {
       const tasks = await listActionTasks(d.id);
-      tasksByDecision.push({ decision: d, actionTasks: tasks });
+      const executions: Record<string, any[]> = {};
+      const outcomes: Record<string, any[]> = {};
+      for (const t of tasks) {
+        const exes = await listExecutions(t.id);
+        if (exes.length > 0) {
+          executions[t.id] = exes;
+          // Fetch outcomes for the latest execution
+          const outs = await listOutcomes(exes[0].id);
+          if (outs.length > 0) outcomes[t.id] = outs;
+        }
+      }
+      tasksByDecision.push({ decision: d, actionTasks: tasks, executions, outcomes });
     }
 
     return NextResponse.json({

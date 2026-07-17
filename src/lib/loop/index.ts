@@ -29,6 +29,7 @@ export {
   saveExecution,
   updateExecutionStatus,
   getExecution,
+  listExecutions,
   saveOutcome,
   listOutcomes,
 } from "./db";
