@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
 import { computeStats } from "@/lib/parser";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
@@ -83,14 +83,13 @@ export default function DashboardPage() {
       var inlineDatasets: Record<string, any> = {};
       if (localData && localData.rows.length > 0) {
         var activeMeta = storeData.datasets.find(function(d) { return d.id === id; });
-        inlineDatasets[id] = { columns: localData.columns, rows: localData.rows, originalName: data.original_name || activeMeta?.originalName || "", platform: activeMeta?.platform || "" };
+        if (activeMeta) inlineDatasets[id] = buildInlineDataset(activeMeta, localData.rows, 500);
       }
       for (var ri = 0; ri < relatedIds.length; ri++) {
         var relRows = getDatasetRows(relatedIds[ri]);
         if (relRows && relRows.rows.length > 0) {
           var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[ri]; });
-          // 关联数据集仅用于实体匹配/价格对比，取前 200 行即可（控制请求体大小）
-          inlineDatasets[relatedIds[ri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "", platform: relMeta?.platform || "" };
+          if (relMeta) inlineDatasets[relatedIds[ri]] = buildInlineDataset(relMeta, relRows.rows, 200);
         }
       }
       // Fetch DecisionChain from backend pipeline

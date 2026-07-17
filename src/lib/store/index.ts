@@ -1,11 +1,42 @@
 import { logger } from "@/lib/logger";
+import type { SemanticProfile } from "@/lib/semantic/types";
 
 const KEY = "aicopilot";
 const MAX_STORE_SIZE = 4 * 1024 * 1024; // 4MB warning threshold
 
+// ═══ M3: Shared frontend dataset contract ═══
+
+/** Dataset metadata persisted in the app store (localStorage key: aicopilot) */
+export interface LocalDatasetMeta {
+  id: string;
+  originalName: string;
+  rowCount: number;
+  columns: string[];
+  createdAt: string;
+  profile?: string;
+  semanticRoles?: SemanticProfile | null;
+  platform?: string;
+}
+
+/** Raw rows persisted separately to avoid bloating the main store */
+export interface LocalDatasetRows {
+  id: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  savedAt: number;
+}
+
+/** Inline dataset sent to /api/agent (localStorage -> backend pipeline) */
+export interface InlineDatasetPayload {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  originalName?: string;
+  platform?: string;
+}
+
 export interface AppStore {
   activeId: string;
-  datasets: { id: string; originalName: string; rowCount: number; columns: string[]; createdAt: string; profile?: string; semanticRoles?: any; platform?: string }[];
+  datasets: LocalDatasetMeta[];
   columnConfig: { datasetId: string; templateId?: string | null; selectedColumns: string[] } | null;
 }
 
@@ -68,11 +99,28 @@ export function setStore(update: Partial<AppStore>): AppStore {
   }
 }
 
-export function addDataset(id: string, name: string, rowCount: number, columns: string[], profile?: string, semanticRoles?: any, platform?: string) {
+export function addDataset(
+  id: string,
+  name: string,
+  rowCount: number,
+  columns: string[],
+  profile?: string,
+  semanticRoles?: SemanticProfile | null,
+  platform?: string,
+): AppStore {
   try {
     const s = getStore();
-    s.datasets = s.datasets.filter(function(d) { return d.id !== id; });
-    s.datasets.unshift({ id, originalName: name, rowCount, columns, createdAt: new Date().toISOString(), profile: profile || "unknown", semanticRoles: semanticRoles || null, platform: platform || undefined });
+    s.datasets = s.datasets.filter(function (d) { return d.id !== id; });
+    s.datasets.unshift({
+      id,
+      originalName: name,
+      rowCount,
+      columns,
+      createdAt: new Date().toISOString(),
+      profile: profile || "unknown",
+      semanticRoles: semanticRoles || null,
+      platform: platform || undefined,
+    });
     if (s.datasets.length > 5) s.datasets = s.datasets.slice(0, 5);
     s.activeId = id;
     s.columnConfig = null;
@@ -84,10 +132,10 @@ export function addDataset(id: string, name: string, rowCount: number, columns: 
   }
 }
 
-export function removeDataset(id: string) {
+export function removeDataset(id: string): AppStore {
   try {
     const s = getStore();
-    s.datasets = s.datasets.filter(function(d) { return d.id !== id; });
+    s.datasets = s.datasets.filter(function (d) { return d.id !== id; });
     if (s.activeId === id) s.activeId = s.datasets.length > 0 ? s.datasets[0].id : "";
     setStore(s);
     removeDatasetRows(id); // ⭐ 同步清除行数据
@@ -109,7 +157,7 @@ export function saveColumnConfig(config: AppStore["columnConfig"]) {
 /** 保存数据集完整行数据（最多 500 行，独立 key 避免撑爆主 store） */
 export function saveDatasetRows(id: string, rows: Record<string, unknown>[], columns: string[]): void {
   try {
-    const payload = { id, columns, rows: rows.slice(0, 500), savedAt: Date.now() };
+    const payload: LocalDatasetRows = { id, columns, rows: rows.slice(0, 500), savedAt: Date.now() };
     const data = JSON.stringify(payload);
     if (data.length > 2 * 1024 * 1024) {
       logger.warn("Dataset rows too large, truncating", { id, size: data.length });
@@ -126,7 +174,7 @@ export function getDatasetRows(id: string): { rows: Record<string, unknown>[]; c
   try {
     const raw = localStorage.getItem(KEY + "_data_" + id);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
+    const parsed: LocalDatasetRows = JSON.parse(raw);
     return { rows: parsed.rows || [], columns: parsed.columns || [] };
   } catch (e) {
     return null;
@@ -140,6 +188,25 @@ export function removeDatasetRows(id: string): void {
   } catch {}
 }
 
+// ═══ M3: Inline dataset helper ═══
+
+/**
+ * Build a typed inline dataset payload from localStorage store metadata + rows.
+ * Single source of truth for the shape sent to /api/agent.
+ */
+export function buildInlineDataset(
+  meta: LocalDatasetMeta,
+  rows: Record<string, unknown>[],
+  maxRows = 200,
+): InlineDatasetPayload {
+  return {
+    columns: meta.columns,
+    rows: rows.slice(0, maxRows),
+    originalName: meta.originalName || undefined,
+    platform: meta.platform || undefined,
+  };
+}
+
 export function clearStore() {
   try {
     localStorage.removeItem(KEY);
@@ -149,7 +216,7 @@ export function clearStore() {
       const k = localStorage.key(i);
       if (k && k.startsWith(KEY + "_data_")) keys.push(k);
     }
-    keys.forEach(function(k) { localStorage.removeItem(k); });
+    keys.forEach(function (k) { localStorage.removeItem(k); });
   } catch (e) {
     logger.error("clearStore failed", { message: e instanceof Error ? e.message : String(e) });
   }
