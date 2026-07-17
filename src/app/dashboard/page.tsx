@@ -22,6 +22,7 @@ import { logger } from "@/lib/logger";
 import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
 import { getPlatformLabel } from "@/lib/platform/detect";
+import { parseApiError } from "@/lib/errors";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -115,7 +116,8 @@ export default function DashboardPage() {
           setInsufficientData(chainData as InsufficientDataResponse);
           setPipelineError("");
         } else {
-          setPipelineError(chainData?.content || chainData?.error?.message || "Pipeline 执行失败，请稍后重试。");
+          var apiErr = chainData ? parseApiError(chainData) : null;
+          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
         }
       } catch(e) {
         setPipelineError(e instanceof Error ? e.message : "Pipeline 执行失败，请稍后重试。");

@@ -21,3 +21,19 @@ export const logger = {
   warn: (msg: string, data?: unknown) => log("warn", msg, data),
   error: (msg: string, data?: unknown) => log("error", msg, data),
 };
+
+// ═══ M2: Request-scoped observability helpers ═══
+
+let currentRequestId: string | undefined;
+
+export function withRequestId<T>(rid: string, fn: () => T): T {
+  try { currentRequestId = rid; } catch {}
+  try { return fn(); } finally {
+    try { currentRequestId = undefined; } catch {}
+  }
+}
+
+export function getRequestId(): string | undefined {
+  return currentRequestId;
+}
+

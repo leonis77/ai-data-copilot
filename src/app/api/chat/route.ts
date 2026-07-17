@@ -3,6 +3,7 @@ import { getLatestDataset, saveChatMessage } from "@/lib/db";
 import { getLatestFromServerStore } from "@/lib/server-store";
 import { chatWithData } from "@/lib/ai";
 import { computeStats } from "@/lib/parser";
+import { ApiErrorCode, apiError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,16 +11,14 @@ export async function POST(request: NextRequest) {
     const messages = body.messages || [];
 
     if (messages.length === 0) {
-      return NextResponse.json({ error: "消息不能为空" }, { status: 400 });
+      return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "消息不能为空", { recoverable: true }), { status: 400 });
     }
 
     const ds = await getLatestDataset();
     // Fall back to in-memory store if Supabase is unavailable
     const fallbackDs = ds || getLatestFromServerStore();
     if (!fallbackDs) {
-      return NextResponse.json(
-        { reply: "请先上传数据文件，我才能帮你分析。" }
-      );
+      return NextResponse.json({ reply: "请先上传数据文件，我才能帮你分析。" });
     }
 
     const columns = fallbackDs.columns;
@@ -47,7 +46,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Chat error:", error);
     return NextResponse.json(
-      { reply: "抱歉，AI 服务暂时不可用，请稍后重试。" }
+      apiError(ApiErrorCode.AI_SERVICE_UNAVAILABLE, "抱歉，AI 服务暂时不可用，请稍后重试。", { recoverable: true }),
+      { status: 500 }
     );
   }
 }

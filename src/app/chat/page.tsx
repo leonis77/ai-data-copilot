@@ -16,6 +16,7 @@ import { ActionCardView } from "@/components/insights/action-card-view";
 import { CrossDatasetView } from "@/components/insights/cross-dataset-view";
 import CrossPlatformView from "@/components/insights/cross-platform";
 import type { AgentApiResponse, DecisionChainResponse } from "@/lib/agent/api-types";
+import { parseApiError } from "@/lib/errors";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
@@ -112,7 +113,8 @@ export default function ChatPage() {
       var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
       var data = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
       if (!res.ok || !data) {
-        var errorMessage = data?.type === "agent_error" ? data.content : "AI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+        var apiErr = data ? parseApiError(data) : null;
+        var errorMessage = apiErr ? apiErr.message : "AI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
         throw new Error(errorMessage);
       }
       var responseData: AgentApiResponse = data;

@@ -1,32 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseFile, rawPreview } from "@/lib/parser";
 import { analyzeSheetStructure } from "@/lib/parser-ai";
-import { logger } from "@/lib/logger";
+import { logger, withRequestId } from "@/lib/logger";
 import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 import { saveToServerStore, getFromServerStore, getLatestFromServerStore, listFromServerStore, deleteFromServerStore } from "@/lib/server-store";
 import { detectPlatform } from "@/lib/platform/detect";
 import { validateUploadRequest } from "@/lib/schemas";
+import { ApiErrorCode, apiError, zodErrorToDetails } from "@/lib/errors";
 
 var XLSX = require("xlsx");
 
+function requestId(): string {
+  try { return "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8); }
+  catch { return "req_unknown"; }
+}
+
 export async function POST(request: NextRequest) {
-  try {
-    var raw = await request.json().catch(function () { return null; });
-    if (!raw || typeof raw !== "object") {
-      return NextResponse.json({ error: "请求体必须是 JSON 对象" }, { status: 400 });
-    }
-    var body: any;
+  const rid = requestId();
+  return withRequestId(rid, async function () {
     try {
-      body = validateUploadRequest(raw);
-    } catch (e: any) {
-      return NextResponse.json({ error: e?.message || "参数校验失败" }, { status: 400 });
-    }
-    var fileName = body.fileName;
-    var fileData = body.fileData;
-    var ext = fileName.split(".").pop()?.toLowerCase();
-    if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
-    if (fileData.length > 70 * 1024 * 1024) return NextResponse.json({ error: "file too large" }, { status: 413 });
+      var raw = await request.json().catch(function () { return null; });
+      if (!raw || typeof raw !== "object") {
+        return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON 对象", { recoverable: true }), { status: 400 });
+      }
+      var body: any;
+      try {
+        body = validateUploadRequest(raw);
+      } catch (e: any) {
+        return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, e?.message || "参数校验失败", { recoverable: true, details: zodErrorToDetails(e) }), { status: 400 });
+      }
+      var fileName = body.fileName;
+      var fileData = body.fileData;
+      var ext = fileName.split(".").pop()?.toLowerCase();
+      if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json(apiError(ApiErrorCode.UNSUPPORTED_FORMAT, "unsupported format", { recoverable: true }), { status: 400 });
+      if (fileData.length > 70 * 1024 * 1024) return NextResponse.json(apiError(ApiErrorCode.FILE_TOO_LARGE, "file too large", { recoverable: true }), { status: 413 });
 
     var buffer = Buffer.from(fileData, "base64");
     var data = new Uint8Array(buffer);
@@ -104,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     // Step 3: If still failed, return error
     if (!parsed) {
-      return NextResponse.json({ error: parseError || "parse failed - file may be empty or format unsupported" }, { status: 400 });
+      return NextResponse.json(apiError(ApiErrorCode.UNSUPPORTED_FORMAT, parseError || "parse failed - file may be empty or format unsupported", { recoverable: true }), { status: 400 });
     }
 
     // Platform detection from column names
@@ -155,8 +163,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "parse failed" }, { status: 500 });
+    return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "parse failed", { recoverable: true }), { status: 500 });
   }
+  });
 }
 
 function XLSX_enc3(r: number, c: number): string {
@@ -169,11 +178,11 @@ export async function DELETE(request: NextRequest) {
   try {
     var url = new URL(request.url);
     var id = url.searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "missing id" }, { status: 400 });
+    if (!id) return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "missing id", { recoverable: true }), { status: 400 });
     await deleteDataset(id);
     deleteFromServerStore(id);
     return NextResponse.json({ ok: true });
-  } catch (e) { return NextResponse.json({ error: "delete failed" }, { status: 500 }); }
+  } catch (e) { return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, "delete failed", { recoverable: true }), { status: 500 }); }
 }
 
 export async function GET(request: NextRequest) {
@@ -216,7 +225,7 @@ export async function GET(request: NextRequest) {
       }
       // Fall back to Supabase
       var ds = await getDataset(id);
-      if (!ds) return NextResponse.json({ error: "not found" }, { status: 404 });
+      if (!ds) return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "not found", { recoverable: true }), { status: 404 });
       return NextResponse.json(ds);
     }
 
@@ -236,9 +245,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(lds);
     }
 
-    return NextResponse.json({ error: "missing param" }, { status: 400 });
+    return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "missing param", { recoverable: true }), { status: 400 });
   } catch (error) {
     logger.error("GET error", { message: error instanceof Error ? error.message : String(error) });
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, "failed", { recoverable: true }), { status: 500 });
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDataset, listDatasets } from "@/lib/db";
 import { getFromServerStore, listFromServerStore } from "@/lib/server-store";
 import { computeStats } from "@/lib/parser";
-import { logger } from "@/lib/logger";
+import { logger, withRequestId } from "@/lib/logger";
 import { routeAgent } from "@/lib/agent";
 import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations, detectRoles } from "@/lib/semantic";
@@ -11,25 +11,28 @@ import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
 import { detectPlatform } from "@/lib/platform/detect";
 import { serializeDecisionChain } from "@/lib/agent/api-types";
 import { validateAgentRequest } from "@/lib/schemas";
+import { ApiErrorCode, apiError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(function () { return null; });
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ type: "agent_error", content: "请求体必须是 JSON 对象", error: { code: "INVALID_BODY", message: "missing json body", recoverable: true } }, { status: 400 });
-    }
-    var parsed: any;
+  const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+  return withRequestId(rid, async function () {
     try {
-      parsed = validateAgentRequest(body);
-    } catch (e: any) {
-      return NextResponse.json({ type: "agent_error", content: "请求参数不合法：" + (e?.message || ""), error: { code: "VALIDATION_FAILED", message: e?.message || "", recoverable: true } }, { status: 400 });
-    }
-    const input = parsed.input;
-    const datasetId = parsed.datasetId;
-    const frontendRelatedIds: string[] = parsed.relatedDatasetIds || [];
-    // ⭐ 客户端内联数据集（localStorage 直传，绕过 serverless 存储不共享）
-    const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string; platform?: string }> =
-      parsed.inlineDatasets && typeof parsed.inlineDatasets === "object" ? parsed.inlineDatasets : {};
+      const body = await request.json().catch(function () { return null; });
+      if (!body || typeof body !== "object") {
+        return NextResponse.json({ type: "agent_error", content: "请求体必须是 JSON 对象", error: { code: "INVALID_BODY", message: "missing json body", recoverable: true } }, { status: 400 });
+      }
+      var parsed: any;
+      try {
+        parsed = validateAgentRequest(body);
+      } catch (e: any) {
+        return NextResponse.json({ type: "agent_error", content: "请求参数不合法：" + (e?.message || ""), error: { code: "VALIDATION_FAILED", message: e?.message || "", recoverable: true } }, { status: 400 });
+      }
+      const input = parsed.input;
+      const datasetId = parsed.datasetId;
+      const frontendRelatedIds: string[] = parsed.relatedDatasetIds || [];
+      // ⭐ 客户端内联数据集（localStorage 直传，绕过 serverless 存储不共享）
+      const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string; platform?: string }> =
+        parsed.inlineDatasets && typeof parsed.inlineDatasets === "object" ? parsed.inlineDatasets : {};
 
     const ds = await getDataset(datasetId);
     // Fall back to in-memory store, then to client-provided inline data
@@ -240,6 +243,7 @@ export async function POST(request: NextRequest) {
       );
       if (chain) {
         logger.info("Decision pipeline executed successfully", {
+          requestId: rid,
           datasetId,
           evidenceCards: chain.evidenceCards.length,
           actions: chain.actions.length,
@@ -253,6 +257,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (pipelineErr) {
       logger.warn("Decision pipeline failed, falling back to routeAgent", {
+        requestId: rid,
         message: pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr),
       });
     }
@@ -265,7 +270,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ...result, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error("Agent API failed", { message });
+    logger.error("Agent API failed", { requestId: rid, message });
     return NextResponse.json({
       type: "agent_error",
       content: "AI 分析暂时不可用，请稍后重试。",
@@ -276,4 +281,5 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 500 });
   }
+  });
 }

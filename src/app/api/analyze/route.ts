@@ -3,6 +3,7 @@ import { getLatestDataset, getDataset, saveAnalysis, getAnalysis } from "@/lib/d
 import { getFromServerStore, getLatestFromServerStore } from "@/lib/server-store";
 import { analyzeData } from "@/lib/ai";
 import { computeStats } from "@/lib/parser";
+import { ApiErrorCode, apiError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       if (!ds) ds = getLatestFromServerStore();
     }
     if (!ds) {
-      return NextResponse.json({ error: "未找到数据，请先上传文件" }, { status: 400 });
+      return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "未找到数据，请先上传文件", { recoverable: true }), { status: 400 });
     }
 
     const dsId = (ds as any).id;
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Analyze error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "分析失败" },
+      apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "分析失败", { recoverable: true }),
       { status: 500 }
     );
   }
