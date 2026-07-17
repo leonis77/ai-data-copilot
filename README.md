@@ -193,12 +193,26 @@ src/
 
 ## 更新日志
 
+**2026-07-17** — M0 稳定性修复 + 知识库扩展 + 业务闭环 API
+- 🔧 M0 稳定性：平台持久化（localStorage + inline dataset + Supabase）、统一平台识别（`detectPlatform` 工具）、淘宝/天猫不再误判
+- 🔗 业务闭环 API：`/api/loop` 支持 `GET` 历史记录 + `POST` execution/outcome 写入（AnalysisRun → Decision → ActionTask → Execution → Outcome）
+- 📚 知识库扩展：从 31 条扩至 81 条，覆盖平台规则/6大品类基准/方法论/预警/供应链
+- 🎯 Pipeline 降级：`insufficient_data` 显式返回、知识注入/LLM 解释失败时保留确定性结果
+- ✅ 前端兼容：Chat/Dashboard 统一处理 `decision_chain` / `insufficient_data` / `fallback_agent` / `agent_error` 四类响应
+- 🐛 freshnessScore 修复：Dashboard 不再出现 7500%/10000% 异常显示
+
 **2026-07-08** — 全链路闭环修复 + 证据链优化 (V1.0)
 - 🔧 P0 断裂链修复：Dashboard AI 摘要字段路径、跨平台数据路径、relatedDatasetIds 传入、"平台"列语义角色冲突、avgPrice 加权均价计算
 - 🔗 P1 证据链优化：API 响应补充 metrics+aiExplanation 完整嵌套对象、CrossPlatform 提升到 DecisionChain 顶层、EvidenceCardView 展示估算标记、Dashboard Pipeline 错误状态+重试、Dashboard 嵌入证据卡展示
 - 🎯 P2 体验增强：AI 置信度彩色徽章（Dashboard + Chat 双端）
 - 🐛 P3 隐藏 Bug：stockHealth 计算、influencerCommissionRate 残留字段清理
 - ✅ TypeScript 构建零错误，9 文件 +107/-15 行
+
+**2026-07-08** — M1 可信输入 + M2 统一错误处理 + M3 前端数据契约
+- 🔒 M1 可信输入：新增 Zod schema 校验上传/Agent API 请求体，在 API 层拒绝非法输入
+- 🛡 M2 统一错误处理：标准 API 错误信封（type/content/error.code/message/recoverable），客户端统一解析
+- 📦 M3 前端数据契约： tightened store types、共享 inline dataset helper `buildInlineDataset`，平台字段贯穿 localStorage → request body
+- ✅ 3 个基础设施层逐层加固，前后端数据流更可追溯
 
 **2026-07-07** — 前后端 Pipeline 集成 (V0.9)
 - Chat UI now renders structured evidence cards, action cards, cross-dataset comparisons, and cross-platform profit tables alongside AI text
