@@ -19,6 +19,7 @@ import { CostStructure } from "@/components/dashboard/cost-structure";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import ExecutionTracker from "@/components/insights/execution-tracker";
+import LoopReviewBoard from "@/components/insights/loop-review-board";
 import { logger } from "@/lib/logger";
 import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
@@ -607,6 +608,9 @@ export default function DashboardPage() {
             </div>
           </motion.div>
         )}
+
+        {/* ═══ Row 6: Execution/Outcome Review Board ═══ */}
+        {hasData && datasetId && <LoopReviewBoard datasetId={datasetId} />}
       </div>
     </div>
   );
