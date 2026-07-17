@@ -13,3 +13,8 @@ export {
   type AgentApiResponse,
   type InlineDataset,
 } from "./agent";
+export {
+  validateLoopPostAction,
+  type LoopPostAction,
+  type LoopError,
+} from "./loop";

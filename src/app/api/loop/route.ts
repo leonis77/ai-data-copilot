@@ -12,6 +12,9 @@ import {
   updateActionTaskStatus,
 } from "@/lib/loop/db";
 import type { Decision, ActionTask } from "@/lib/loop/types";
+import { validateLoopPostAction } from "@/lib/schemas";
+import { ApiErrorCode, apiError, zodErrorToDetails } from "@/lib/errors";
+import { logger, withRequestId } from "@/lib/logger";
 
 // ═══ GET /api/loop?datasetId=... ═══
 
@@ -60,91 +63,73 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ═══ POST /api/loop  (execution + outcome) ═══
+// ═══ POST /api/loop  (execution + outcome + decision status) ═══
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(function () { return null; });
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "invalid body" }, { status: 400 });
-    }
-
-    var action = String(body.action || "");
-    if (action === "start_execution") {
-      var id = String(body.id || "");
-      var actionTaskId = String(body.actionTaskId || "");
-      if (!id || !actionTaskId) {
-        return NextResponse.json({ error: "id and actionTaskId required" }, { status: 400 });
+  const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+  return withRequestId(rid, async function () {
+    try {
+      const raw = await request.json().catch(function () { return null; });
+      if (!raw || typeof raw !== "object") {
+        return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON 对象", { recoverable: true }), { status: 400 });
       }
-      await saveExecution({
-        id,
-        actionTaskId,
-        status: "running",
-        executedBy: body.executedBy || undefined,
-      });
-      return NextResponse.json({ ok: true, executionId: id });
-    }
 
-    if (action === "complete_execution") {
-      var executionId = String(body.executionId || "");
-      var status = String(body.status || "completed");
-      if (!executionId) {
-        return NextResponse.json({ error: "executionId required" }, { status: 400 });
+      let body: any;
+      try {
+        body = validateLoopPostAction(raw);
+      } catch (e: any) {
+        return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, e?.message || "参数校验失败", { recoverable: true, details: zodErrorToDetails(e) }), { status: 400 });
       }
-      await updateExecutionStatus(executionId, status as any, body.result || null);
-      return NextResponse.json({ ok: true });
-    }
 
-    if (action === "save_outcome") {
-      var outcomeId = String(body.id || "");
-      var executionId2 = String(body.executionId || "");
-      var metric = String(body.metric || "");
-      var beforeValue = Number(body.beforeValue || 0);
-      var afterValue = Number(body.afterValue || 0);
-      if (!outcomeId || !executionId2 || !metric) {
-        return NextResponse.json({ error: "id, executionId, metric required" }, { status: 400 });
+      var action = body.action;
+
+      if (action === "start_execution") {
+        await saveExecution({
+          id: body.id,
+          actionTaskId: body.actionTaskId,
+          status: "running",
+          executedBy: body.executedBy || undefined,
+        });
+        return NextResponse.json({ ok: true, executionId: body.id });
       }
-      var improvement = afterValue - beforeValue;
-      var improvementPercent = beforeValue !== 0 ? Math.round((improvement / Math.abs(beforeValue)) * 10000) / 100 : 0;
-      await saveOutcome({
-        id: outcomeId,
-        executionId: executionId2,
-        metric,
-        beforeValue,
-        afterValue,
-        improvement,
-        improvementPercent,
-      });
-      return NextResponse.json({ ok: true, outcomeId: outcomeId });
-    }
 
-    if (action === "update_decision_status") {
-      var decisionId = String(body.decisionId || "");
-      var newStatus = String(body.status || "");
-      var validStatuses = ["pending", "approved", "rejected", "completed"] as Array<Decision["status"]>;
-      if (!decisionId || !newStatus || !validStatuses.includes(newStatus as Decision["status"])) {
-        return NextResponse.json({ error: "decisionId and valid status required" }, { status: 400 });
+      if (action === "complete_execution") {
+        await updateExecutionStatus(body.executionId, body.status, body.result || null);
+        return NextResponse.json({ ok: true });
       }
-      await updateDecisionStatus(decisionId, newStatus as Decision["status"], body.notes || undefined);
-      return NextResponse.json({ ok: true, decisionId, status: newStatus });
-    }
 
-    if (action === "update_action_task_status") {
-      var taskId = String(body.taskId || "");
-      var taskStatus = String(body.status || "");
-      var validTaskStatuses = ["pending", "in_progress", "completed", "cancelled"] as Array<ActionTask["status"]>;
-      if (!taskId || !taskStatus || !validTaskStatuses.includes(taskStatus as ActionTask["status"])) {
-        return NextResponse.json({ error: "taskId and valid status required" }, { status: 400 });
+      if (action === "save_outcome") {
+        var improvement = body.afterValue - body.beforeValue;
+        var improvementPercent = body.beforeValue !== 0 ? Math.round((improvement / Math.abs(body.beforeValue)) * 10000) / 100 : 0;
+        await saveOutcome({
+          id: body.id,
+          executionId: body.executionId,
+          metric: body.metric,
+          beforeValue: body.beforeValue,
+          afterValue: body.afterValue,
+          improvement,
+          improvementPercent,
+        });
+        return NextResponse.json({ ok: true, outcomeId: body.id });
       }
-      await updateActionTaskStatus(taskId, taskStatus as ActionTask["status"], body.notes || undefined);
-      return NextResponse.json({ ok: true, taskId, status: taskStatus });
-    }
 
-    return NextResponse.json({ error: "unknown action" }, { status: 400 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
-  }
+      if (action === "update_decision_status") {
+        await updateDecisionStatus(body.decisionId, body.status, body.notes || undefined);
+        return NextResponse.json({ ok: true, decisionId: body.decisionId, status: body.status });
+      }
+
+      if (action === "update_action_task_status") {
+        await updateActionTaskStatus(body.taskId, body.status, body.notes || undefined);
+        return NextResponse.json({ ok: true, taskId: body.taskId, status: body.status });
+      }
+
+      return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "unknown action", { recoverable: true }), { status: 400 });
+    } catch (error) {
+      logger.error("Loop API failed", { requestId: rid, message: error instanceof Error ? error.message : String(error) });
+      return NextResponse.json(
+        apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "loop failed", { recoverable: true }),
+        { status: 500 }
+      );
+    }
+  });
 }

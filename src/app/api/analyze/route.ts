@@ -4,52 +4,56 @@ import { getFromServerStore, getLatestFromServerStore } from "@/lib/server-store
 import { analyzeData } from "@/lib/ai";
 import { computeStats } from "@/lib/parser";
 import { ApiErrorCode, apiError } from "@/lib/errors";
+import { logger, withRequestId } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const datasetId = searchParams.get("datasetId");
-    const body = await request.json().catch(() => ({}));
-    const question = body.question || "";
+  const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+  return withRequestId(rid, async function () {
+    try {
+      const { searchParams } = new URL(request.url);
+      const datasetId = searchParams.get("datasetId");
+      const body = await request.json().catch(() => ({}));
+      const question = String(body.question || "");
 
-    let ds;
-    if (datasetId) {
-      ds = await getDataset(datasetId);
-      if (!ds) ds = getFromServerStore(datasetId);
-    } else {
-      ds = await getLatestDataset();
-      if (!ds) ds = getLatestFromServerStore();
+      let ds;
+      if (datasetId) {
+        ds = await getDataset(datasetId);
+        if (!ds) ds = getFromServerStore(datasetId);
+      } else {
+        ds = await getLatestDataset();
+        if (!ds) ds = getLatestFromServerStore();
+      }
+      if (!ds) {
+        return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "未找到数据，请先上传文件", { recoverable: true }), { status: 400 });
+      }
+
+      const dsId = (ds as any).id;
+      const columns = (ds as any).columns;
+      const rows = (ds as any).rows;
+
+      const stats = computeStats(rows, columns);
+      const dataSummary = buildDataSummary(stats, columns as string[], rows as any[]);
+
+      const result = await analyzeData(dataSummary, question);
+
+      await saveAnalysis({
+        id: `analysis_${dsId}`,
+        datasetId: dsId,
+        summary: result.summary,
+        insights: JSON.stringify(result.insights),
+        risks: JSON.stringify(result.risks),
+        suggestions: JSON.stringify(result.suggestions),
+      });
+
+      return NextResponse.json(result);
+    } catch (error) {
+      logger.error("Analyze API failed", { requestId: rid, message: error instanceof Error ? error.message : String(error) });
+      return NextResponse.json(
+        apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "分析失败", { recoverable: true }),
+        { status: 500 }
+      );
     }
-    if (!ds) {
-      return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "未找到数据，请先上传文件", { recoverable: true }), { status: 400 });
-    }
-
-    const dsId = (ds as any).id;
-    const columns = (ds as any).columns;
-    const rows = (ds as any).rows;
-
-    const stats = computeStats(rows, columns);
-    const dataSummary = buildDataSummary(stats, columns as string[], rows as any[]);
-
-    const result = await analyzeData(dataSummary, question);
-
-    await saveAnalysis({
-      id: `analysis_${dsId}`,
-      datasetId: dsId,
-      summary: result.summary,
-      insights: JSON.stringify(result.insights),
-      risks: JSON.stringify(result.risks),
-      suggestions: JSON.stringify(result.suggestions),
-    });
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Analyze error:", error);
-    return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "分析失败", { recoverable: true }),
-      { status: 500 }
-    );
-  }
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -78,7 +82,7 @@ export async function GET(request: NextRequest) {
       suggestions: JSON.parse(analysis.suggestions || "[]"),
     });
   } catch (error) {
-    console.error("Get analysis error:", error);
+    logger.error("Analyze GET failed", { message: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(null);
   }
 }
