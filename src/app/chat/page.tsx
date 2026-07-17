@@ -21,6 +21,7 @@ import type { AgentApiResponse, DecisionChainResponse } from "@/lib/agent/api-ty
 import type { Execution, Outcome } from "@/lib/loop/types";
 import { fetchLoopHistory } from "@/lib/loop/client";
 import { parseApiError } from "@/lib/errors";
+import { useObservability } from "@/hooks/use-observability";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
@@ -40,6 +41,7 @@ interface Msg {
 }
 
 export default function ChatPage() {
+  const obs = useObservability();
   var [msgs, setMsgs] = useState<Msg[]>([]);
   var [inp, setInp] = useState("");
   var [loading, setLoading] = useState(false);
@@ -49,6 +51,8 @@ export default function ChatPage() {
   var [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
   var [chatDsId, setChatDsId] = useState("");
   var sr = useRef<HTMLDivElement>(null);
+
+  useEffect(function() { if (hasData) obs.trackPageView("chat", { datasetId: chatDsId || "none" }); }, [hasData, chatDsId]);
 
   var autoSent = useRef(false);
   useEffect(function() { checkData(); }, []);
@@ -117,7 +121,9 @@ export default function ChatPage() {
         }
       }
       var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
+      var agentStart = Date.now();
       var data = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
+      obs.trackApiCall("/api/agent", Date.now() - agentStart, res.ok, { type: data?.type || "none" });
       if (!res.ok || !data) {
         var apiErr = data ? parseApiError(data) : null;
         var errorMessage = apiErr ? apiErr.message : "AI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";

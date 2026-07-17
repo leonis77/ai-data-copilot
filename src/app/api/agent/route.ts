@@ -19,19 +19,24 @@ import {
   saveDecision,
   saveActionTask,
 } from "@/lib/loop";
+import { startTimer, endTimer, logPipelineResult, logApiCall } from "@/lib/observability";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    var pipelineType: string = "unknown";
+    var timerId = startTimer("agent.pipeline", { route: "/api/agent" });
     try {
       const body = await request.json().catch(function () { return null; });
       if (!body || typeof body !== "object") {
+        logApiCall("/api/agent", false, { reason: "invalid_body" });
         return NextResponse.json({ type: "agent_error", content: "请求体必须是 JSON 对象", error: { code: "INVALID_BODY", message: "missing json body", recoverable: true } }, { status: 400 });
       }
       var parsed: any;
       try {
         parsed = validateAgentRequest(body);
       } catch (e: any) {
+        logApiCall("/api/agent", false, { reason: "validation_failed" });
         return NextResponse.json({ type: "agent_error", content: "请求参数不合法：" + (e?.message || ""), error: { code: "VALIDATION_FAILED", message: e?.message || "", recoverable: true } }, { status: 400 });
       }
       const input = parsed.input;
@@ -252,6 +257,8 @@ export async function POST(request: NextRequest) {
       // ⭐ 显式处理数据不足情况（不进入 legacy fallback）
       const insufficient = result as InsufficientDataResult | null;
       if (insufficient && insufficient.type === "insufficient_data") {
+        logPipelineResult("insufficient_data", 0, { datasetId, reason: "insufficient_data" });
+        endTimer(timerId, "warn");
         return NextResponse.json({
           type: "insufficient_data",
           content: "当前数据不足以生成完整经营分析。",
@@ -335,11 +342,16 @@ export async function POST(request: NextRequest) {
             analysisRunId: runId,
             pipelineLatency: chain.meta.pipelineLatency,
           });
+          logPipelineResult("decision_chain", chain.meta.pipelineLatency, { datasetId, evidenceCards: chain.evidenceCards.length, actions: chain.actions.length });
+          logApiCall("/api/agent", true, { pipelineLatency: chain.meta.pipelineLatency });
+          endTimer(timerId, "info");
           return NextResponse.json(responseAny);
         } catch (loopErr) {
           logger.warn("Business loop persist failed, returning chain without loop IDs", {
             message: loopErr instanceof Error ? loopErr.message : String(loopErr),
           });
+          logApiCall("/api/agent", true, { pipelineLatency: 0, warning: "loop_persist_failed" });
+          endTimer(timerId, "warn");
           return NextResponse.json(serializeDecisionChain(chain));
         }
       }
@@ -348,6 +360,7 @@ export async function POST(request: NextRequest) {
         requestId: rid,
         message: pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr),
       });
+      logPipelineResult("fallback_agent", 0, { datasetId, reason: pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr) });
     }
 
     // RAG enrichment for fallback routeAgent (already has knowledgeCtx in ctx.dataSummary)
@@ -355,10 +368,15 @@ export async function POST(request: NextRequest) {
 
     // 回退到原有 Agent 路由（向后兼容）
     const result = await routeAgent(enrichedInput || "请分析这些数据", ctx);
+    logApiCall("/api/agent", true, { degraded: true });
+    endTimer(timerId, "warn");
     return NextResponse.json({ ...result, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Agent API failed", { requestId: rid, message });
+    logPipelineResult("agent_error", 0, { message });
+    logApiCall("/api/agent", false, { message });
+    endTimer(timerId, "error");
     return NextResponse.json({
       type: "agent_error",
       content: "AI 分析暂时不可用，请稍后重试。",

@@ -3,6 +3,8 @@ type Level = keyof typeof LEVELS;
 
 const currentLevel: Level = process.env.NODE_ENV === "production" ? "warn" : "debug";
 
+export type { Level };
+
 function log(level: Level, msg: string, data?: unknown) {
   if (LEVELS[level] < LEVELS[currentLevel]) return;
   const ts = new Date().toISOString().slice(11, 19);

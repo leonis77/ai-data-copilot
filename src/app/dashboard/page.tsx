@@ -26,8 +26,10 @@ import type { Execution, Outcome } from "@/lib/loop/types";
 import { fetchLoopHistory } from "@/lib/loop/client";
 import { getPlatformLabel } from "@/lib/platform/detect";
 import { parseApiError } from "@/lib/errors";
+import { useObservability } from "@/hooks/use-observability";
 
 export default function DashboardPage() {
+  const obs = useObservability();
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
 
   useEffect(function() { loadData(""); }, []);
+  useEffect(function() { if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" }); }, [hasData]);
 
   function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); setLoopExecutions({}); setLoopOutcomes({}); loadData(newId); }
 
@@ -99,12 +102,15 @@ export default function DashboardPage() {
       }
       // Fetch DecisionChain from backend pipeline
       try {
+        var agentStart = Date.now();
         var chainRes = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
         });
         var chainData = await chainRes.json().catch(function() { return null; });
+        var agentDuration = Date.now() - agentStart;
+        obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
         if (chainRes.ok && chainData?.type === "decision_chain") {
           setDecisionChain(chainData as DecisionChainResponse);
           setInsufficientData(null);

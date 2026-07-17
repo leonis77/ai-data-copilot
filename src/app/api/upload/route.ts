@@ -8,6 +8,7 @@ import { saveToServerStore, getFromServerStore, getLatestFromServerStore, listFr
 import { detectPlatform } from "@/lib/platform/detect";
 import { validateUploadRequest } from "@/lib/schemas";
 import { ApiErrorCode, apiError, zodErrorToDetails } from "@/lib/errors";
+import { startTimer, endTimer, logApiCall } from "@/lib/observability";
 
 var XLSX = require("xlsx");
 
@@ -19,9 +20,11 @@ function requestId(): string {
 export async function POST(request: NextRequest) {
   const rid = requestId();
   return withRequestId(rid, async function () {
+    var timerId = startTimer("upload.parse", { route: "/api/upload" });
     try {
       var raw = await request.json().catch(function () { return null; });
       if (!raw || typeof raw !== "object") {
+        logApiCall("/api/upload", false, { reason: "invalid_body" });
         return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON 对象", { recoverable: true }), { status: 400 });
       }
       var body: any;
@@ -161,8 +164,12 @@ export async function POST(request: NextRequest) {
       platform: platform || null,
       sheets: (parsed as any).sheets || null,
     });
+    logApiCall("/api/upload", true, { rowCount: parsed.rowCount, columns: parsed.columns.length, platform });
+    endTimer(timerId, "info");
   } catch (error) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });
+    logApiCall("/api/upload", false, { message: error instanceof Error ? error.message : String(error) });
+    endTimer(timerId, "error");
     return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "parse failed", { recoverable: true }), { status: 500 });
   }
   });
