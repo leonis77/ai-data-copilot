@@ -8,10 +8,17 @@ import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations, detectRoles } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
+import type { InsufficientDataResult } from "@/lib/pipeline/types";
 import { detectPlatform } from "@/lib/platform/detect";
 import { serializeDecisionChain } from "@/lib/agent/api-types";
 import { validateAgentRequest } from "@/lib/schemas";
 import { ApiErrorCode, apiError } from "@/lib/errors";
+import {
+  saveAnalysisRun,
+  extractDecisionSummary,
+  saveDecision,
+  saveActionTask,
+} from "@/lib/loop";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
@@ -235,25 +242,104 @@ export async function POST(request: NextRequest) {
     // 如果成功，返回结构化的 DecisionChain
     // 如果失败，回退到原有的 routeAgent（向后兼容）
     try {
-      const chain = await executeDecisionPipeline(
+      const result = await executeDecisionPipeline(
         input || "请分析这些数据",
         datasetId,
         crossDatasetIds.length > 0 ? crossDatasetIds : undefined,
         Object.keys(inlineDatasets).length > 0 ? inlineDatasets : undefined,
       );
-      if (chain) {
-        logger.info("Decision pipeline executed successfully", {
-          requestId: rid,
-          datasetId,
-          evidenceCards: chain.evidenceCards.length,
-          actions: chain.actions.length,
-          diagnoses: chain.diagnoses.length,
-          crossDatasets: chain.crossDataset?.length || 0,
-          crossPlatforms: chain.metrics.crossPlatform?.length || 0,
-          industry: chain.meta.industry.name,
-          pipelineLatency: chain.meta.pipelineLatency,
+
+      // ⭐ 显式处理数据不足情况（不进入 legacy fallback）
+      const insufficient = result as InsufficientDataResult | null;
+      if (insufficient && insufficient.type === "insufficient_data") {
+        return NextResponse.json({
+          type: "insufficient_data",
+          content: "当前数据不足以生成完整经营分析。",
+          limitations: insufficient.limitations,
+          recoverable: true,
         });
-        return NextResponse.json(serializeDecisionChain(chain));
+      }
+
+      const chain = result as any;
+      if (chain) {
+        const runId = "run_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+        const chainSnapshot = JSON.parse(JSON.stringify(chain)) as Record<string, unknown>;
+
+        // 非阻塞持久化 AnalysisRun
+        try {
+          await saveAnalysisRun({
+            id: runId,
+            datasetId,
+            input: input || "请分析这些数据",
+            chainSnapshot,
+            pipelineLatency: chain.meta.pipelineLatency,
+            platform: platformHint,
+            industry: chain.meta.industry.name,
+            freshnessScore: chain.meta.freshnessScore,
+            webSearchTriggered: chain.meta.webSearchTriggered,
+          });
+        } catch (persistErr) {
+          logger.warn("AnalysisRun persist failed (non-fatal)", {
+            message: persistErr instanceof Error ? persistErr.message : String(persistErr),
+          });
+        }
+
+        // 非阻塞持久化 Decision + ActionTask
+        try {
+          const decisionId = "dec_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+          const extracted = extractDecisionSummary(chainSnapshot);
+
+          await saveDecision({
+            id: decisionId,
+            analysisRunId: runId,
+            datasetId,
+            summary: extracted.summary,
+            verdict: extracted.verdict,
+            confidence: extracted.confidence,
+            status: "pending",
+            productNames: extracted.productNames,
+            evidenceCardIndices: extracted.evidenceCardIndices,
+            expectedProfitImpact: extracted.expectedProfitImpact,
+            riskLevel: extracted.riskLevel,
+          });
+
+          const actions = Array.isArray(chainSnapshot.actions) ? chainSnapshot.actions as Record<string, unknown>[] : [];
+          for (let ai = 0; ai < Math.min(actions.length, 20); ai++) {
+            const a = actions[ai];
+            const taskId = "task_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8) + "_" + ai;
+            await saveActionTask({
+              id: taskId,
+              decisionId,
+              title: String(a.title || a.action || "未命名行动"),
+              description: String(a.description || a.reason || ""),
+              priority: String(a.priority || "P1"),
+              evidenceRefs: Array.isArray(a.evidenceRefs) ? a.evidenceRefs.map(Number) : [],
+              ruleIds: Array.isArray(a.ruleIds) ? a.ruleIds.map(String) : [],
+              expectedProfitImpact: Number(a.expectedProfitImpact) || 0,
+              riskLevel: (a.riskLevel as "low" | "medium" | "high") || "medium",
+            });
+          }
+
+          const response = serializeDecisionChain(chain);
+          const responseAny = response as unknown as Record<string, unknown>;
+          responseAny.decisionId = decisionId;
+          responseAny.analysisRunId = runId;
+          logger.info("Decision pipeline executed and persisted", {
+            requestId: rid,
+            datasetId,
+            evidenceCards: chain.evidenceCards.length,
+            actions: chain.actions.length,
+            decisionId,
+            analysisRunId: runId,
+            pipelineLatency: chain.meta.pipelineLatency,
+          });
+          return NextResponse.json(responseAny);
+        } catch (loopErr) {
+          logger.warn("Business loop persist failed, returning chain without loop IDs", {
+            message: loopErr instanceof Error ? loopErr.message : String(loopErr),
+          });
+          return NextResponse.json(serializeDecisionChain(chain));
+        }
       }
     } catch (pipelineErr) {
       logger.warn("Decision pipeline failed, falling back to routeAgent", {

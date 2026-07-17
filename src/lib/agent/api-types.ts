@@ -5,6 +5,10 @@ export interface DecisionChainResponse extends DecisionChain {
   type: "decision_chain";
   content: string;
   crossPlatform: NonNullable<DecisionChain["crossPlatform"]>;
+  /** 关联的业务决策 ID（闭环链路） */
+  decisionId?: string;
+  /** 关联的分析运行 ID */
+  analysisRunId?: string;
 }
 
 export interface InsufficientDataResponse {

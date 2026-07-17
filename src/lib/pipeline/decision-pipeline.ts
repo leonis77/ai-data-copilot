@@ -52,6 +52,8 @@ import type {
   CostAttributionItem,
   CrossDatasetSummary,
   AIExplanation,
+  InsufficientDataResult,
+  PipelineMeta,
 } from "./types";
 import type { ProfitResult } from "@/lib/profit/engine";
 import type { ColumnRole } from "@/lib/semantic/types";
@@ -76,7 +78,7 @@ export async function executeDecisionPipeline(
   datasetId: string,
   crossDatasetIds?: string[],
   inlineDatasets?: Record<string, InlineDataset>,
-): Promise<DecisionChain> {
+): Promise<DecisionChain | InsufficientDataResult> {
   const startTime = Date.now();
 
   // ═══ Layer 0: 数据加载 ═══
@@ -106,6 +108,24 @@ export async function executeDecisionPipeline(
       ? computeProductMetrics(rows, nameField, priceField, qtyField || undefined)
       : [];
   const storeMetrics = computeStoreMetrics(productMetrics, rows.length);
+
+  // ═══ Early insufficient-data guard ═══
+  // 仅当完全无法产出任何指标时才提前返回 insufficient_data。
+  // 缺少平台仅影响利润估算，不阻塞整体分析。
+  const limitations: string[] = [];
+  if (!platform) limitations.push("未能确认平台，未执行平台费率利润测算");
+  if (productMetrics.length === 0) limitations.push("未识别到可同时用于商品和金额分析的字段");
+  if (storeMetrics.orderCount === 0 && productMetrics.length === 0) {
+    return {
+      type: "insufficient_data",
+      limitations,
+      metrics: {
+        store: storeMetrics as unknown as Record<string, unknown>,
+        products: productMetrics as unknown as Record<string, unknown>[],
+      },
+      confidence: 0.3,
+    } as InsufficientDataResult;
+  }
 
   // 利润计算（如果检测到价格字段和平台）
   const profitResults: ProfitResult[] = [];

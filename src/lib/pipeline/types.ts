@@ -273,6 +273,20 @@ export interface DecisionChain {
   meta: PipelineMeta;
 }
 
+/** Pipeline 判定数据不足以生成有效决策链时的返回结果 */
+export interface InsufficientDataResult {
+  type: "insufficient_data";
+  /** 数据不足的具体原因列表 */
+  limitations: string[];
+  /** 已成功计算的部分指标（如有） */
+  metrics?: {
+    store?: Record<string, unknown>;
+    products?: Record<string, unknown>[];
+  };
+  /** 置信度：数据不足时统一为低值 */
+  confidence: 0.3;
+}
+
 // ═══════════════════════════════════════════════
 // Pipeline Context（内部编排上下文）
 // ═══════════════════════════════════════════════
