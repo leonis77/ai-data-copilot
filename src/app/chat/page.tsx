@@ -15,6 +15,7 @@ import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { CrossDatasetView } from "@/components/insights/cross-dataset-view";
 import CrossPlatformView from "@/components/insights/cross-platform";
+import type { AgentApiResponse, DecisionChainResponse } from "@/lib/agent/api-types";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-primary-light", interpret: "text-accent-purple", general: "text-white/50" };
@@ -98,39 +99,49 @@ export default function ChatPage() {
       var activeRows = getDatasetRows(dsId);
       if (activeRows && activeRows.rows.length > 0) {
         var activeMeta = saved.datasets.find(function(d) { return d.id === dsId; });
-        inlineDatasets[dsId] = { columns: activeRows.columns, rows: activeRows.rows, originalName: activeMeta?.originalName || "" };
+        inlineDatasets[dsId] = { columns: activeRows.columns, rows: activeRows.rows, originalName: activeMeta?.originalName || "", platform: activeMeta?.platform || "" };
       }
       for (var rri = 0; rri < relatedIds.length; rri++) {
         var relRows = getDatasetRows(relatedIds[rri]);
         if (relRows && relRows.rows.length > 0) {
           var relMeta = saved.datasets.find(function(d) { return d.id === relatedIds[rri]; });
           // 关联数据集仅用于实体匹配/价格对比，取前 200 行即可（控制请求体大小）
-          inlineDatasets[relatedIds[rri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "" };
+          inlineDatasets[relatedIds[rri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "", platform: relMeta?.platform || "" };
         }
       }
       var res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
-      if (!res.ok) throw new Error("fail");
-      var data = await res.json();
-      var isDecisionChain = data.type === "decision_chain";
+      var data = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
+      if (!res.ok || !data) {
+        var errorMessage = data?.type === "agent_error" ? data.content : "AI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+        throw new Error(errorMessage);
+      }
+      var responseData: AgentApiResponse = data;
+      var isDecisionChain = responseData.type === "decision_chain";
+      var decisionData: DecisionChainResponse | null = isDecisionChain ? responseData as DecisionChainResponse : null;
+      var legacyData = responseData.type === "query" || responseData.type === "report" || responseData.type === "interpret" || responseData.type === "general" ? responseData : null;
+      var content = responseData.content;
+      if (responseData.type === "insufficient_data" && responseData.limitations.length > 0) {
+        content += "\n\n**\u9700\u8981\u8865\u5145\uff1a**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
+      }
       setMsgs(function(p: Msg[]) { return [...p, {
         role: "assistant",
-        content: data.content || "",
-        agentType: data.type,
-        chart: data.chart,
-        table: data.table,
-        suggestions: data.followUp,
+        content: content || "",
+        agentType: responseData.type,
+        chart: legacyData?.chart,
+        table: legacyData?.table,
+        suggestions: legacyData?.followUp,
         // DecisionChain structured output
-        evidenceCards: isDecisionChain ? data.evidenceCards : undefined,
-        actions: isDecisionChain ? data.actions : undefined,
-        crossDataset: isDecisionChain ? data.crossDataset : undefined,
-        crossPlatform: isDecisionChain ? data.crossPlatform : undefined,
-        reasoningChain: isDecisionChain ? data.reasoningChain : undefined,
-        applicableRules: isDecisionChain ? data.applicableRules : undefined,
-        meta: isDecisionChain ? data.meta : undefined,
-        aiConfidence: isDecisionChain ? data.aiExplanation?.confidence : undefined,
+        evidenceCards: decisionData?.evidenceCards,
+        actions: decisionData?.actions,
+        crossDataset: decisionData?.crossDataset,
+        crossPlatform: decisionData?.crossPlatform,
+        reasoningChain: decisionData?.aiExplanation.reasoningChain,
+        applicableRules: decisionData?.applicableRules,
+        meta: decisionData?.meta,
+        aiConfidence: decisionData?.aiExplanation.confidence,
       }]; });
     } catch(e) {
-      setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: "\u62b1\u6b49\uff0cAI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002" }]; });
+      setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: e instanceof Error ? e.message : "\u62b1\u6b49\uff0cAI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002" }]; });
     } finally { setLoading(false); }
   }
 

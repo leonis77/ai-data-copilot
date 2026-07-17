@@ -19,6 +19,8 @@ import { getDataset } from "@/lib/db";
 import { getFromServerStore } from "@/lib/server-store";
 import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
+import { detectPlatform } from "@/lib/platform/detect";
+import type { InjectionResult } from "@/lib/rag/inject";
 
 // ═══ Existing engine modules ═══
 import { computeProductMetrics, computeStoreMetrics } from "@/lib/engines/metrics-engine";
@@ -49,6 +51,7 @@ import type {
   NormalizedDataset,
   CostAttributionItem,
   CrossDatasetSummary,
+  AIExplanation,
 } from "./types";
 import type { ProfitResult } from "@/lib/profit/engine";
 import type { ColumnRole } from "@/lib/semantic/types";
@@ -65,6 +68,7 @@ export interface InlineDataset {
   columns: string[];
   rows: Record<string, unknown>[];
   originalName?: string;
+  platform?: string;
 }
 
 export async function executeDecisionPipeline(
@@ -80,7 +84,8 @@ export async function executeDecisionPipeline(
   if (!ds) {
     throw new Error(`Dataset not found: ${datasetId}`);
   }
-  const { columns, rows } = normalizeData(ds);
+  const normalized = normalizeData(ds);
+  const { columns, rows } = normalized;
 
   // ═══ Layer 0.5: 行业检测 ═══
   const industry = detectIndustry(columns, rows.slice(0, 5));
@@ -90,7 +95,7 @@ export async function executeDecisionPipeline(
   const nameField = findRoleField(roles, "entity_name");
   const priceField = findRoleField(roles, "money");
   const qtyField = findRoleField(roles, "quantity");
-  const platform = detectPlatformFromColumns(columns);
+  const platform = detectPlatform(columns, normalized.platform);
 
   // 基础统计
   const stats = computeStats(rows, columns);
@@ -224,7 +229,7 @@ export async function executeDecisionPipeline(
         const relatedDs = await loadDataset(cd.relatedDatasetId, inlineDatasets);
         if (!relatedDs) continue;
         const related = normalizeData(relatedDs);
-        const relatedPlatform = detectPlatformFromColumns(related.columns);
+        const relatedPlatform = detectPlatform(related.columns, related.platform);
 
         // Only compare if platforms differ
         if (!relatedPlatform || relatedPlatform === platform) continue;
@@ -332,30 +337,45 @@ export async function executeDecisionPipeline(
     }
   }
 
-  // ═══ Layer 5: AI解释（DeepSeek为主体） ═══
-  const knowledgeInjection = await injectKnowledgeV3(input, "", {
-    columns,
-    sampleRows: rows.slice(0, 5),
-    platformHint: platform || undefined,
-  });
-
-  const aiExplanation = await generateAIExplanation({
-    input,
-    metrics: productMetrics,
-    storeMetrics,
-    profitResults,
-    evidenceCards,
-    diagnoses,
-    applicableRules,
-    knowledgeBlock: knowledgeInjection.knowledgeBlock,
-    industry: industry.name,
-    crossDatasets: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
-    crossPlatformComparisons: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
-  });
+  // ═══ Layer 5: 知识注入 + AI解释（失败时保留确定性结果） ═══
+  let knowledgeInjection: InjectionResult = createEmptyKnowledgeInjection();
+  try {
+    knowledgeInjection = await injectKnowledgeV3(input, "", {
+      columns,
+      sampleRows: rows.slice(0, 5),
+      platformHint: platform || undefined,
+    });
+  } catch (e) {
+    logger.warn("Knowledge injection failed, continuing with deterministic pipeline", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   // ═══ Layer 6: 行动建议 ═══
   const rawActions = generateActions(diagnoses);
   const actions = enrichActions(rawActions, evidenceCards, applicableRules);
+
+  let aiExplanation: AIExplanation;
+  try {
+    aiExplanation = await generateAIExplanation({
+      input,
+      metrics: productMetrics,
+      storeMetrics,
+      profitResults,
+      evidenceCards,
+      diagnoses,
+      applicableRules,
+      knowledgeBlock: knowledgeInjection.knowledgeBlock,
+      industry: industry.name,
+      crossDatasets: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
+      crossPlatformComparisons: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
+    });
+  } catch (e) {
+    logger.warn("AI explanation failed, using deterministic fallback", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    aiExplanation = buildDeterministicExplanation(productMetrics, profitResults, diagnoses, evidenceCards, actions, platform);
+  }
 
   // ═══ Layer 7: 组装 ═══
   const pipelineLatency = Date.now() - startTime;
@@ -402,6 +422,61 @@ export async function executeDecisionPipeline(
   };
 }
 
+function createEmptyKnowledgeInjection(): InjectionResult {
+  return {
+    knowledgeBlock: "",
+    injectedEntries: [],
+    rejectedEntries: [],
+    warnedEntries: [],
+    stats: {
+      totalFound: 0,
+      injected: 0,
+      rejected: 0,
+      warned: 0,
+      freshnessScore: 0,
+      webSearchTriggered: false,
+      webSearchResults: 0,
+    },
+  };
+}
+
+function buildDeterministicExplanation(
+  products: ProductMetrics[],
+  profitResults: ProfitResult[],
+  diagnoses: Diagnosis[],
+  evidenceCards: EvidenceCard[],
+  actions: PrioritizedAction[],
+  platform: string,
+): AIExplanation {
+  const limitations: string[] = [];
+  if (!platform) limitations.push("未能确认平台，未执行平台费率利润测算");
+  if (products.length === 0) limitations.push("未识别到可同时用于商品和金额分析的字段");
+  if (profitResults.length === 0) limitations.push("当前数据不足以生成商品级经营利润估算");
+
+  const totalProfit = profitResults.reduce(function(sum, item) { return sum + item.netProfitMonthly; }, 0);
+  const lossCount = profitResults.filter(function(item) { return item.netProfitPerItem <= 0; }).length;
+  const lines = [
+    "AI 解释服务暂时不可用，以下为确定性业务引擎的分析结果。",
+    "",
+    `- 已识别商品：${products.length} 个`,
+    `- 已生成经营利润估算：${profitResults.length} 个`,
+    `- 诊断：${diagnoses.length} 条，证据卡：${evidenceCards.length} 张，行动建议：${actions.length} 条`,
+  ];
+  if (profitResults.length > 0) {
+    lines.push(`- 估算月利润合计：${totalProfit >= 0 ? "+" : "-"}¥${Math.abs(Math.round(totalProfit)).toLocaleString()}`);
+    lines.push(`- 亏损商品：${lossCount} 个`);
+  }
+  if (limitations.length > 0) {
+    lines.push("", "数据限制：", ...limitations.map(function(item) { return `- ${item}`; }));
+  }
+
+  return {
+    summary: lines.join("\n"),
+    reasoningChain: [],
+    confidence: 0.3,
+  };
+}
+
 // ═══════════════════════════════════════════════
 // Layer 0: Data Loading
 // ═══════════════════════════════════════════════
@@ -420,6 +495,7 @@ async function loadDataset(
         rows: inl.rows,
         originalName: inl.originalName || "",
         original_name: inl.originalName || "",
+        platform: inl.platform || "",
       };
     }
   }
@@ -451,8 +527,9 @@ function normalizeData(
   const rows: Record<string, unknown>[] = Array.isArray(ds.rows) ? (ds.rows as Record<string, unknown>[]) : [];
   const originalName =
     (ds.original_name as string) || (ds.originalName as string) || (ds.name as string) || "Unnamed Dataset";
+  const platform = typeof ds.platform === "string" ? ds.platform : undefined;
 
-  return { columns, rows, originalName };
+  return { columns, rows, originalName, platform };
 }
 
 // ═══════════════════════════════════════════════
@@ -465,14 +542,6 @@ function findRoleField(roles: ColumnRole[], targetRole: string): string | null {
   return match ? match.column : null;
 }
 
-/** 从列名检测所属平台（复用 upload route 的检测逻辑） */
-function detectPlatformFromColumns(columns: string[]): string {
-  if (columns.some((c) => /tmall|天猫|淘宝|taobao|买家会员|买家实际支付/i.test(c))) return "tmall";
-  if (columns.some((c) => /京东|jd|自营|pop/i.test(c))) return "jd";
-  if (columns.some((c) => /拼多多|pdd|拼团|百亿补贴/i.test(c))) return "pdd";
-  if (columns.some((c) => /抖音|douyin|达人|直播|千川|罗盘/i.test(c))) return "douyin";
-  return "";
-}
 
 /** 从数据中估算进货成本。返回 [cost, isEstimated] */
 function estimatePurchaseCost(

@@ -19,7 +19,9 @@ import { CostStructure } from "@/components/dashboard/cost-structure";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import { logger } from "@/lib/logger";
-import type { DecisionChain } from "@/lib/pipeline/types";
+import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
+import { getPlatformLabel } from "@/lib/platform/detect";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -28,12 +30,13 @@ export default function DashboardPage() {
   const [datasetName, setDatasetName] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [datasetData, setDatasetData] = useState<any>(null);
-  const [decisionChain, setDecisionChain] = useState<DecisionChain | null>(null);
-  const [pipelineError, setPipelineError] = useState(false);
+  const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
+  const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
+  const [pipelineError, setPipelineError] = useState("");
 
   useEffect(function() { loadData(""); }, []);
 
-  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setPipelineError(false); loadData(newId); }
+  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); loadData(newId); }
 
   async function loadData(dsId: string) {
     try {
@@ -78,14 +81,15 @@ export default function DashboardPage() {
       // ⭐ 构建内联数据集：当前 + 所有关联数据集的行数据（从 localStorage 直传后端 Pipeline）
       var inlineDatasets: Record<string, any> = {};
       if (localData && localData.rows.length > 0) {
-        inlineDatasets[id] = { columns: localData.columns, rows: localData.rows, originalName: data.original_name || "" };
+        var activeMeta = storeData.datasets.find(function(d) { return d.id === id; });
+        inlineDatasets[id] = { columns: localData.columns, rows: localData.rows, originalName: data.original_name || activeMeta?.originalName || "", platform: activeMeta?.platform || "" };
       }
       for (var ri = 0; ri < relatedIds.length; ri++) {
         var relRows = getDatasetRows(relatedIds[ri]);
         if (relRows && relRows.rows.length > 0) {
           var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[ri]; });
           // 关联数据集仅用于实体匹配/价格对比，取前 200 行即可（控制请求体大小）
-          inlineDatasets[relatedIds[ri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "" };
+          inlineDatasets[relatedIds[ri]] = { columns: relRows.columns, rows: relRows.rows.slice(0, 200), originalName: relMeta?.originalName || "", platform: relMeta?.platform || "" };
         }
       }
       // Fetch DecisionChain from backend pipeline
@@ -95,25 +99,26 @@ export default function DashboardPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
         });
-        if (chainRes.ok) {
-          var chainData = await chainRes.json();
-          if (chainData.type === "decision_chain") {
-            setDecisionChain(chainData as DecisionChain);
-            setPipelineError(false);
-            logger.info("Dashboard loaded DecisionChain from pipeline", {
-              evidenceCards: chainData.evidenceCards?.length || 0,
-              actions: chainData.actions?.length || 0,
-              diagnoses: chainData.diagnoses?.length || 0,
-              crossPlatform: chainData.crossPlatform?.length || 0,
-            });
-          } else {
-            setPipelineError(true);
-          }
+        var chainData = await chainRes.json().catch(function() { return null; });
+        if (chainRes.ok && chainData?.type === "decision_chain") {
+          setDecisionChain(chainData as DecisionChainResponse);
+          setInsufficientData(null);
+          setPipelineError("");
+          logger.info("Dashboard loaded DecisionChain from pipeline", {
+            evidenceCards: chainData.evidenceCards?.length || 0,
+            actions: chainData.actions?.length || 0,
+            diagnoses: chainData.diagnoses?.length || 0,
+            crossPlatform: chainData.crossPlatform?.length || 0,
+          });
+        } else if (chainRes.ok && chainData?.type === "insufficient_data") {
+          setDecisionChain(null);
+          setInsufficientData(chainData as InsufficientDataResponse);
+          setPipelineError("");
         } else {
-          setPipelineError(true);
+          setPipelineError(chainData?.content || chainData?.error?.message || "Pipeline 执行失败，请稍后重试。");
         }
       } catch(e) {
-        setPipelineError(true);
+        setPipelineError(e instanceof Error ? e.message : "Pipeline 执行失败，请稍后重试。");
         logger.warn("DecisionChain fetch failed", {
           message: e instanceof Error ? e.message : String(e),
         });
@@ -176,9 +181,8 @@ export default function DashboardPage() {
   var evidenceCards = decisionChain?.evidenceCards || [];
   var diagnoses = decisionChain?.diagnoses || [];
   var actions = decisionChain?.actions || [];
-  // API sends content and crossPlatform as top-level fields (not nested under aiExplanation/metrics)
-  var aiSummary = (decisionChain as any)?.content || "";
-  var crossPlatform = (decisionChain as any)?.crossPlatform || [];
+  var aiSummary = decisionChain?.content || "";
+  var crossPlatform: CrossPlatformComparison[] = decisionChain?.crossPlatform || [];
 
   // ═══ Unknown data ═══
   if (dataProfile === "unknown") {
@@ -401,12 +405,12 @@ export default function DashboardPage() {
           {hasMultiPlatform && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.5 }}>
               <CrossPlatformView
-                comparisons={crossPlatform as any || []}
+                comparisons={crossPlatform}
                 coveredPlatforms={
-                  crossPlatform && (crossPlatform as any).length > 0
+                  crossPlatform.length > 0
                     ? Array.from(new Set(
-                        (crossPlatform as any).flatMap(function(c: any) {
-                          return c.platformResults.map(function(p: any) { return p.platform; });
+                        crossPlatform.flatMap(function(c) {
+                          return c.platformResults.map(function(p) { return p.platform; });
                         })
                       ))
                     : Array.from(new Set(allPlatforms))
@@ -423,7 +427,7 @@ export default function DashboardPage() {
               <Sparkles className="w-5 h-5 text-indigo-400/40 shrink-0" />
               <div>
                 <p className="text-sm text-white/50">
-                  当前仅{currentPlatform === "tmall" ? "天猫" : currentPlatform === "jd" ? "京东" : currentPlatform === "pdd" ? "拼多多" : currentPlatform === "douyin" ? "抖音" : currentPlatform}平台数据
+                  当前仅{getPlatformLabel(currentPlatform)}平台数据
                 </p>
                 <p className="text-xs text-white/25 mt-0.5">上传其他平台数据后将自动展示跨平台利润对比</p>
               </div>
@@ -486,9 +490,24 @@ export default function DashboardPage() {
                   <span>分析耗时: {(decisionChain.meta.pipelineLatency / 1000).toFixed(1)}s</span>
                 )}
                 {decisionChain.meta.freshnessScore !== undefined && (
-                  <span>知识时效: {Math.round(decisionChain.meta.freshnessScore * 100)}%</span>
+                  <span>知识时效: {Math.round(decisionChain.meta.freshnessScore)}%</span>
                 )}
               </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Data limitation state */}
+        {insufficientData && !decisionChain && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+            className="rounded-2xl p-6 border border-amber-500/15 bg-amber-500/[0.03]"
+            style={{ backdropFilter: "blur(16px)" }}>
+            <p className="text-sm text-amber-300/80 font-medium">当前数据不足以生成完整经营决策</p>
+            <p className="text-xs text-white/35 mt-1">{insufficientData.content}</p>
+            {insufficientData.limitations.length > 0 && (
+              <ul className="mt-3 space-y-1 text-xs text-white/30 list-disc pl-4">
+                {insufficientData.limitations.map(function(item) { return <li key={item}>{item}</li>; })}
+              </ul>
             )}
           </motion.div>
         )}
@@ -502,10 +521,10 @@ export default function DashboardPage() {
               <span className="text-red-400 text-lg">⚠️</span>
               <div className="flex-1">
                 <p className="text-sm text-red-300/80 font-medium">AI 分析暂时不可用</p>
-                <p className="text-xs text-white/30 mt-1">Pipeline 执行失败，请尝试刷新页面或切换数据集后重试。</p>
+                <p className="text-xs text-white/30 mt-1">{pipelineError}</p>
               </div>
               <button
-                onClick={() => { setPipelineError(false); setDecisionChain(null); loadData(datasetId); }}
+                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); loadData(datasetId); }}
                 className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-white/60 hover:text-white/80 transition-colors shrink-0">
                 重试
               </button>
@@ -514,7 +533,7 @@ export default function DashboardPage() {
         )}
 
         {/* Pipeline loading state */}
-        {!decisionChain && !pipelineError && !aiSummary && evidenceCards.length === 0 && (
+        {!decisionChain && !insufficientData && !pipelineError && !aiSummary && evidenceCards.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
             className="rounded-2xl p-6 border border-white/[0.04]"
             style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.2)" }}>

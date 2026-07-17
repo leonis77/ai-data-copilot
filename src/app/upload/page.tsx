@@ -123,7 +123,7 @@ export default function UploadPage() {
       setCols(applyTemplate(data.columns, tmpl));
 
       const profile = detectProfile(data.columns, data.semanticRoles);
-      addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles);
+      addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
       // ⭐ 保存行数据到 localStorage，避免 Vercel serverless 实例切换导致 404
       if (data.rows && data.rows.length > 0) {
         saveDatasetRows(data.id, data.rows, data.columns);

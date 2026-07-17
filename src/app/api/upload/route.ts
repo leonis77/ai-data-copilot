@@ -4,7 +4,8 @@ import { analyzeSheetStructure } from "@/lib/parser-ai";
 import { logger } from "@/lib/logger";
 import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
-import { saveToServerStore, getFromServerStore, getLatestFromServerStore } from "@/lib/server-store";
+import { saveToServerStore, getFromServerStore, getLatestFromServerStore, listFromServerStore, deleteFromServerStore } from "@/lib/server-store";
+import { detectPlatform } from "@/lib/platform/detect";
 
 var XLSX = require("xlsx");
 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Platform detection from column names
-    var platform = detectPlatformFromColumns(parsed.columns);
+    var platform = detectPlatform(parsed.columns);
 
     // Save to Supabase (non-blocking)
     var semProfile: any = null;
@@ -155,14 +156,6 @@ function XLSX_enc3(r: number, c: number): string {
   return col + (r + 1);
 }
 
-/** 从列名检测所属平台 */
-function detectPlatformFromColumns(columns: string[]): string {
-  if (columns.some(function(c: string) { return /tmall|天猫|淘宝|taobao|买家会员|买家实际支付/i.test(c); })) return "tmall";
-  if (columns.some(function(c: string) { return /京东|jd|自营|pop/i.test(c); })) return "jd";
-  if (columns.some(function(c: string) { return /拼多多|pdd|拼团|百亿补贴/i.test(c); })) return "pdd";
-  if (columns.some(function(c: string) { return /抖音|douyin|达人|直播|千川|罗盘/i.test(c); })) return "douyin";
-  return "";
-}
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -170,6 +163,7 @@ export async function DELETE(request: NextRequest) {
     var id = url.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "missing id" }, { status: 400 });
     await deleteDataset(id);
+    deleteFromServerStore(id);
     return NextResponse.json({ ok: true });
   } catch (e) { return NextResponse.json({ error: "delete failed" }, { status: 500 }); }
 }
@@ -185,15 +179,18 @@ export async function GET(request: NextRequest) {
       // Merge in-memory store + Supabase datasets, dedupe by id
       var supabaseDatasets = await listDatasets();
       var seenIds = new Set((supabaseDatasets || []).map(function(d: any) { return d.id; }));
-      // Add in-memory datasets not already in Supabase results
-      var memLatest = getLatestFromServerStore();
-      if (memLatest && !seenIds.has(memLatest.id)) {
-        supabaseDatasets.unshift({
-          id: memLatest.id, name: memLatest.name, originalName: memLatest.originalName,
-          rowCount: memLatest.rowCount, columns: memLatest.columns, createdAt: memLatest.createdAt,
-          semanticRoles: memLatest.semanticRoles || null, platform: memLatest.platform || null,
-        });
-        seenIds.add(memLatest.id);
+      // Add all in-memory datasets not already in Supabase results
+      var memDatasets = listFromServerStore();
+      for (var mdi = 0; mdi < memDatasets.length; mdi++) {
+        var memListDs = memDatasets[mdi];
+        if (!seenIds.has(memListDs.id)) {
+          supabaseDatasets.unshift({
+            id: memListDs.id, name: memListDs.name, originalName: memListDs.originalName,
+            rowCount: memListDs.rowCount, columns: memListDs.columns, createdAt: memListDs.createdAt,
+            semanticRoles: memListDs.semanticRoles || null, platform: memListDs.platform || null,
+          });
+          seenIds.add(memListDs.id);
+        }
       }
       return NextResponse.json({ datasets: supabaseDatasets });
     }

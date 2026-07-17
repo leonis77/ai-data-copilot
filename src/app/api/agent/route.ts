@@ -8,6 +8,8 @@ import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations, detectRoles } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
+import { detectPlatform } from "@/lib/platform/detect";
+import { serializeDecisionChain } from "@/lib/agent/api-types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
     const datasetId = body.datasetId || "";
     const frontendRelatedIds: string[] = Array.isArray(body.relatedDatasetIds) ? body.relatedDatasetIds : [];
     // ⭐ 客户端内联数据集（localStorage 直传，绕过 serverless 存储不共享）
-    const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string }> =
+    const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string; platform?: string }> =
       body.inlineDatasets && typeof body.inlineDatasets === "object" ? body.inlineDatasets : {};
 
     const ds = await getDataset(datasetId);
@@ -24,9 +26,15 @@ export async function POST(request: NextRequest) {
     let fallbackDs: any = ds || getFromServerStore(datasetId);
     if (!fallbackDs && inlineDatasets[datasetId] && inlineDatasets[datasetId].rows?.length > 0) {
       const inl = inlineDatasets[datasetId];
-      fallbackDs = { columns: inl.columns, rows: inl.rows, originalName: inl.originalName || "", original_name: inl.originalName || "" };
+      fallbackDs = { columns: inl.columns, rows: inl.rows, originalName: inl.originalName || "", original_name: inl.originalName || "", platform: inl.platform || "" };
     }
-    if (!fallbackDs) return NextResponse.json({ error: "dataset not found" }, { status: 400 });
+    if (!fallbackDs) {
+      return NextResponse.json({
+        type: "agent_error",
+        content: "未找到可分析的数据集，请重新上传数据。",
+        error: { code: "DATASET_NOT_FOUND", message: "dataset not found", recoverable: true },
+      }, { status: 404 });
+    }
 
     const cols: string[] = Array.isArray(fallbackDs.columns) ? fallbackDs.columns : JSON.parse(fallbackDs.columns as string);
     const rows: any[] = Array.isArray(fallbackDs.rows) ? fallbackDs.rows : [];
@@ -64,12 +72,8 @@ export async function POST(request: NextRequest) {
     const hasProduct = cols.some((c: string) => /product|name|title|item|goods|sku|desc|商品|宝贝|产品/i.test(c));
     const hasAmount = cols.some((c: string) => /amount|price|pay|total|money|sum|payment|revenue|金额|价格|售价/i.test(c));
 
-    // Detect platform from column name patterns
-    let platformHint = "";
-    if (cols.some((c: string) => /tmall|天猫|淘宝|taobao|买家会员|买家实际支付/i.test(c))) platformHint = "tmall";
-    else if (cols.some((c: string) => /京东|jd|自营|pop/i.test(c))) platformHint = "jd";
-    else if (cols.some((c: string) => /拼多多|pdd|拼团|百亿补贴/i.test(c))) platformHint = "pdd";
-    else if (cols.some((c: string) => /抖音|douyin|达人|直播|千川|罗盘/i.test(c))) platformHint = "douyin";
+    // Prefer persisted platform metadata; use shared column detection only as fallback.
+    const platformHint = detectPlatform(cols, fallbackDs.platform as string | undefined);
 
     let ecomCtx = "";
     if (hasAmount && hasProduct) {
@@ -224,7 +228,7 @@ export async function POST(request: NextRequest) {
         crossDatasetIds.length > 0 ? crossDatasetIds : undefined,
         Object.keys(inlineDatasets).length > 0 ? inlineDatasets : undefined,
       );
-      if (chain && chain.evidenceCards.length > 0) {
+      if (chain) {
         logger.info("Decision pipeline executed successfully", {
           datasetId,
           evidenceCards: chain.evidenceCards.length,
@@ -235,21 +239,7 @@ export async function POST(request: NextRequest) {
           industry: chain.meta.industry.name,
           pipelineLatency: chain.meta.pipelineLatency,
         });
-        return NextResponse.json({
-          type: "decision_chain",
-          content: chain.aiExplanation.summary,
-          evidenceCards: chain.evidenceCards,
-          diagnoses: chain.diagnoses,
-          actions: chain.actions,
-          applicableRules: chain.applicableRules,
-          reasoningChain: chain.aiExplanation.reasoningChain,
-          crossDataset: chain.crossDataset,
-          crossPlatform: chain.metrics.crossPlatform,
-          meta: chain.meta,
-          // Full nested objects for typed frontend access
-          metrics: { products: chain.metrics.products, store: chain.metrics.store, profit: chain.metrics.profit },
-          aiExplanation: chain.aiExplanation,
-        });
+        return NextResponse.json(serializeDecisionChain(chain));
       }
     } catch (pipelineErr) {
       logger.warn("Decision pipeline failed, falling back to routeAgent", {
@@ -262,9 +252,18 @@ export async function POST(request: NextRequest) {
 
     // 回退到原有 Agent 路由（向后兼容）
     const result = await routeAgent(enrichedInput || "请分析这些数据", ctx);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
   } catch (error) {
-    logger.error("Agent API failed", { message: error instanceof Error ? error.message : String(error) });
-    return NextResponse.json({ error: "agent failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Agent API failed", { message });
+    return NextResponse.json({
+      type: "agent_error",
+      content: "AI 分析暂时不可用，请稍后重试。",
+      error: {
+        code: "AGENT_FAILED",
+        message,
+        recoverable: true,
+      },
+    }, { status: 500 });
   }
 }
