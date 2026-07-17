@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { TrendingUp, CheckCircle2, XCircle, PlayCircle, BarChart3, Clock, RefreshCcw } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { Decision, ActionTask, Execution, Outcome } from "@/lib/loop/types";
-import { fetchLoopHistory } from "@/lib/loop/client";
+import { fetchLoopHistory, updateDecisionStatus, updateActionTaskStatus } from "@/lib/loop/client";
 
 interface LoopReviewBoardProps {
   datasetId: string;
@@ -60,6 +60,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
   const [rows, setRows] = useState<DecisionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<Record<string, boolean>>({});
 
   async function load() {
     if (!datasetId) return;
@@ -80,6 +81,27 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       setError(e instanceof Error ? e.message : "加载复盘数据失败");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
+    setUpdating(function(prev) { const next = Object.assign({}, prev); next[decisionId] = true; return next; });
+    try {
+      await updateDecisionStatus({ decisionId, status });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "更新决策状态失败");
+    } finally {
+      setUpdating(function(prev) { const next = Object.assign({}, prev); next[decisionId] = false; return next; });
+    }
+  }
+
+  async function handleTaskStatusChange(taskId: string, status: ActionTask["status"]) {
+    try {
+      await updateActionTaskStatus({ taskId, status });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "更新任务状态失败");
     }
   }
 
@@ -223,6 +245,45 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                 </div>
               </div>
 
+              {/* Decision status actions */}
+              {d.status === "pending" && (
+                <div className="mt-3 pt-3 border-t border-white/[0.04] flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-white/25 mr-1">决策操作:</span>
+                  <button
+                    onClick={function() { handleDecisionStatusChange(d.id, "approved"); }}
+                    disabled={!!updating[d.id]}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 text-[10px] transition-colors disabled:opacity-50">
+                    <CheckCircle2 className="w-3 h-3" />
+                    批准
+                  </button>
+                  <button
+                    onClick={function() { handleDecisionStatusChange(d.id, "rejected"); }}
+                    disabled={!!updating[d.id]}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] transition-colors disabled:opacity-50">
+                    <XCircle className="w-3 h-3" />
+                    驳回
+                  </button>
+                  <button
+                    onClick={function() { handleDecisionStatusChange(d.id, "completed"); }}
+                    disabled={!!updating[d.id]}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] transition-colors disabled:opacity-50">
+                    标记完成
+                  </button>
+                </div>
+              )}
+              {d.status !== "pending" && (
+                <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                  <span className={"text-[10px] px-2 py-0.5 rounded " + (
+                    d.status === "approved" ? "bg-green-500/10 text-green-400/70" :
+                    d.status === "rejected" ? "bg-red-500/10 text-red-400/70" :
+                    d.status === "completed" ? "bg-indigo-500/10 text-indigo-400/70" :
+                    "bg-white/5 text-white/40"
+                  )}>
+                    决策状态: {d.status === "approved" ? "已批准" : d.status === "rejected" ? "已驳回" : d.status === "completed" ? "已完成" : d.status}
+                  </span>
+                </div>
+              )}
+
               {/* Action tasks */}
               {taskExecStats.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2">
@@ -252,6 +313,21 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                             <span className="text-white/20">未执行</span>
                           )}
                         </div>
+                        {/* Action task status controls */}
+                        {item.task.status === "pending" && !item.latestExe && (
+                          <button
+                            onClick={function() { handleTaskStatusChange(item.task.id, "in_progress"); }}
+                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] transition-colors">
+                            开始
+                          </button>
+                        )}
+                        {item.task.status === "in_progress" && (
+                          <button
+                            onClick={function() { handleTaskStatusChange(item.task.id, "completed"); }}
+                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 hover:bg-green-500/20 text-green-300 text-[10px] transition-colors">
+                            完成
+                          </button>
+                        )}
                       </div>
                     );
                   })}

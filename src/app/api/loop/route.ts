@@ -8,7 +8,10 @@ import {
   saveOutcome,
   listOutcomes,
   listExecutions,
+  updateDecisionStatus,
+  updateActionTaskStatus,
 } from "@/lib/loop/db";
+import type { Decision, ActionTask } from "@/lib/loop/types";
 
 // ═══ GET /api/loop?datasetId=... ═══
 
@@ -113,6 +116,28 @@ export async function POST(request: NextRequest) {
         improvementPercent,
       });
       return NextResponse.json({ ok: true, outcomeId: outcomeId });
+    }
+
+    if (action === "update_decision_status") {
+      var decisionId = String(body.decisionId || "");
+      var newStatus = String(body.status || "");
+      var validStatuses = ["pending", "approved", "rejected", "completed"] as Array<Decision["status"]>;
+      if (!decisionId || !newStatus || !validStatuses.includes(newStatus as Decision["status"])) {
+        return NextResponse.json({ error: "decisionId and valid status required" }, { status: 400 });
+      }
+      await updateDecisionStatus(decisionId, newStatus as Decision["status"], body.notes || undefined);
+      return NextResponse.json({ ok: true, decisionId, status: newStatus });
+    }
+
+    if (action === "update_action_task_status") {
+      var taskId = String(body.taskId || "");
+      var taskStatus = String(body.status || "");
+      var validTaskStatuses = ["pending", "in_progress", "completed", "cancelled"] as Array<ActionTask["status"]>;
+      if (!taskId || !taskStatus || !validTaskStatuses.includes(taskStatus as ActionTask["status"])) {
+        return NextResponse.json({ error: "taskId and valid status required" }, { status: 400 });
+      }
+      await updateActionTaskStatus(taskId, taskStatus as ActionTask["status"], body.notes || undefined);
+      return NextResponse.json({ ok: true, taskId, status: taskStatus });
     }
 
     return NextResponse.json({ error: "unknown action" }, { status: 400 });

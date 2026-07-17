@@ -155,3 +155,41 @@ export async function saveOutcome(params: {
   ensureOk(res);
   return await res.json();
 }
+
+export async function updateDecisionStatus(params: {
+  decisionId: string;
+  status: Decision["status"];
+  notes?: string;
+}): Promise<{ ok: boolean; decisionId: string; status: string }> {
+  const res = await fetch("/api/loop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "update_decision_status",
+      decisionId: params.decisionId,
+      status: params.status,
+      notes: params.notes,
+    }),
+  });
+  ensureOk(res);
+  return await res.json();
+}
+
+export async function updateActionTaskStatus(params: {
+  taskId: string;
+  status: ActionTask["status"];
+  notes?: string;
+}): Promise<{ ok: boolean; taskId: string; status: string }> {
+  const res = await fetch("/api/loop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "update_action_task_status",
+      taskId: params.taskId,
+      status: params.status,
+      notes: params.notes,
+    }),
+  });
+  ensureOk(res);
+  return await res.json();
+}
