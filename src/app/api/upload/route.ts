@@ -6,16 +6,24 @@ import { buildSemanticProfile } from "@/lib/semantic";
 import { saveDataset, getLatestDataset, getDataset, listDatasets, deleteDataset } from "@/lib/db";
 import { saveToServerStore, getFromServerStore, getLatestFromServerStore, listFromServerStore, deleteFromServerStore } from "@/lib/server-store";
 import { detectPlatform } from "@/lib/platform/detect";
+import { validateUploadRequest } from "@/lib/schemas";
 
 var XLSX = require("xlsx");
 
 export async function POST(request: NextRequest) {
   try {
-    var body = await request.json();
-    var fileName = body.fileName || "";
-    var fileData = body.fileData || "";
-    if (!fileName || !fileData) return NextResponse.json({ error: "missing file" }, { status: 400 });
-
+    var raw = await request.json().catch(function () { return null; });
+    if (!raw || typeof raw !== "object") {
+      return NextResponse.json({ error: "请求体必须是 JSON 对象" }, { status: 400 });
+    }
+    var body: any;
+    try {
+      body = validateUploadRequest(raw);
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message || "参数校验失败" }, { status: 400 });
+    }
+    var fileName = body.fileName;
+    var fileData = body.fileData;
     var ext = fileName.split(".").pop()?.toLowerCase();
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") return NextResponse.json({ error: "unsupported format" }, { status: 400 });
     if (fileData.length > 70 * 1024 * 1024) return NextResponse.json({ error: "file too large" }, { status: 413 });

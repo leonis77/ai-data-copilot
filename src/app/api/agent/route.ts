@@ -10,16 +10,26 @@ import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
 import { detectPlatform } from "@/lib/platform/detect";
 import { serializeDecisionChain } from "@/lib/agent/api-types";
+import { validateAgentRequest } from "@/lib/schemas";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const input = body.input || "";
-    const datasetId = body.datasetId || "";
-    const frontendRelatedIds: string[] = Array.isArray(body.relatedDatasetIds) ? body.relatedDatasetIds : [];
+    const body = await request.json().catch(function () { return null; });
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ type: "agent_error", content: "请求体必须是 JSON 对象", error: { code: "INVALID_BODY", message: "missing json body", recoverable: true } }, { status: 400 });
+    }
+    var parsed: any;
+    try {
+      parsed = validateAgentRequest(body);
+    } catch (e: any) {
+      return NextResponse.json({ type: "agent_error", content: "请求参数不合法：" + (e?.message || ""), error: { code: "VALIDATION_FAILED", message: e?.message || "", recoverable: true } }, { status: 400 });
+    }
+    const input = parsed.input;
+    const datasetId = parsed.datasetId;
+    const frontendRelatedIds: string[] = parsed.relatedDatasetIds || [];
     // ⭐ 客户端内联数据集（localStorage 直传，绕过 serverless 存储不共享）
     const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string; platform?: string }> =
-      body.inlineDatasets && typeof body.inlineDatasets === "object" ? body.inlineDatasets : {};
+      parsed.inlineDatasets && typeof parsed.inlineDatasets === "object" ? parsed.inlineDatasets : {};
 
     const ds = await getDataset(datasetId);
     // Fall back to in-memory store, then to client-provided inline data
