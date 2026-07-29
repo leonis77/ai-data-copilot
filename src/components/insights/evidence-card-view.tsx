@@ -51,23 +51,23 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className={"relative overflow-hidden rounded-2xl border card-lift " + v.border + " bg-surface"}
+      className={"relative overflow-hidden rounded-2xl border card-lift " + v.border + " bg-bg-elevated"}
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-white/40 font-mono border border-white/[0.08]">
+          <span className="text-caption px-2 py-0.5 rounded-lg bg-white/5 text-white/40 font-mono border border-white/[0.08]">
             #{card.cardIndex}
           </span>
-          <span className="font-semibold text-sm text-white/90">{card.productName}</span>
+          <span className="text-heading">{card.productName}</span>
           <span className="text-xs text-white/30 px-1.5 py-0.5 rounded bg-white/[0.04]">{card.platform}</span>
           {card.purchaseCostEstimated && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/70 border border-amber-500/20" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
+            <span className="text-caption px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/70 border border-amber-500/20" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
               ⚠️ 成本估算
             </span>
           )}
           {card.costBreakdown?.adCostEstimated && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400/70 border border-orange-500/20" title="广告费未提供，按¥0计算。实际广告费通常占售价5%-20%，当前利润可能被高估。">
+            <span className="text-caption px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400/70 border border-orange-500/20" title="广告费未提供，按¥0计算。实际广告费通常占售价5%-20%，当前利润可能被高估。">
               ⚠️ 广告费缺失
             </span>
           )}
@@ -86,23 +86,23 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
         {/* Profit summary */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
-            <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">售价</div>
+            <div className="text-caption text-white/30 mb-1 uppercase tracking-wider">售价</div>
             <div className="text-sm font-mono text-white/80 font-medium">¥{card.sellPrice.toFixed(2)}</div>
           </div>
           <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
-            <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">单品利润</div>
+            <div className="text-caption text-white/30 mb-1 uppercase tracking-wider">单品利润</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.netPerItem >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.netPerItem >= 0 ? "+" : ""}¥{card.profit.netPerItem.toFixed(2)}
             </div>
           </div>
           <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
-            <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">利润率</div>
+            <div className="text-caption text-white/30 mb-1 uppercase tracking-wider">利润率</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.margin >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.margin >= 0 ? "+" : ""}{card.profit.margin}%
             </div>
           </div>
           <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
-            <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">月利润</div>
+            <div className="text-caption text-white/30 mb-1 uppercase tracking-wider">月利润</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.netMonthly >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.netMonthly >= 0 ? "+" : "−"}¥{Math.abs(Math.round(card.profit.netMonthly)).toLocaleString()}
             </div>
@@ -113,8 +113,8 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
         {card.costAttribution.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="text-[10px] text-white/25 uppercase tracking-wider font-medium">成本归因</div>
-              <div className="text-[10px] text-white/20">共 {card.costAttribution.length} 项</div>
+              <div className="text-caption text-white/25 uppercase tracking-wider font-medium">成本归因</div>
+              <div className="text-caption text-white/20">共 {card.costAttribution.length} 项</div>
             </div>
             {/* Stacked bar */}
             <div className="h-2.5 rounded-full bg-white/5 overflow-hidden flex">
@@ -134,7 +134,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
               {card.costAttribution.slice(0, 5).map(function(attr, i) {
                 const hasWarning = attr.benchmarkDeviation && attr.benchmarkDeviation.includes("⚠️");
                 return (
-                  <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                  <div key={i} className="flex items-center gap-1.5 text-caption">
                     <span className={"w-2 h-2 rounded-full " + costBarColor(attr.item)} />
                     <span className="text-white/50">{attr.item}</span>
                     <span className="text-white/70 font-mono font-medium">{attr.percentage.toFixed(1)}%</span>
@@ -143,7 +143,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
                 );
               })}
               {card.costAttribution.length > 5 && (
-                <span className="text-white/20 text-[10px]">+{card.costAttribution.length - 5} 项</span>
+                <span className="text-white/20 text-caption">+{card.costAttribution.length - 5} 项</span>
               )}
             </div>
           </div>
@@ -152,7 +152,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
         {/* Industry benchmark comparison */}
         {card.industryBenchmark && (
           <div className="p-3 rounded-xl border border-indigo-500/10 bg-indigo-500/[0.02]">
-            <div className="text-[10px] text-indigo-400/70 mb-2.5 font-medium uppercase tracking-wider">{card.industryBenchmark.title}</div>
+            <div className="text-caption text-indigo-400/70 mb-2.5 font-medium uppercase tracking-wider">{card.industryBenchmark.title}</div>
             <div className="space-y-2">
               {card.industryBenchmark.metrics.map(function(m, i) {
                 const statusColor = m.status === "better" ? "text-emerald-400/70" : m.status === "worse" ? "text-red-400/70" : "text-white/40";
@@ -161,7 +161,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
                   ? m.benchmarkValue[0] + "%-%" + m.benchmarkValue[1]
                   : m.benchmarkValue + "%";
                 return (
-                  <div key={i} className="flex items-center justify-between text-[10px]">
+                  <div key={i} className="flex items-center justify-between text-caption">
                     <span className="text-white/40">{m.name}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-white/60 font-mono font-medium">{m.userValue}%</span>
@@ -173,13 +173,13 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
                 );
               })}
             </div>
-            <p className="text-[9px] text-white/20 mt-2 leading-relaxed">{card.industryBenchmark.summary}</p>
+            <p className="text-caption text-white/20 mt-2 leading-relaxed">{card.industryBenchmark.summary}</p>
           </div>
         )}
 
         {/* Verdict reason */}
         <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-          <p className="text-xs text-white/50 leading-relaxed">{card.verdictReason}</p>
+          <p className="text-body">{card.verdictReason}</p>
         </div>
 
         {/* Footer: rules + knowledge */}
@@ -188,7 +188,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
             <div className="flex items-center gap-1 flex-wrap">
               {card.ruleIds.map(function(rid, i) {
                 return (
-                  <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/[0.04] text-white/25 font-mono border border-white/[0.06]">
+                  <span key={i} className="text-caption px-1.5 py-0.5 rounded-md bg-white/[0.04] text-white/25 font-mono border border-white/[0.06]">
                     {rid}
                   </span>
                 );
@@ -196,7 +196,7 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
             </div>
           )}
           {avgKnowledgeConf !== null && (
-            <span className="text-[10px] text-white/20 flex items-center gap-1">
+            <span className="text-caption text-white/20 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400/50" />
               知识置信度 {avgKnowledgeConf}%
             </span>

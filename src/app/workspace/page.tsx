@@ -43,27 +43,25 @@ export default function WorkspacePage() {
     const s = getStore();
     if (!s.activeId) { setLoading(false); return; }
     setHasData(true);
-    // ⭐ 优先从 localStorage 读取（Vercel serverless 实例不共享内存）
     const localData = getDatasetRows(s.activeId);
     if (localData && localData.rows.length > 0) {
       setData({ columns: localData.columns, rows: localData.rows });
       setLoading(false);
       return;
     }
-    // 回退到服务端 API
     fetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="min-h-screen py-12 pt-20"><div className="max-w-7xl mx-auto px-6"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
+  if (loading) return <div className="min-h-screen py-12 pt-20"><div className="section-container"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
 
   if (!hasData || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 pt-20">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="text-center max-w-md px-6">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6"><BarChart3 className="w-10 h-10 text-primary-light/50" /></div>
-          <h2 className="text-2xl font-bold mb-3">{t.workspace.noData}</h2>
-          <p className="text-white/40 mb-8">{t.workspace.noDataHint}</p>
-          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25"><Upload className="w-5 h-5" />{t.workspace.uploadData}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
+          <h2 className="text-title mb-3">{t.workspace.noData}</h2>
+          <p className="text-body mb-8">{t.workspace.noDataHint}</p>
+          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2"><Upload className="w-5 h-5" />{t.workspace.uploadData}<ArrowRight className="w-5 h-5" /></motion.button></Link>
         </motion.div>
       </div>
     );
@@ -89,11 +87,11 @@ export default function WorkspacePage() {
 
   return (
     <div className="min-h-screen py-12 pt-20">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
+      <div className="section-container">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="page-header">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center"><BarChart3 className="w-5 h-5 text-white" /></div>
-            <div><h1 className="text-3xl font-bold"><span className="gradient-text">{t.workspace.title}</span></h1><p className="text-sm text-white/40">{rows.length}/{allRows.length} {t.workspace.records}</p></div>
+            <div className="icon-box bg-gradient-to-br from-indigo-500 to-purple-600"><BarChart3 className="w-5 h-5 text-white" /></div>
+            <div><h1 className="text-title"><span className="gradient-text">{t.workspace.title}</span></h1><p className="text-caption">{rows.length}/{allRows.length} {t.workspace.records}</p></div>
           </div>
         </motion.div>
         <div className="flex items-center gap-4 mb-6">

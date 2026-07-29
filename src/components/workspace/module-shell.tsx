@@ -8,10 +8,10 @@ export function ModuleShell({ title, aiSummary, children }: { title: string; aiS
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
       <GlassCard>
         <div className="mb-4">
-          <h2 className="text-xl font-bold">{title}</h2>
+          <h2 className="text-heading">{title}</h2>
           {aiSummary && (
             <div className="mt-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
-              <p className="text-sm text-white/70 leading-relaxed">{aiSummary}</p>
+              <p className="text-body text-white/70 leading-relaxed">{aiSummary}</p>
             </div>
           )}
         </div>

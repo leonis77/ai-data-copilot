@@ -42,7 +42,6 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
     .filter(function(c) { return c.profit.netMonthly <= 0; })
     .reduce(function(s, c) { return s + c.profit.netMonthly; }, 0);
 
-  // Build horizontal bar chart data
   const names: string[] = [];
   const values: number[] = [];
   const itemColors: any[] = [];
@@ -51,7 +50,6 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
     var card = ranked[i];
     var v = Math.round(card.profit.netMonthly);
     var absVal = Math.abs(v);
-    // Use absolute value for bar length; color indicates sign
     names.push(card.productName + " · " + card.platform);
     values.push(absVal);
     var colorPair = VERDICT_COLORS[card.verdict] || VERDICT_COLORS.hold;
@@ -98,7 +96,7 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
     xAxis: {
       type: "value" as const,
       axisLabel: {
-        color: "#94A3B8",
+        color: "#64748B",
         fontSize: 10,
         formatter: function(v: number) {
           if (v >= 10000) return (v / 10000).toFixed(1) + "万";
@@ -157,15 +155,15 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
-      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
+      className="card-elevated p-5"
     >
       <div className="relative">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-semibold text-white/80 mb-0.5">商品利润排行</h3>
-            <p className="text-[10px] text-white/30">按月度净利润排序</p>
+            <h3 className="text-heading mb-0.5">商品利润排行</h3>
+            <p className="text-caption">按月度净利润排序</p>
           </div>
-          <div className="flex items-center gap-3 text-[10px]">
+          <div className="flex items-center gap-3 text-caption">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span className="text-white/50">盈利</span>
@@ -185,19 +183,19 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-emerald-400/70 font-medium">
+              <span className="text-caption text-emerald-400/70 font-medium">
                 盈利 {evidenceCards.filter(function(c) { return c.profit.netMonthly > 0; }).length} 个
               </span>
-              <span className="text-[10px] text-white/20">+¥{Math.round(profitableTotal).toLocaleString()}</span>
+              <span className="text-caption text-white/20">+¥{Math.round(profitableTotal).toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-red-400/70 font-medium">
+              <span className="text-caption text-red-400/70 font-medium">
                 亏损 {evidenceCards.filter(function(c) { return c.profit.netMonthly <= 0; }).length} 个
               </span>
-              <span className="text-[10px] text-white/20">−¥{Math.abs(Math.round(losingTotal)).toLocaleString()}</span>
+              <span className="text-caption text-white/20">−¥{Math.abs(Math.round(losingTotal)).toLocaleString()}</span>
             </div>
           </div>
-          <span className="text-[10px] text-white/20">共 {evidenceCards.length} 个商品</span>
+          <span className="text-caption text-white/20">共 {evidenceCards.length} 个商品</span>
         </div>
       </div>
     </motion.div>

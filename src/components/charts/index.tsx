@@ -16,15 +16,15 @@ interface ChartProps {
 }
 
 const darkTheme = {
-  textStyle: { color: "#94A3B8" },
-  legend: { textStyle: { color: "#94A3B8" } },
+  textStyle: { color: "#64748B" },
+  legend: { textStyle: { color: "#64748B" } },
 };
 
 export function PieChart({ title, data, className, height = 300 }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
-    legend: { bottom: 0, textStyle: { color: "#94A3B8" } },
+    legend: { bottom: 0, textStyle: { color: "#64748B" } },
     series: [
       {
         type: "pie",
@@ -66,7 +66,7 @@ export function PieChart({ title, data, className, height = 300 }: ChartProps) {
 
   return (
     <div className={className}>
-      <h3 className="text-sm font-medium text-white/60 mb-4">{title}</h3>
+      <h3 className="text-heading mb-4">{title}</h3>
       <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
     </div>
   );
@@ -81,12 +81,12 @@ export function BarChart({ title, data, className, height = 300 }: ChartProps) {
       type: "category",
       data: data.map((d) => d.name),
       axisLine: { lineStyle: { color: "#1E293B" } },
-      axisLabel: { color: "#94A3B8", fontSize: 11 },
+      axisLabel: { color: "#64748B", fontSize: 11 },
     },
     yAxis: {
       type: "value",
       splitLine: { lineStyle: { color: "#1E293B" } },
-      axisLabel: { color: "#94A3B8" },
+      axisLabel: { color: "#64748B" },
     },
     series: [
       {
@@ -108,7 +108,7 @@ export function BarChart({ title, data, className, height = 300 }: ChartProps) {
 
   return (
     <div className={className}>
-      <h3 className="text-sm font-medium text-white/60 mb-4">{title}</h3>
+      <h3 className="text-heading mb-4">{title}</h3>
       <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
     </div>
   );
@@ -123,12 +123,12 @@ export function LineChart({ title, data, className, height = 300 }: ChartProps) 
       type: "category",
       data: data.map((d) => d.name),
       axisLine: { lineStyle: { color: "#1E293B" } },
-      axisLabel: { color: "#94A3B8", fontSize: 11 },
+      axisLabel: { color: "#64748B", fontSize: 11 },
     },
     yAxis: {
       type: "value",
       splitLine: { lineStyle: { color: "#1E293B" } },
-      axisLabel: { color: "#94A3B8" },
+      axisLabel: { color: "#64748B" },
     },
     series: [
       {
@@ -151,7 +151,7 @@ export function LineChart({ title, data, className, height = 300 }: ChartProps) 
 
   return (
     <div className={className}>
-      <h3 className="text-sm font-medium text-white/60 mb-4">{title}</h3>
+      <h3 className="text-heading mb-4">{title}</h3>
       <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
     </div>
   );

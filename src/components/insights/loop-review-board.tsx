@@ -202,13 +202,13 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-indigo-400/70" />
-          <h2 className="text-sm text-white/40 font-medium">执行复盘看板</h2>
-          <span className="text-[10px] text-white/20">{totalDecisions} 次决策 · {totalActionTasks} 个行动</span>
+          <h2 className="text-heading">执行复盘看板</h2>
+          <span className="text-caption">{totalDecisions} 次决策 · {totalActionTasks} 个行动</span>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="inline-flex items-center gap-1 text-[10px] text-white/30 hover:text-white/60 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-caption text-white/30 hover:text-white/60 transition-colors disabled:opacity-50"
         >
           <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} />
           刷新
@@ -216,7 +216,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       </div>
 
       {error && (
-        <div className="text-xs text-red-400/60 bg-red-500/[0.04] rounded-lg px-4 py-2">
+        <div className="text-body text-red-400/60 bg-red-500/[0.04] rounded-lg px-4 py-2">
           {error}
         </div>
       )}
@@ -224,26 +224,26 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <GlassCard className="p-4 rounded-xl" hover={false} delay={0}>
-          <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">执行完成率</div>
+          <div className="text-caption text-white/25 uppercase tracking-wider mb-1">执行完成率</div>
           <div className="text-xl font-semibold text-white/80">{completionRate}%</div>
-          <div className="text-[10px] text-white/25 mt-1">{completedTasks}/{totalActionTasks} 个行动已执行</div>
+          <div className="text-caption text-white/25 mt-1">{completedTasks}/{totalActionTasks} 个行动已执行</div>
         </GlassCard>
         <GlassCard className="p-4 rounded-xl" hover={false} delay={0.05}>
-          <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">正向验证率</div>
+          <div className="text-caption text-white/25 uppercase tracking-wider mb-1">正向验证率</div>
           <div className="text-xl font-semibold text-white/80">{positiveRate}%</div>
-          <div className="text-[10px] text-white/25 mt-1">{outcomesWithPositiveImprovement}/{totalOutcomes} 条结果验证为正</div>
+          <div className="text-caption text-white/25 mt-1">{outcomesWithPositiveImprovement}/{totalOutcomes} 条结果验证为正</div>
         </GlassCard>
         <GlassCard className="p-4 rounded-xl" hover={false} delay={0.1}>
-          <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">预期收益</div>
+          <div className="text-caption text-white/25 uppercase tracking-wider mb-1">预期收益</div>
           <div className="text-xl font-semibold text-indigo-400/80">{formatMoney(expectedProfitImpact)}</div>
-          <div className="text-[10px] text-white/25 mt-1">AI 建议的总预期利润影响</div>
+          <div className="text-caption text-white/25 mt-1">AI 建议的总预期利润影响</div>
         </GlassCard>
         <GlassCard className="p-4 rounded-xl" hover={false} delay={0.15}>
-          <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1">验证收益</div>
+          <div className="text-caption text-white/25 uppercase tracking-wider mb-1">验证收益</div>
           <div className={"text-xl font-semibold " + (verifiedProfitImpact >= 0 ? "text-green-400/80" : "text-red-400/80")}>
             {verifiedProfitImpact >= 0 ? "+" : ""}{formatMoney(verifiedProfitImpact)}
           </div>
-          <div className="text-[10px] text-white/25 mt-1">Outcome 录入的实际改善值</div>
+          <div className="text-caption text-white/25 mt-1">Outcome 录入的实际改善值</div>
         </GlassCard>
       </div>
 
@@ -264,20 +264,20 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
               <div className="flex items-start gap-3 mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={"text-xs font-medium " + (VERDICT_COLOR[d.verdict] || "text-white/50")}>
+                    <span className={"text-sm font-medium " + (VERDICT_COLOR[d.verdict] || "text-white/50")}>
                       {VERDICT_LABEL[d.verdict] || d.verdict}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/40">
+                    <span className="text-caption px-1.5 py-0.5 rounded bg-white/[0.04] text-white/40">
                       {d.riskLevel === "high" ? "高风险" : d.riskLevel === "medium" ? "中风险" : "低风险"}
                     </span>
-                    <span className="text-[10px] text-white/20">{formatDate(d.createdAt)}</span>
+                    <span className="text-caption text-white/20">{formatDate(d.createdAt)}</span>
                   </div>
-                  <p className="text-xs text-white/50 leading-relaxed line-clamp-2">{d.summary}</p>
+                  <p className="text-body leading-relaxed line-clamp-2">{d.summary}</p>
                   {d.productNames.length > 0 && (
                     <div className="flex items-center gap-1 mt-2 flex-wrap">
                       {d.productNames.map(function(p) {
                         return (
-                          <span key={p} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.03] text-white/30">
+                          <span key={p} className="text-caption px-1.5 py-0.5 rounded bg-white/[0.03] text-white/30">
                             {p}
                           </span>
                         );
@@ -286,41 +286,41 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-xs text-white/40">预期收益</div>
+                  <div className="text-body text-white/40">预期收益</div>
                   <div className="text-sm font-medium text-indigo-400/70">{formatMoney(d.expectedProfitImpact)}</div>
-                  <div className="text-[10px] text-white/20">置信度 {Math.round((d.confidence || 0) * 100)}%</div>
+                  <div className="text-caption text-white/20">置信度 {Math.round((d.confidence || 0) * 100)}%</div>
                 </div>
               </div>
 
               {/* Decision status actions */}
               {d.status === "pending" && (
                 <div className="mt-3 pt-3 border-t border-white/[0.04] flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] text-white/25 mr-1">决策操作:</span>
+                  <span className="text-caption text-white/25 mr-1">决策操作:</span>
                   <button
                     onClick={function() { handleDecisionStatusChange(d.id, "approved"); }}
                     disabled={!!updating[d.id]}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 text-[10px] transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 text-caption transition-colors disabled:opacity-50">
                     <CheckCircle2 className="w-3 h-3" />
                     批准
                   </button>
                   <button
                     onClick={function() { handleDecisionStatusChange(d.id, "rejected"); }}
                     disabled={!!updating[d.id]}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-caption transition-colors disabled:opacity-50">
                     <XCircle className="w-3 h-3" />
                     驳回
                   </button>
                   <button
                     onClick={function() { handleDecisionStatusChange(d.id, "completed"); }}
                     disabled={!!updating[d.id]}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[10px] transition-colors disabled:opacity-50">
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-caption transition-colors disabled:opacity-50">
                     标记完成
                   </button>
                 </div>
               )}
               {d.status !== "pending" && (
                 <div className="mt-3 pt-3 border-t border-white/[0.04]">
-                  <span className={"text-[10px] px-2 py-0.5 rounded " + (
+                  <span className={"text-caption px-2 py-0.5 rounded " + (
                     d.status === "approved" ? "bg-green-500/10 text-green-400/70" :
                     d.status === "rejected" ? "bg-red-500/10 text-red-400/70" :
                     d.status === "completed" ? "bg-indigo-500/10 text-indigo-400/70" :
@@ -337,7 +337,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                   {taskExecStats.map(function(item) {
                     const latestOut = item.latestOut;
                     return (
-                      <div key={item.task.id} className="flex items-center gap-2 text-xs">
+                      <div key={item.task.id} className="flex items-center gap-2 text-sm">
                         <div className="flex-1 min-w-0">
                           <span className="text-white/50 truncate">{item.task.title}</span>
                           <span className="text-white/20 ml-1">({item.task.priority})</span>
@@ -364,14 +364,14 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                         {item.task.status === "pending" && !item.latestExe && (
                           <button
                             onClick={function() { handleTaskStatusChange(item.task.id, "in_progress"); }}
-                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] transition-colors">
+                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-caption transition-colors">
                             开始
                           </button>
                         )}
                         {item.task.status === "in_progress" && (
                           <button
                             onClick={function() { handleTaskStatusChange(item.task.id, "completed"); }}
-                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 hover:bg-green-500/20 text-green-300 text-[10px] transition-colors">
+                            className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 hover:bg-green-500/20 text-green-300 text-caption transition-colors">
                             完成
                           </button>
                         )}
@@ -392,11 +392,11 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <RefreshCcw className="w-4 h-4 text-indigo-400/70" />
-                <h3 className="text-sm text-white/50 font-medium">前后对比验证</h3>
-                <span className={"text-[10px] px-2 py-0.5 rounded-full " + (
-                  comparison.validation.confidence === "high" ? "bg-green-500/10 text-green-400/70" :
-                  comparison.validation.confidence === "medium" ? "bg-amber-500/10 text-amber-400/70" :
-                  "bg-red-500/10 text-red-400/70"
+                <h3 className="text-heading">前后对比验证</h3>
+                <span className={"text-caption px-2 py-0.5 rounded-full " + (
+                  comparison.validation.confidence === "high" ? "badge-success" :
+                  comparison.validation.confidence === "medium" ? "badge-warning" :
+                  "badge-danger"
                 )}>
                   {comparison.validation.confidence === "high" ? "高置信度" : comparison.validation.confidence === "medium" ? "中置信度" : "低置信度"}
                 </span>
@@ -404,7 +404,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
               <button
                 onClick={loadComparison}
                 disabled={loadingComparison}
-                className="text-[10px] text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
+                className="text-caption text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
                 {loadingComparison ? "刷新中..." : "刷新对比"}
               </button>
             </div>
@@ -412,7 +412,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
             {comparison.validation.warnings.length > 0 && (
               <div className="mb-3 p-2 rounded-lg border border-amber-500/10 bg-amber-500/[0.03]">
                 {comparison.validation.warnings.map(function(w: string, i: number) {
-                  return <p key={i} className="text-[10px] text-amber-400/70">⚠️ {w}</p>;
+                  return <p key={i} className="text-caption text-amber-400/70">⚠️ {w}</p>;
                 })}
               </div>
             )}
@@ -420,38 +420,38 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
             {/* Stats comparison */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                <div className="text-[10px] text-white/25 mb-1">利润变化</div>
+                <div className="text-caption text-white/25 mb-1">利润变化</div>
                 <div className={"text-sm font-medium " + (comparison.improvements.profitDelta > 0 ? "text-green-400/80" : "text-red-400/80")}>
                   {comparison.improvements.profitDelta > 0 ? "+" : ""}{formatMoney(comparison.improvements.profitDelta)}
                 </div>
-                <div className="text-[10px] text-white/25 mt-0.5">
+                <div className="text-caption text-white/25 mt-0.5">
                   {comparison.improvements.profitDeltaPercent > 0 ? "+" : ""}{comparison.improvements.profitDeltaPercent}%
                 </div>
               </div>
               <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                <div className="text-[10px] text-white/25 mb-1">利润率变化</div>
+                <div className="text-caption text-white/25 mb-1">利润率变化</div>
                 <div className={"text-sm font-medium " + (comparison.improvements.marginDelta > 0 ? "text-green-400/80" : "text-red-400/80")}>
                   {comparison.improvements.marginDelta > 0 ? "+" : ""}{comparison.improvements.marginDelta.toFixed(1)}%
                 </div>
-                <div className="text-[10px] text-white/25 mt-0.5">
+                <div className="text-caption text-white/25 mt-0.5">
                   {comparison.previous.profitMargin.toFixed(1)}% → {comparison.current.profitMargin.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                <div className="text-[10px] text-white/25 mb-1">亏损商品</div>
+                <div className="text-caption text-white/25 mb-1">亏损商品</div>
                 <div className={"text-sm font-medium " + (comparison.improvements.lossCountDelta < 0 ? "text-green-400/80" : comparison.improvements.lossCountDelta > 0 ? "text-red-400/80" : "text-white/50")}>
                   {comparison.current.lossCount} 个
                 </div>
-                <div className="text-[10px] text-white/25 mt-0.5">
+                <div className="text-caption text-white/25 mt-0.5">
                   历史 {comparison.previous.lossCount} 个 → 当前 {comparison.current.lossCount} 个
                 </div>
               </div>
               <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-                <div className="text-[10px] text-white/25 mb-1">整体改善</div>
+                <div className="text-caption text-white/25 mb-1">整体改善</div>
                 <div className={"text-sm font-medium " + (comparison.validation.hasImprovement ? "text-green-400/80" : "text-amber-400/70")}>
                   {comparison.validation.hasImprovement ? "正向改善" : "待观察"}
                 </div>
-                <div className="text-[10px] text-white/25 mt-0.5">
+                <div className="text-caption text-white/25 mt-0.5">
                   基于 {comparison.current.productCount} 个商品对比
                 </div>
               </div>
@@ -459,7 +459,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
 
             {/* Summary */}
             <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
-              <p className="text-xs text-white/60 leading-relaxed">{comparison.summary}</p>
+              <p className="text-body text-white/60 leading-relaxed">{comparison.summary}</p>
             </div>
           </motion.div>
         )}

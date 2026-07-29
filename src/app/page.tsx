@@ -27,36 +27,42 @@ function Workbench() {
 
   return (
     <div className="min-h-screen pt-20">
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="section-container py-8 md:py-12">
         {/* Welcome header */}
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="mb-8">
-          <p className="text-xs text-indigo-400/60 uppercase tracking-widest mb-2">{"经营工作台"}</p>
-          <h1 className="text-3xl font-bold text-white/80 mb-2">{"今日概览"}</h1>
-          <p className="text-sm text-white/30">{data.name} {"·"} {data.rowCount} {"行"} {"·"} {profileLabel}</p>
+          <p className="text-label text-indigo-400/70 mb-2">{"经营工作台"}</p>
+          <h1 className="text-title mb-2">{"今日概览"}</h1>
+          <p className="text-hint">{data.name} {"·"} {data.rowCount} {"行"} {"·"} {profileLabel}</p>
         </motion.div>
 
         {/* Data cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.1}}
-            className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.08]"
-            style={{backdropFilter:"blur(20px)",background:"radial-gradient(circle at 30% 20%,rgba(124,92,255,0.10),transparent 40%),rgba(17,24,39,0.5)"}}>
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center"><BarChart3 className="w-5 h-5 text-indigo-400" /></div><span className="text-sm text-white/50">{"已上传数据"}</span></div>
+            className="card p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="icon-box bg-indigo-500/10"><BarChart3 className="w-5 h-5 text-indigo-400" /></div>
+              <span className="text-body text-white/45">{"已上传数据"}</span>
+            </div>
             <span className="text-3xl font-bold gradient-text">{data.datasets.length}</span>
             <span className="text-sm text-white/30 ml-2">{"份数据集"}</span>
           </motion.div>
 
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.15}}
-            className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.08]"
-            style={{backdropFilter:"blur(20px)",background:"radial-gradient(circle at 30% 20%,rgba(124,92,255,0.10),transparent 40%),rgba(17,24,39,0.5)"}}>
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center"><TrendingUp className="w-5 h-5 text-emerald-400" /></div><span className="text-sm text-white/50">{"数据类型"}</span></div>
+            className="card p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="icon-box bg-emerald-500/10"><TrendingUp className="w-5 h-5 text-emerald-400" /></div>
+              <span className="text-body text-white/45">{"数据类型"}</span>
+            </div>
             <span className="text-xl font-bold text-white/80">{profileLabel}</span>
             <p className="text-xs text-white/30 mt-1">{data.rowCount} {"条记录"}</p>
           </motion.div>
 
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}}
-            className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.08]"
-            style={{backdropFilter:"blur(20px)",background:"radial-gradient(circle at 30% 20%,rgba(124,92,255,0.10),transparent 40%),rgba(17,24,39,0.5)"}}>
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-amber-400" /></div><span className="text-sm text-white/50">{"快速操作"}</span></div>
+            className="card p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="icon-box bg-amber-500/10"><AlertTriangle className="w-5 h-5 text-amber-400" /></div>
+              <span className="text-body text-white/45">{"快速操作"}</span>
+            </div>
             <div className="space-y-2">
               <Link href="/dashboard" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors"><ArrowRight className="w-3 h-3 inline" /> {"查看诊断"}</Link>
               <Link href="/chat" className="block text-sm text-indigo-400 hover:text-indigo-300 transition-colors"><ArrowRight className="w-3 h-3 inline" /> {" "}AI {"分析助手"}</Link>
@@ -69,15 +75,14 @@ function Workbench() {
         <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.3}} className="flex flex-wrap gap-4 justify-center">
           <Link href="/dashboard">
             <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}}
-              className="group flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
+              className="btn-primary text-base md:text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
               <Sparkles className="w-5 h-5" />{"查看利润看板"}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-5 h-5" />
             </motion.button>
           </Link>
           <Link href="/upload">
             <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}}
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-white/[0.08] text-white/60 hover:text-white font-semibold text-lg transition-all duration-300"
-              style={{backdropFilter:"blur(12px)",background:"rgba(17,24,39,0.5)"}}>
+              className="btn-ghost text-base md:text-lg px-8 py-4 rounded-2xl flex items-center gap-2 bg-white/[0.04]">
               <Upload className="w-5 h-5" />{"上传更多数据"}
             </motion.button>
           </Link>
@@ -100,17 +105,16 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Ambient glow — 保留极少量，避免画面发闷 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden hidden sm:block">
-        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{background:"radial-gradient(circle,rgba(99,102,241,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
-      </div>
+      {/* Ambient glow */}
+      <div className="ambient-glow" />
 
+      {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center">
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center pt-20">
           <motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-10 border border-white/10" style={{backdropFilter:"blur(12px)",background:"rgba(17,24,39,0.5)"}}>
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-10 border border-white/[0.09] bg-white/[0.04]">
               <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-sm text-white/60">{"跨平台电商利润优化引擎 · 2026"}</span>
+              <span className="text-sm text-white/55">{"跨平台电商利润优化引擎 · 2026"}</span>
             </div>
           </motion.div>
 
@@ -126,8 +130,8 @@ function LandingPage() {
 
           <motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.45}} className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/upload">
-              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group flex items-center gap-2 px-10 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
-                <Upload className="w-5 h-5" />{"上传数据 · 30秒看利润"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="btn-primary text-base md:text-lg px-10 py-4 rounded-2xl flex items-center gap-2">
+                <Upload className="w-5 h-5" />{"上传数据 · 30秒看利润"}<ArrowRight className="w-5 h-5" />
               </motion.button>
             </Link>
           </motion.div>
@@ -135,19 +139,18 @@ function LandingPage() {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0B0F17] to-transparent" />
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+      {/* Features */}
+      <section className="section-container py-12 md:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {features.map(function(feature, i) {
             return (
               <motion.div key={i} initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:i*0.08,duration:0.5}}
-                whileHover={{scale:1.02,borderColor:"#7C5CFF"}}
-                className="group relative overflow-hidden rounded-2xl p-6 border border-white/[0.08]"
-                style={{backdropFilter:"blur(12px)",background:"rgba(17,24,39,0.5)"}}>
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-4 group-hover:bg-indigo-500/10 transition-colors">
-                  <feature.icon className="w-6 h-6 text-white/40 group-hover:text-indigo-400 transition-colors" />
+                className="card-interactive p-6">
+                <div className="icon-box bg-white/[0.06] mb-4 group-hover:bg-indigo-500/10 transition-colors">
+                  <feature.icon className="w-6 h-6 text-white/40 text-white/70 transition-colors" />
                 </div>
-                <h3 className="font-semibold text-base mb-2 text-white/80">{feature.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-heading mb-2">{feature.title}</h3>
+                <p className="text-body">{feature.desc}</p>
               </motion.div>
             );
           })}
@@ -155,7 +158,9 @@ function LandingPage() {
       </section>
 
       <footer className="border-t border-white/[0.06] py-10">
-        <div className="max-w-7xl mx-auto px-6 text-center"><p className="text-sm text-white/25">ProcureWise {"©"} 2026 {"·"} Powered by DeepSeek V4</p></div>
+        <div className="section-container text-center">
+          <p className="text-sm text-white/25">ProcureWise © 2026 · Powered by DeepSeek V4</p>
+        </div>
       </footer>
     </div>
   );

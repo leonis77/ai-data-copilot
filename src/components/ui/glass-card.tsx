@@ -13,10 +13,10 @@ interface GlassCardProps {
 }
 
 const variantStyles: Record<string, string> = {
-  default: "bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl",
-  elevated: "bg-surface border border-white/[0.08] rounded-2xl shadow-elevated",
-  subtle: "bg-white/[0.02] backdrop-blur-sm border border-white/[0.06] rounded-xl",
-  glow: "bg-surface border border-primary/20 rounded-2xl shadow-glow",
+  default: "card",
+  elevated: "card-elevated",
+  subtle: "card-subtle",
+  glow: "bg-[#151D2E] border border-primary/20 rounded-2xl shadow-glow-indigo",
   gradient: "bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-cyan-500/10 border border-indigo-500/20 rounded-2xl",
 };
 
@@ -33,10 +33,12 @@ export function GlassCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay, ease: "easeOut" }}
-      whileHover={hover ? { y: -4, transition: { duration: 0.2 } } : undefined}
+      whileHover={hover && variant !== "glow" ? { y: -4, transition: { duration: 0.2 } } : undefined}
       className={cn(
         variantStyles[variant],
-        hover && "transition-all duration-300 hover:bg-white/[0.07]",
+        hover && variant === "default" && "card-interactive",
+        hover && variant === "elevated" && "hover:bg-[#1C263B] hover:border-white/15 transition-all duration-300",
+        gradient && "relative overflow-hidden",
         className
       )}
     >

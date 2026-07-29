@@ -37,8 +37,8 @@ function detectProfile(columns: string[], semanticRoles?: any): string {
 }
 
 export default function UploadPage() {
-  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 移动端限制 20MB，避免 OOM
-  const FETCH_TIMEOUT = 30000; // 30 秒超时，防止移动网络慢时一直挂起
+  const MAX_FILE_SIZE = 20 * 1024 * 1024;
+  const FETCH_TIMEOUT = 30000;
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -46,8 +46,6 @@ export default function UploadPage() {
   const [error, setError] = useState("");
   const [cols, setCols] = useState<ColumnMeta[]>([]);
   const [template, setTemplate] = useState<any>(null);
-
-  // Multi-sheet state
   const [sheets, setSheets] = useState<SheetInfo[] | null>(null);
   const [selectedSheet, setSelectedSheet] = useState("");
   const [fileDataB64, setFileDataB64] = useState("");
@@ -92,7 +90,6 @@ export default function UploadPage() {
       const b64 = fileDataB64 || await fileToBase64(file);
       if (!fileDataB64) setFileDataB64(b64);
 
-      // ⭐ 移动端超时控制：30 秒无响应则中断，防止网络差时一直挂起
       const controller = new AbortController();
       const timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT);
       const res = await fetch("/api/upload", {
@@ -108,7 +105,6 @@ export default function UploadPage() {
       const data = await res.json();
       if (!data || !data.columns || !Array.isArray(data.columns)) throw new Error("无效响应");
 
-      // Multi-sheet: first upload (no sheetName) returns sheets list
       if (!sheet && data.sheets && Array.isArray(data.sheets) && data.sheets.length > 1) {
         setSheets(data.sheets);
         setSelectedSheet(data.sheets[0].name);
@@ -116,7 +112,6 @@ export default function UploadPage() {
         return;
       }
 
-      // Single sheet or selected sheet -> proceed to column selector
       setSheets(null);
       setResult(data);
       const tmpl = matchTemplate(data.columns) || null; setTemplate(tmpl);
@@ -124,7 +119,6 @@ export default function UploadPage() {
 
       const profile = detectProfile(data.columns, data.semanticRoles);
       addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
-      // ⭐ 保存行数据到 localStorage，避免 Vercel serverless 实例切换导致 404
       if (data.rows && data.rows.length > 0) {
         saveDatasetRows(data.id, data.rows, data.columns);
       }
@@ -151,17 +145,17 @@ export default function UploadPage() {
     router.push("/dashboard");
   };
 
-  // ── Sheet selection view ──
+  // Sheet selection view
   if (sheets && sheets.length > 1) {
     return (
       <div className="min-h-screen py-12 pt-20">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="section-container">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }} className="text-center mb-12">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            <h1 className="text-title mb-4">
               <span className="gradient-text">选择工作表</span>
             </h1>
-            <p className="text-white/40 text-lg">
+            <p className="text-body">
               文件包含 {sheets.length} 个工作表，请选择一个进行分析
             </p>
           </motion.div>
@@ -169,15 +163,13 @@ export default function UploadPage() {
           <GlassCard gradient className="p-8">
             <SheetPicker sheets={sheets} selected={selectedSheet} onSelect={setSelectedSheet} />
             <div className="flex justify-center gap-4 mt-8">
-              <button onClick={clearAll} className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">
-                重新上传
-              </button>
+              <button onClick={clearAll} className="btn-ghost font-medium">重新上传</button>
               <button onClick={handleSheetConfirm} disabled={!selectedSheet}
-                className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">
+                className="btn-primary flex items-center gap-2 px-8 py-3 rounded-xl">
                 {uploading ? (
                   <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />解析中...</>
                 ) : (
-                  <>确认选择<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                  <>确认选择<ArrowRight className="w-5 h-5" /></>
                 )}
               </button>
             </div>
@@ -187,127 +179,129 @@ export default function UploadPage() {
     );
   }
 
-  // ── Main upload view ──
+  // Main upload view
   return (
-    <div className="min-h-screen py-12 pt-20"><div className="max-w-4xl mx-auto px-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }} className="text-center mb-12 relative">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
-          <Upload className="w-4 h-4 text-primary-light" />
-          <span className="text-sm text-white/60">数据上传</span>
-        </div>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-4">
-          <span className="gradient-text">上传数据</span>
-          <span className="text-white/90">，AI 自动解析</span>
-        </h1>
-        <p className="text-white/40 text-sm sm:text-lg">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
-        <button onClick={clearAll} className="absolute top-2 right-2 z-10 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1">
-          <Trash2 className="w-3 h-3" />清除缓存
-        </button>
-      </motion.div>
-
-      {!result ? (
-        <motion.div key="upload"><GlassCard gradient className="p-6 md:p-10">
-          <div {...getRootProps()}
-            className={"relative border-2 border-dashed rounded-2xl p-8 md:p-16 text-center cursor-pointer transition-all touch-manipulation " +
-              (isDragActive ? "border-indigo-400 bg-indigo-500/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
-            <input {...getInputProps()} />
-            {file ? (
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                  {file.name.endsWith(".csv")
-                    ? <FileText className="w-8 h-8 text-accent-cyan" />
-                    : <FileSpreadsheet className="w-8 h-8 text-primary-light" />}
-                </div>
-                <div>
-                  <p className="font-semibold text-lg">{file.name}</p>
-                  <p className="text-sm text-white/40">{(file.size / 1024).toFixed(1)} KB</p>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="space-y-4">
-                <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }}
-                  className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Upload className="w-10 h-10 text-primary-light/50" />
-                </motion.div>
-                <div>
-                  <p className="font-semibold text-lg text-white/60">
-                    {isDragActive ? "松开上传" : "拖拽文件到此处或点击选择"}
-                  </p>
-                  <p className="text-sm text-white/30 mt-1">.xlsx .xls .csv，AI 自动识别表格结构</p>
-                  <button onClick={function(e) { e.stopPropagation(); downloadTemplate(); }}
-                    className="mt-4 text-xs text-indigo-400/70 hover:text-indigo-400 transition-colors underline">
-                    下载标准模板 (CSV)
-                  </button>
-                </div>
-              </div>
-            )}
+    <div className="min-h-screen py-12 pt-20">
+      <div className="section-container">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }} className="text-center mb-12 relative">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
+            <Upload className="w-4 h-4 text-primary-light" />
+            <span className="text-sm text-white/60">数据上传</span>
           </div>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-4">
+            <span className="gradient-text">上传数据</span>
+            <span className="text-white/90">，AI 自动解析</span>
+          </h1>
+          <p className="text-body">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
+          <button onClick={clearAll} className="absolute top-2 right-2 z-10 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1">
+            <Trash2 className="w-3 h-3" />清除缓存
+          </button>
+        </motion.div>
 
-          {error && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              <p className="text-sm text-red-400">{error}</p>
-            </motion.div>
-          )}
-
-          {file && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 flex justify-center">
-              <button onClick={handleUpload} disabled={uploading}
-                className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">
-                {uploading ? (
-                  <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />AI 解析中...</>
+        {!result ? (
+          <motion.div key="upload">
+            <GlassCard gradient className="p-6 md:p-10">
+              <div {...getRootProps()}
+                className={"relative border-2 border-dashed rounded-2xl p-8 md:p-16 text-center cursor-pointer transition-all touch-manipulation " +
+                  (isDragActive ? "border-indigo-400 bg-indigo-500/5" : "border-white/[0.09] hover:border-white/20 hover:bg-white/[0.02]")}>
+                <input {...getInputProps()} />
+                {file ? (
+                  <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                      {file.name.endsWith(".csv")
+                        ? <FileText className="w-8 h-8 text-accent-cyan" />
+                        : <FileSpreadsheet className="w-8 h-8 text-primary-light" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-lg">{file.name}</p>
+                      <p className="text-sm text-white/40">{(file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                  </motion.div>
                 ) : (
-                  <><Sparkles className="w-5 h-5" />开始解析</>
+                  <div className="space-y-4">
+                    <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }}
+                      className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Upload className="w-10 h-10 text-primary-light/50" />
+                    </motion.div>
+                    <div>
+                      <p className="font-semibold text-lg text-white/60">
+                        {isDragActive ? "松开上传" : "拖拽文件到此处或点击选择"}
+                      </p>
+                      <p className="text-sm text-white/30 mt-1">.xlsx .xls .csv，AI 自动识别表格结构</p>
+                      <button onClick={function(e) { e.stopPropagation(); downloadTemplate(); }}
+                        className="mt-4 text-xs text-indigo-400/70 hover:text-indigo-400 transition-colors underline">
+                        下载标准模板 (CSV)
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </motion.div>
-          )}
-        </GlassCard></motion.div>
-      ) : (
-        <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }} className="space-y-6">
-          <GlassCard gradient>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">解析成功</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  {template
-                    ? <TemplateBadge name={template.name} />
-                    : <span className="text-sm text-white/40">通用模式</span>}
-                  {selectedSheet && <span className="text-xs text-white/20 ml-2">工作表: {selectedSheet}</span>}
+
+              {error && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <p className="text-sm text-red-400">{error}</p>
+                </motion.div>
+              )}
+
+              {file && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 flex justify-center">
+                  <button onClick={handleUpload} disabled={uploading}
+                    className="btn-primary flex items-center gap-2 px-8 py-3 rounded-xl">
+                    {uploading ? (
+                      <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />AI 解析中...</>
+                    ) : (
+                      <><Sparkles className="w-5 h-5" />开始解析</>
+                    )}
+                  </button>
+                </motion.div>
+              )}
+            </GlassCard>
+          </motion.div>
+        ) : (
+          <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }} className="space-y-6">
+            <GlassCard gradient>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="icon-box bg-green-500/20"><CheckCircle className="w-5 h-5 text-green-400" /></div>
+                <div>
+                  <h3 className="text-heading">解析成功</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    {template
+                      ? <TemplateBadge name={template.name} />
+                      : <span className="text-sm text-white/40">通用模式</span>}
+                    {selectedSheet && <span className="text-xs text-white/20 ml-2">工作表: {selectedSheet}</span>}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="text-center p-4 rounded-xl bg-white/[0.03]">
-                <CountUp end={result.rowCount} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
-                <p className="text-xs text-white/40">行数</p>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="text-center p-4 rounded-xl bg-white/[0.03]">
+                  <CountUp end={result.rowCount} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
+                  <p className="text-caption">行数</p>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-white/[0.03]">
+                  <CountUp end={cols.length} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
+                  <p className="text-caption">字段</p>
+                </div>
               </div>
-              <div className="text-center p-4 rounded-xl bg-white/[0.03]">
-                <CountUp end={cols.length} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
-                <p className="text-xs text-white/40">字段</p>
+              {cols.length > 0 && <ColumnSelector columns={cols} onChange={function(c: ColumnMeta[]) { setCols(c); }} />}
+              <div className="mt-6 flex justify-center gap-4">
+                <button onClick={function() { setFile(null); setResult(null); setCols([]); setTemplate(null); setSheets(null); }}
+                  className="btn-ghost font-medium">
+                  重新上传
+                </button>
+                <button onClick={handleConfirm}
+                  disabled={cols.filter(function(c) { return c.selected; }).length === 0}
+                  className="btn-primary flex items-center gap-2 px-8 py-3 rounded-xl">
+                  查看分析<ArrowRight className="w-5 h-5" />
+                </button>
               </div>
-            </div>
-            {cols.length > 0 && <ColumnSelector columns={cols} onChange={function(c: ColumnMeta[]) { setCols(c); }} />}
-            <div className="mt-6 flex justify-center gap-4">
-              <button onClick={function() { setFile(null); setResult(null); setCols([]); setTemplate(null); setSheets(null); }}
-                className="px-6 py-3 rounded-xl glass text-white/60 hover:text-white transition-colors font-medium">
-                重新上传
-              </button>
-              <button onClick={handleConfirm}
-                disabled={cols.filter(function(c) { return c.selected; }).length === 0}
-                className="group flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-indigo-500/25">
-                查看分析<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </GlassCard>
-        </motion.div>
-      )}
-    </div></div>
+            </GlassCard>
+          </motion.div>
+        )}
+      </div>
+    </div>
   );
 }

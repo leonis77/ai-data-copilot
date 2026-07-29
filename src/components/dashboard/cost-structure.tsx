@@ -69,21 +69,21 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.15 }}
-      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
+      className="card-elevated p-5"
     >
       <div className="relative">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <div className="icon-box bg-purple-500/10">
               <PieChart className="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white/80">成本结构分析</h3>
-              <p className="text-[10px] text-white/30">全部商品成本汇总</p>
+              <h3 className="text-heading">成本结构分析</h3>
+              <p className="text-caption">全部商品成本汇总</p>
             </div>
           </div>
-          <span className="text-[10px] text-white/30 font-mono px-2 py-1 rounded-lg bg-white/[0.04]">
+          <span className="text-caption text-white/30 font-mono px-2 py-1 rounded-lg bg-white/[0.04]">
             ¥{Math.round(grandTotal).toLocaleString()}
           </span>
         </div>
@@ -110,7 +110,7 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
             var pct = grandTotal > 0 ? ((entry.total / grandTotal) * 100) : 0;
             var hasWarning = entry.benchmarks.length > 0;
             return (
-              <div key={entry.item} className="flex items-center gap-2.5 text-[11px] group">
+              <div key={entry.item} className="flex items-center gap-2.5 text-xs group">
                 <div className={"w-2 h-2 rounded-full shrink-0 " + costColor(entry.item)} />
                 <span className="text-white/50 flex-1 truncate group-hover:text-white/70 transition-colors">{entry.item}</span>
                 <span className="text-white/70 font-mono tabular-nums w-12 text-right">{pct.toFixed(1)}%</span>
@@ -131,15 +131,15 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
         {profitableCards.length > 0 && losingCards.length > 0 && (
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.06]">
             <div className="rounded-lg p-3 bg-emerald-500/[0.03] border border-emerald-500/10">
-              <span className="text-[10px] text-emerald-400/60 font-medium">盈利品成本</span>
-              <p className="text-xs text-white/60 mt-1 font-medium">
+              <span className="text-caption text-emerald-400/60 font-medium">盈利品成本</span>
+              <p className="text-body text-white/60 mt-1 font-medium">
                 ¥{Math.round(profitableCards.reduce(function(s, c) { return s + c.costBreakdown.totalCost; }, 0)).toLocaleString()}
                 <span className="text-white/30 ml-1">/ {profitableCards.length} 品</span>
               </p>
             </div>
             <div className="rounded-lg p-3 bg-red-500/[0.03] border border-red-500/10">
-              <span className="text-[10px] text-red-400/60 font-medium">亏损品成本</span>
-              <p className="text-xs text-white/60 mt-1 font-medium">
+              <span className="text-caption text-red-400/60 font-medium">亏损品成本</span>
+              <p className="text-body text-white/60 mt-1 font-medium">
                 ¥{Math.round(losingCards.reduce(function(s, c) { return s + c.costBreakdown.totalCost; }, 0)).toLocaleString()}
                 <span className="text-white/30 ml-1">/ {losingCards.length} 品</span>
               </p>

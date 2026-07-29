@@ -29,7 +29,6 @@ var AC: Record<string, string> = { query: "text-accent-cyan", report: "text-prim
 interface Msg {
   role: string; content: string; agentType?: string;
   chart?: any; table?: any; suggestions?: string[];
-  // DecisionChain structured output (populated when type === "decision_chain")
   evidenceCards?: EvidenceCard[];
   actions?: PrioritizedAction[];
   crossDataset?: CrossDatasetSummary[];
@@ -57,21 +56,18 @@ export default function ChatPage() {
   var autoSent = useRef(false);
   useEffect(function() { checkData(); }, []);
   useEffect(function() { if (sr.current) sr.current.scrollTop = sr.current.scrollHeight; }, [msgs]);
-  // ⭐ 跨数据集关联入口：Dashboard banner 点"AI 跨平台分析" → 自动触发对比
+
   useEffect(function() {
     if (autoSent.current) return;
     if (typeof window === "undefined") return;
     var params = new URLSearchParams(window.location.search);
     if (params.get("auto") === "compare" && hasData && !loading) {
       autoSent.current = true;
-      // 检查是否确实有多个数据集
+      var url = new URL(window.location.href);
+      url.searchParams.delete("auto");
+      window.history.replaceState({}, "", url.toString());
       var saved = getStore();
       if (saved.datasets.length >= 2) {
-        // 清理 URL（不刷新页面）
-        var url = new URL(window.location.href);
-        url.searchParams.delete("auto");
-        window.history.replaceState({}, "", url.toString());
-        // 自动发送跨平台分析请求
         send("帮我对比分析所有已上传数据的跨平台利润情况，找出同一商品在不同平台的定价和利润差异");
       }
     }
@@ -84,9 +80,9 @@ export default function ChatPage() {
         setHasData(true);
         setMsgs([{
           role: "assistant",
-          content: "\u4f60\u597d\uff01\u6211\u662f AI \u7535\u5546\u6570\u636e\u5206\u6790\u52a9\u624b\uff0c\u53ef\u4ee5\u5e2e\u4f60\uff1a\n\n- **\u95ee\u6570\u636e** \u2014 \u67e5\u8be2\u4efb\u4f55\u6307\u6807\uff0c\u5982\u300c\u54ea\u4e2a\u5546\u54c1\u5356\u5f97\u6700\u597d\uff1f\u300d\n- **\u51fa\u62a5\u544a** \u2014 \u81ea\u52a8\u751f\u6210\u7ecf\u8425\u5206\u6790\u62a5\u544a\n- **\u6df1\u89e3\u8bfb** \u2014 \u53d1\u73b0\u6570\u636e\u80cc\u540e\u7684\u5546\u4e1a\u6545\u4e8b\n- **\u627e\u7206\u6b3e** \u2014 \u8bc6\u522b\u6f5c\u529b\u5546\u54c1\u548c\u589e\u957f\u673a\u4f1a\n\n\u8bf7\u76f4\u63a5\u95ee\u6211\u95ee\u9898\uff0c\u6211\u4f1a\u57fa\u4e8e\u4f60\u7684\u6570\u636e\u7ed9\u51fa\u4e13\u4e1a\u5206\u6790\u3002",
+          content: "你好！我是 AI 电商数据分析助手，可以帮你：\n\n- **问数据** — 查询任何指标，如「哪个商品卖得最好？」\n- **出报告** — 自动生成经营分析报告\n- **深解读** — 发现数据背后的商业故事\n- **找爆款** — 识别潜力商品和增长机会\n\n请直接问我问题，我会基于你的数据给出专业分析。",
           agentType: "general",
-          suggestions: ["\u54ea\u4e9b\u5546\u54c1\u9500\u552e\u989d\u6700\u9ad8\uff1f", "\u751f\u6210\u4e00\u4efd\u7ecf\u8425\u5206\u6790\u62a5\u544a", "\u5e2e\u6211\u89e3\u8bfb\u8fd9\u4efd\u6570\u636e\u7684\u8d8b\u52bf", "\u6570\u636e\u4e2d\u6709\u54ea\u4e9b\u5f02\u5e38\uff1f"]
+          suggestions: ["哪些商品销售额最高？", "生成一份经营分析报告", "帮我解读这份数据的趋势", "数据中有哪些异常？"]
         }]);
       }
     } catch(e) {} finally { setChecking(false); }
@@ -97,7 +93,6 @@ export default function ChatPage() {
     setMsgs(function(p: Msg[]) { return [...p, { role: "user", content: msg }]; }); setLoading(true);
     try {
       var saved = getStore(); var dsId = saved.activeId || "";
-      // ⭐ 从浏览器 store 获取所有关联数据集ID，传给后端做跨数据集/跨平台分析
       var relatedIds: string[] = [];
       if (saved.datasets.length > 1) {
         for (var rdi = 0; rdi < saved.datasets.length; rdi++) {
@@ -106,7 +101,6 @@ export default function ChatPage() {
           }
         }
       }
-      // ⭐ 内联数据集：当前 + 关联数据集行数据（localStorage 直传，绕过 serverless 存储不共享）
       var inlineDatasets: Record<string, any> = {};
       var activeRows = getDatasetRows(dsId);
       if (activeRows && activeRows.rows.length > 0) {
@@ -126,7 +120,7 @@ export default function ChatPage() {
       obs.trackApiCall("/api/agent", Date.now() - agentStart, res.ok, { type: data?.type || "none" });
       if (!res.ok || !data) {
         var apiErr = data ? parseApiError(data) : null;
-        var errorMessage = apiErr ? apiErr.message : "AI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+        var errorMessage = apiErr ? apiErr.message : "AI 服务暂时不可用，请稍后重试。";
         throw new Error(errorMessage);
       }
       var responseData: AgentApiResponse = data;
@@ -135,10 +129,9 @@ export default function ChatPage() {
       var legacyData = responseData.type === "query" || responseData.type === "report" || responseData.type === "interpret" || responseData.type === "general" ? responseData : null;
       var content = responseData.content;
       if (responseData.type === "insufficient_data" && responseData.limitations.length > 0) {
-        content += "\n\n**\u9700\u8981\u8865\u5145\uff1a**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
+        content += "\n\n**需要补充：**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
       }
 
-      // Fetch loop history for execution tracker
       var newExecutions: Record<string, Execution[]> = {};
       var newOutcomes: Record<string, Outcome[]> = {};
       if (isDecisionChain && decisionData?.actions?.length) {
@@ -165,7 +158,6 @@ export default function ChatPage() {
         chart: legacyData?.chart,
         table: legacyData?.table,
         suggestions: legacyData?.followUp,
-        // DecisionChain structured output
         evidenceCards: decisionData?.evidenceCards,
         actions: decisionData?.actions,
         crossDataset: decisionData?.crossDataset,
@@ -176,15 +168,15 @@ export default function ChatPage() {
         aiConfidence: decisionData?.aiExplanation.confidence,
       }]; });
     } catch(e) {
-      setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: e instanceof Error ? e.message : "\u62b1\u6b49\uff0cAI \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002" }]; });
+      setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: e instanceof Error ? e.message : "抱歉，AI 服务暂时不可用，请稍后重试。" }]; });
     } finally { setLoading(false); }
   }
 
   if (checking) return (
     <div className="min-h-screen py-12 pt-20">
-      <div className="max-w-4xl mx-auto px-6">
+      <div className="section-container">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+          <div className="icon-box bg-indigo-500/10 flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
           </div>
           <div>
@@ -198,146 +190,149 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="min-h-screen py-12 pt-20"><div className="max-w-4xl mx-auto px-6">
-      <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="mb-6">
-        <div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center"><Sparkles className="w-5 h-5 text-white" /></div>
-          <div><h1 className="text-3xl font-bold"><span className="gradient-text">AI {"\u5206\u6790\u52a9\u624b"}</span></h1><p className="text-sm text-white/40">{"\u95ee\u6570\u636e \u00b7 \u51fa\u62a5\u544a \u00b7 \u6df1\u89e3\u8bfb \u00b7 \u627e\u7206\u6b3e"}</p></div>
-          {hasData && <TableSelector className="ml-auto" />}
-        </div>
-      </motion.div>
-      {!hasData ? (
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="text-center py-20">
-          <motion.div
-            animate={{ y: [0, -10, 0], rotate: [0, 3, -3, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="w-20 h-20 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 relative"
-            style={{ boxShadow: "0 0 40px -10px rgba(99,102,241,0.2)" }}>
-            <Sparkles className="w-10 h-10 text-indigo-400/50 relative z-10" />
-          </motion.div>
-          <h2 className="text-2xl font-bold mb-3 text-white/80">\u8bf7\u5148\u4e0a\u4f20\u6570\u636e</h2>
-          <p className="text-white/40 mb-8 leading-relaxed">AI \u52a9\u624b\u9700\u8981\u7ecf\u8425\u6570\u636e\u624d\u80fd\u4e3a\u4f60\u63d0\u4f9b\u5206\u6790</p>
-          <Link href="/upload">
-            <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <Upload className="w-5 h-5 relative z-10" />{"\u4e0a\u4f20\u6570\u636e"}
-              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            </motion.button>
-          </Link>
-        </motion.div>
-      ) : (
-        <div className="flex flex-col h-[calc(100dvh-12rem)] rounded-2xl overflow-hidden border border-white/[0.06] shadow-elevated"
-          style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.8) 0%, rgba(17,24,39,0.6) 100%)", backdropFilter: "blur(16px)" }}>
-          <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
-            {msgs.map(function(m,i) {
-              var isUser = m.role === "user";
-              var Icon = AI[m.agentType||"general"] || Sparkles;
-              return <motion.div key={i} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
-                {!isUser && <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-indigo-500/30"><Icon className={"w-4 h-4 " + (AC[m.agentType||"general"]||"text-indigo-400")} /></div>}
-                <div className="max-w-[85%] space-y-2">
-                  <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed " + (isUser
-                    ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/10 text-white/90 rounded-br-md border border-indigo-500/20"
-                    : "bg-white/[0.03] text-white/80 rounded-bl-md border border-white/[0.08]")}>
-                    <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-white [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                    </div>
-                  </div>
-                {m.chart && <div className="glass p-3 rounded-xl text-xs text-white/60">{"\u56fe\u8868\u5efa\u8bae"}: {m.chart.title} ({m.chart.type})</div>}
-                {/* \u2550\u2550\u2550 DecisionChain \u7ed3\u6784\u5316\u5361\u7247 \u2550\u2550\u2550 */}
-                {m.evidenceCards && m.evidenceCards.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u8bc1\u636e\u5361 ({m.evidenceCards.length})</div>
-                    {m.evidenceCards.slice(0, 3).map(function(card, ci) {
-                      return <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />;
-                    })}
-                    {m.evidenceCards.length > 3 && (
-                      <div className="text-[10px] text-white/20 text-center py-1">
-                        +{m.evidenceCards.length - 3} \u5f20\u66f4\u591a\u8bc1\u636e\u5361
-                      </div>
-                    )}
-                  </div>
-                )}
-                {m.crossDataset && m.crossDataset.length > 0 && (
-                  <CrossDatasetView data={m.crossDataset} />
-                )}
-                {m.crossPlatform && m.crossPlatform.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u8de8\u5e73\u53f0\u5229\u6da6\u5bf9\u6bd4</div>
-                    <CrossPlatformView
-                      comparisons={m.crossPlatform}
-                      coveredPlatforms={m.crossPlatform.reduce(function(acc: string[], c) {
-                        c.platformResults.forEach(function(p) { if (acc.indexOf(p.platform) === -1) acc.push(p.platform); });
-                        return acc;
-                      }, [])}
-                    />
-                  </div>
-                )}
-                {m.actions && m.actions.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="text-[10px] text-white/25 uppercase tracking-wider px-1">\u884c\u52a8\u5efa\u8bae ({m.actions.length})</div>
-                    {m.actions.map(function(act, ai) {
-                      return (
-                        <div key={ai} className="space-y-2">
-                          <ActionCardView action={act} index={ai} />
-                          {act.actionTaskId && (
-                            <ExecutionTracker
-                              actionTaskId={act.actionTaskId}
-                              title={act.title || act.action}
-                              description={act.description || act.reason}
-                              priority={act.priority}
-                              riskLevel={act.riskLevel}
-                              expectedProfitImpact={act.expectedProfitImpact}
-                              executions={loopExecutions[act.actionTaskId] || []}
-                              outcomes={loopOutcomes[act.actionTaskId] || []}
-                              onRefresh={function() {
-                                if (!chatDsId) return;
-                                fetchLoopHistory(chatDsId).then(function(data) {
-                                  var execMap: Record<string, Execution[]> = {};
-                                  var outcomeMap: Record<string, Outcome[]> = {};
-                                  for (const dd of data.decisions) {
-                                    for (const t of (dd.actionTasks || [])) {
-                                      if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-                                      if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
-                                    }
-                                  }
-                                  setLoopExecutions(function(p) { return Object.assign({}, p, execMap); });
-                                  setLoopOutcomes(function(p) { return Object.assign({}, p, outcomeMap); });
-                                });
-                              }}
-                              compact
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {m.aiConfidence !== undefined && (
-                  <div className="flex items-center gap-2">
-                    <span className={"text-[10px] px-2 py-0.5 rounded-full " + (
-                      m.aiConfidence >= 0.8 ? "bg-green-500/10 text-green-400/70" :
-                      m.aiConfidence >= 0.5 ? "bg-amber-500/10 text-amber-400/70" :
-                      "bg-red-500/10 text-red-400/70"
-                    )}>
-                      AI 置信度 {Math.round(m.aiConfidence * 100)}%
-                    </span>
-                  </div>
-                )}
-                {m.suggestions && m.suggestions.length > 0 && <div className="flex flex-wrap gap-2">{m.suggestions.map(function(s: string,j: number) { return <button key={j} onClick={function() { send(s); }} className="px-3 py-1.5 rounded-xl glass text-xs text-white/50 hover:text-white/80 hover:bg-white/10 transition-all">{s}</button>; })}</div>}
-              </div>
-              {isUser && <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5"><MessageSquare className="w-4 h-4 text-accent-cyan" /></div>}
-            </motion.div>;
-          })}
-          {loading && <div className="flex gap-3"><div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" /></div><div className="glass rounded-2xl rounded-bl-md px-4 py-3"><div className="flex gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"0ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"150ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"300ms"}} /></div></div></div>}
-        </div>
-        <div className="p-4 border-t border-white/[0.06] bg-white/[0.01]">
-          <div className="flex gap-3">
-            <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"\u544a\u8bc9 AI \u52a9\u624b\u4f60\u60f3\u4e86\u89e3\u4ec0\u4e48..."} className="flex-1 bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 outline-none focus:border-indigo-400/50 focus:bg-white/[0.05] transition-all" />
-            <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center disabled:opacity-30 transition-opacity shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30">
-              <ArrowRight className="w-5 h-5 text-white" />
-            </motion.button>
+    <div className="min-h-screen py-12 pt-20">
+      <div className="section-container">
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="icon-box bg-gradient-to-br from-indigo-500 to-purple-600"><Sparkles className="w-5 h-5 text-white" /></div>
+            <div>
+              <h1 className="text-title"><span className="gradient-text">AI {"分析助手"}</span></h1>
+              <p className="text-caption">{"问数据 · 出报告 · 深解读 · 找爆款"}</p>
+            </div>
+            {hasData && <TableSelector className="ml-auto" />}
           </div>
-        </div>
-      </div>)}
-    </div></div>
+        </motion.div>
+        {!hasData ? (
+          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="text-center py-20">
+            <motion.div
+              animate={{ y: [0, -10, 0], rotate: [0, 3, -3, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="w-20 h-20 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 relative">
+              <div className="absolute inset-0 rounded-2xl bg-indigo-500/5" />
+              <Sparkles className="w-10 h-10 text-indigo-400/50 relative z-10" />
+            </motion.div>
+            <h2 className="text-title mb-3 text-white/80">请先上传数据</h2>
+            <p className="text-body mb-8 leading-relaxed">AI 助手需要经营数据才能为你提供分析</p>
+            <Link href="/upload">
+              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
+                <Upload className="w-5 h-5" />{"上传数据"}
+                <ArrowRight className="w-5 h-5" />
+              </motion.button>
+            </Link>
+          </motion.div>
+        ) : (
+          <div className="flex flex-col h-[calc(100dvh-12rem)] rounded-2xl overflow-hidden border border-white/[0.06] shadow-elevated card">
+            <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
+              {msgs.map(function(m,i) {
+                var isUser = m.role === "user";
+                var Icon = AI[m.agentType||"general"] || Sparkles;
+                return <motion.div key={i} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
+                  {!isUser && <div className="icon-box-sm bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-indigo-500/30"><Icon className={"w-4 h-4 " + (AC[m.agentType||"general"]||"text-indigo-400")} /></div>}
+                  <div className="max-w-[85%] space-y-2">
+                    <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed " + (isUser
+                      ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/10 text-white/90 rounded-br-md border border-indigo-500/20"
+                      : "bg-white/[0.03] text-white/80 rounded-bl-md border border-white/[0.08]")}>
+                      <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-white [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                      </div>
+                    </div>
+                  {m.chart && <div className="glass p-3 rounded-xl text-xs text-white/60">{"图表建议"}: {m.chart.title} ({m.chart.type})</div>}
+                  {m.evidenceCards && m.evidenceCards.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-caption uppercase tracking-wider px-1">证据卡 ({m.evidenceCards.length})</div>
+                      {m.evidenceCards.slice(0, 3).map(function(card, ci) {
+                        return <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />;
+                      })}
+                      {m.evidenceCards.length > 3 && (
+                        <div className="text-caption text-center py-1">
+                          +{m.evidenceCards.length - 3} 张更多证据卡
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {m.crossDataset && m.crossDataset.length > 0 && (
+                    <CrossDatasetView data={m.crossDataset} />
+                  )}
+                  {m.crossPlatform && m.crossPlatform.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-caption uppercase tracking-wider px-1">跥平台利涨对比</div>
+                      <CrossPlatformView
+                        comparisons={m.crossPlatform}
+                        coveredPlatforms={m.crossPlatform.reduce(function(acc: string[], c) {
+                          c.platformResults.forEach(function(p) { if (acc.indexOf(p.platform) === -1) acc.push(p.platform); });
+                          return acc;
+                        }, [])}
+                      />
+                    </div>
+                  )}
+                  {m.actions && m.actions.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="text-caption uppercase tracking-wider px-1">行动建议 ({m.actions.length})</div>
+                      {m.actions.map(function(act, ai) {
+                        return (
+                          <div key={ai} className="space-y-2">
+                            <ActionCardView action={act} index={ai} />
+                            {act.actionTaskId && (
+                              <ExecutionTracker
+                                actionTaskId={act.actionTaskId}
+                                title={act.title || act.action}
+                                description={act.description || act.reason}
+                                priority={act.priority}
+                                riskLevel={act.riskLevel}
+                                expectedProfitImpact={act.expectedProfitImpact}
+                                executions={loopExecutions[act.actionTaskId] || []}
+                                outcomes={loopOutcomes[act.actionTaskId] || []}
+                                onRefresh={function() {
+                                  if (!chatDsId) return;
+                                  fetchLoopHistory(chatDsId).then(function(data) {
+                                    var execMap: Record<string, Execution[]> = {};
+                                    var outcomeMap: Record<string, Outcome[]> = {};
+                                    for (const dd of data.decisions) {
+                                      for (const t of (dd.actionTasks || [])) {
+                                        if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+                                        if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+                                      }
+                                    }
+                                    setLoopExecutions(function(p) { return Object.assign({}, p, execMap); });
+                                    setLoopOutcomes(function(p) { return Object.assign({}, p, outcomeMap); });
+                                  });
+                                }}
+                                compact
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {m.aiConfidence !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <span className={"text-caption px-2 py-0.5 rounded-full " + (
+                        m.aiConfidence >= 0.8 ? "badge-success" :
+                        m.aiConfidence >= 0.5 ? "badge-warning" :
+                        "badge-danger"
+                      )}>
+                        AI 置信度 {Math.round(m.aiConfidence * 100)}%
+                      </span>
+                    </div>
+                  )}
+                  {m.suggestions && m.suggestions.length > 0 && <div className="flex flex-wrap gap-2">{m.suggestions.map(function(s: string,j: number) { return <button key={j} onClick={function() { send(s); }} className="px-3 py-1.5 rounded-xl glass text-xs text-white/50 hover:text-white/80 hover:bg-white/10 transition-all">{s}</button>; })}</div>}
+                </div>
+                {isUser && <div className="icon-box-sm bg-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5"><MessageSquare className="w-4 h-4 text-accent-cyan" /></div>}
+              </motion.div>;
+            })}
+            {loading && <div className="flex gap-3"><div className="icon-box-sm bg-indigo-500/20 flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" /></div><div className="glass rounded-2xl rounded-bl-md px-4 py-3"><div className="flex gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"0ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"150ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"300ms"}} /></div></div></div>}
+          </div>
+          <div className="p-4 border-t border-white/[0.06] bg-white/[0.01]">
+            <div className="flex gap-3">
+              <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"告诉 AI 助手你想了解什么..."} className="input-base flex-1" />
+              <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center disabled:opacity-30 transition-opacity shadow-glow-indigo hover:shadow-glow">
+                <ArrowRight className="w-5 h-5 text-white" />
+              </motion.button>
+            </div>
+          </div>
+        </div>)}
+      </div>
+    </div>
   );
 }

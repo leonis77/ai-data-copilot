@@ -33,12 +33,12 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.08] card-lift bg-surface"
+      className="card-elevated p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isPositive ? "bg-emerald-500/10" : "bg-red-500/10")}>
+          <div className={cn("icon-box", isPositive ? "bg-emerald-500/10" : "bg-red-500/10")}>
             {isPositive ? (
               <TrendingUp className="w-5 h-5 text-emerald-400" />
             ) : (
@@ -46,17 +46,17 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
             )}
           </div>
           <div>
-            <p className="text-xs text-white/50 font-medium">本月预估利润</p>
+            <p className="text-heading">本月预估利润</p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-emerald-400/80">{profitable.length} 盈利</span>
+              <span className="text-caption text-emerald-400/80">{profitable.length} 盈利</span>
               <span className="text-white/10">·</span>
-              <span className="text-[10px] text-red-400/80">{losing.length} 亏损</span>
+              <span className="text-caption text-red-400/80">{losing.length} 亏损</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06]">
           <Activity className="w-3.5 h-3.5 text-white/40" />
-          <span className="text-[10px] text-white/50 font-mono">{healthyRatio}% 健康</span>
+          <span className="text-caption text-white/50 font-mono">{healthyRatio}% 健康</span>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
             {isPositive ? "+" : "−"}¥{Math.abs(Math.round(totalMonthlyProfit)).toLocaleString()}
           </span>
         </div>
-        <p className="text-xs text-white/30 mt-1.5">月度净利润预估</p>
+        <p className="text-caption mt-1.5">月度净利润预估</p>
       </div>
 
       {/* Health bar */}
@@ -88,42 +88,39 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
 
       {/* 3 mini cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        {/* Top earner */}
         {topEarner && topEarner.profit.netMonthly > 0 && (
           <div className="rounded-xl p-3.5 border border-emerald-500/10 bg-emerald-500/[0.04] group hover:bg-emerald-500/[0.06] transition-colors">
             <div className="flex items-center gap-1.5 mb-2">
               <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-              <p className="text-[10px] text-white/30 uppercase tracking-wider font-medium">最赚钱</p>
+              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">最赚钱</p>
             </div>
-            <p className="text-xs text-white/70 font-medium truncate mb-1">{topEarner.productName}</p>
+            <p className="text-sm text-white/70 font-medium truncate mb-1">{topEarner.productName}</p>
             <p className="text-sm font-mono font-bold text-emerald-400">
               +¥{Math.abs(Math.round(topEarner.profit.netMonthly)).toLocaleString()}
             </p>
           </div>
         )}
 
-        {/* Worst loser */}
         {worstLoser && worstLoser.profit.netMonthly < 0 && (
           <div className="rounded-xl p-3.5 border border-red-500/10 bg-red-500/[0.04] group hover:bg-red-500/[0.06] transition-colors">
             <div className="flex items-center gap-1.5 mb-2">
               <ArrowDownRight className="w-3.5 h-3.5 text-red-400" />
-              <p className="text-[10px] text-white/30 uppercase tracking-wider font-medium">最亏损</p>
+              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">最亏损</p>
             </div>
-            <p className="text-xs text-white/70 font-medium truncate mb-1">{worstLoser.productName}</p>
+            <p className="text-sm text-white/70 font-medium truncate mb-1">{worstLoser.productName}</p>
             <p className="text-sm font-mono font-bold text-red-400">
               −¥{Math.abs(Math.round(worstLoser.profit.netMonthly)).toLocaleString()}
             </p>
           </div>
         )}
 
-        {/* Best margin */}
         {bestMargin && (
           <div className="rounded-xl p-3.5 border border-indigo-500/10 bg-indigo-500/[0.04] group hover:bg-indigo-500/[0.06] transition-colors">
             <div className="flex items-center gap-1.5 mb-2">
               <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
-              <p className="text-[10px] text-white/30 uppercase tracking-wider font-medium">利润率最优</p>
+              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">利润率最优</p>
             </div>
-            <p className="text-xs text-white/70 font-medium truncate mb-1">{bestMargin.productName}</p>
+            <p className="text-sm text-white/70 font-medium truncate mb-1">{bestMargin.productName}</p>
             <p className="text-sm font-mono font-bold text-indigo-400">
               {bestMargin.profit.margin >= 0 ? "+" : "−"}{Math.abs(bestMargin.profit.margin)}%
             </p>

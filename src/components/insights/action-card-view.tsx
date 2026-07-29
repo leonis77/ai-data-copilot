@@ -30,18 +30,18 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35 }}
-      className={"relative rounded-xl border p-4 card-lift " + p.border + " bg-surface"}
+      className={"relative rounded-xl border p-4 card-lift " + p.border + " card"}
     >
       {/* Priority + Confidence row */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className={"inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg font-medium border " + p.bg + " " + p.text + " " + p.border}>
+        <span className={"inline-flex items-center gap-1.5 text-caption px-2.5 py-1 rounded-lg font-medium border " + p.bg + " " + p.text + " " + p.border}>
           {p.icon}
           {action.priority} · {p.label}
         </span>
-        <span className="text-[10px] text-white/40 px-2 py-1 rounded-lg bg-white/[0.03]">
+        <span className="text-caption text-white/40 px-2 py-1 rounded-lg bg-white/[0.03]">
           置信度: {action.confidence === "high" ? "高" : action.confidence === "medium" ? "中" : "低"}
         </span>
-        <span className={"ml-auto inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg border " + r.bg + " " + r.color + " " + r.border}>
+        <span className={"ml-auto inline-flex items-center gap-1.5 text-caption px-2.5 py-1 rounded-lg border " + r.bg + " " + r.color + " " + r.border}>
           <Shield className="w-3 h-3" />
           {r.label}
         </span>
@@ -49,12 +49,12 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
 
       {/* Action description */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="icon-box bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
           <ArrowRight className="w-4 h-4 text-indigo-400" />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-semibold text-white/90 leading-snug">{action.action}</h4>
-          <p className="text-xs text-white/45 mt-1 leading-relaxed">{action.reason}</p>
+          <p className="text-body mt-1">{action.reason}</p>
         </div>
       </div>
 
@@ -69,14 +69,14 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
           </div>
         )}
         {action.expected_impact && (
-          <span className="text-[10px] text-white/30 px-2 py-1 rounded-lg bg-white/[0.03]">{action.expected_impact}</span>
+          <span className="text-caption text-white/30 px-2 py-1 rounded-lg bg-white/[0.03]">{action.expected_impact}</span>
         )}
       </div>
 
       {/* References footer */}
       <div className="flex items-center gap-3 flex-wrap ml-11 pt-2 border-t border-white/[0.06]">
         {action.evidenceRefs && action.evidenceRefs.length > 0 && (
-          <span className="text-[10px] text-white/25">
+          <span className="text-caption text-white/25">
             证据卡: {action.evidenceRefs.map(function(r) { return "#" + r; }).join(", ")}
           </span>
         )}
@@ -84,7 +84,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
           <div className="flex items-center gap-1">
             {action.ruleIds.map(function(rid, ri) {
               return (
-                <span key={ri} className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/5 text-indigo-400/60 font-mono border border-indigo-500/10">
+                <span key={ri} className="text-caption px-1.5 py-0.5 rounded-md bg-indigo-500/5 text-indigo-400/60 font-mono border border-indigo-500/10">
                   {rid}
                 </span>
               );
@@ -92,7 +92,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
           </div>
         )}
         {action.risk && (
-          <span className="text-[10px] text-white/20">{action.risk}</span>
+          <span className="text-caption text-white/20">{action.risk}</span>
         )}
       </div>
     </motion.div>
