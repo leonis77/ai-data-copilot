@@ -90,6 +90,8 @@ export interface CostBreakdown {
   returnLoss: number;
   taxComplianceCost: number;
   totalCost: number;
+  /** 广告费是否为估算值（未从数据中提取到广告费用字段） */
+  adCostEstimated?: boolean;
 }
 
 export interface ProfitResult {
@@ -214,7 +216,9 @@ export function calculateProfit(input: ProductProfitInput): ProfitResult {
 
   const shippingCost = input.shippingCost ?? 3; // 默认运费3元
   const adCost = input.adCostPerItem ?? 0;
-  const actualReturnRate = input.actualReturnRate ?? feeConfig.returnRateMin;
+  // 使用平台退货率中位值作为默认（returnRateMin 是最低/最优值，会导致利润高估）
+  const returnRateMid = feeConfig.returnRateMin + (feeConfig.returnRateMax - feeConfig.returnRateMin) / 2;
+  const actualReturnRate = input.actualReturnRate ?? returnRateMid;
 
   // 1. 平台佣金
   let commissionRate = feeConfig.commissionRateTypical;
@@ -268,6 +272,10 @@ export function calculateProfit(input: ProductProfitInput): ProfitResult {
     netProfitPerItem, profitMargin, roi, input,
   );
 
+  // 广告费缺失警告：零广告费会显著高估利润
+  const adCostEstimated = input.adCostPerItem === undefined;
+  const adCostWarning = adCostEstimated ? "（广告费按¥0计算，实际利润可能低5%-20%）" : "";
+
   return {
     productName: input.productName,
     platform: feeConfig.platformName,
@@ -284,6 +292,7 @@ export function calculateProfit(input: ProductProfitInput): ProfitResult {
       returnLoss: Math.round(returnLoss * 100) / 100,
       taxComplianceCost: Math.round(taxComplianceCost * 100) / 100,
       totalCost: Math.round(totalCost * 100) / 100,
+      adCostEstimated,
     },
     netProfitPerItem: Math.round(netProfitPerItem * 100) / 100,
     netProfitMonthly: Math.round(netProfitMonthly * 100) / 100,
@@ -291,7 +300,7 @@ export function calculateProfit(input: ProductProfitInput): ProfitResult {
     roi: Math.round(roi * 10000) / 100,
     verdict,
     verdictConfidence,
-    verdictReason,
+    verdictReason: verdictReason + adCostWarning,
   };
 }
 

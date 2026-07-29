@@ -20,10 +20,17 @@ import {
   saveActionTask,
 } from "@/lib/loop";
 import { startTimer, endTimer, logPipelineResult, logApiCall } from "@/lib/observability";
+import { applyRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // ⭐ 限流：Agent 分析接口 1 分钟 10 次
+    const rateResult = applyRateLimit(request, { strategy: "agent" });
+    if (!rateResult.allowed) {
+      return rateLimitResponse(rateResult);
+    }
+
     var pipelineType: string = "unknown";
     var timerId = startTimer("agent.pipeline", { route: "/api/agent" });
     try {

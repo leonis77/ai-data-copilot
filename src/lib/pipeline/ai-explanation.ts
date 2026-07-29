@@ -81,6 +81,9 @@ function buildStructuredSystemPrompt(context: AIExplanationContext): string {
 你的价值不在于"算数字"（那已经做好了），而在于"解释数字背后的含义"
 和"告诉用户下一步该怎么做"。`);
 
+  // ═══ 数据质量声明 ═══
+  parts.push(formatDataQualitySection(context));
+
   // ═══ Layer 1: 指标 ═══
   parts.push(formatMetricsSection(context.metrics, context.storeMetrics, context.profitResults));
 
@@ -115,6 +118,59 @@ function buildStructuredSystemPrompt(context: AIExplanationContext): string {
 // ═══════════════════════════════════════════════
 // 各层格式化函数
 // ═══════════════════════════════════════════════
+
+/**
+ * 数据质量摘要：告知 LLM 哪些数据是估算值、哪些假设被使用，
+ * 减少幻觉风险（LLM 不能把这些估算当成精确事实）。
+ */
+function formatDataQualitySection(context: AIExplanationContext): string {
+  const profitResults = context.profitResults;
+  if (profitResults.length === 0) return "";
+
+  const estimatedCostCount = profitResults.filter(function(r) { return r.purchaseCostEstimated; }).length;
+  const zeroAdCostCount = profitResults.filter(function(r) { return r.costs.adCost <= 0; }).length;
+  const missingPlatformCount = profitResults.filter(function(r) { return !r.platformKey || r.platformKey === ""; }).length;
+
+  // 是否有任何数据质量问题
+  const hasQualityIssues = estimatedCostCount > 0 || zeroAdCostCount > 0 || missingPlatformCount > 0;
+  if (!hasQualityIssues) return "";
+
+  const lines: string[] = [];
+  lines.push("## ⚠️ 数据质量声明（必须阅读）");
+  lines.push("");
+  lines.push("以下利润数据包含若干估算值或假设。你在分析中**必须**将这些不确定性告知用户，");
+  lines.push("不能把它们当作精确事实引用。");
+  lines.push("");
+
+  if (estimatedCostCount > 0) {
+    lines.push("### 进货成本估算（影响 " + estimatedCostCount + " 个商品）");
+    lines.push("- 数据源中**没有“进价”列**，系统按售价的 55% 反推进货成本（假设毛利率约 45%）。");
+    lines.push("- 这是一个粗略行业均值，**可能与实际偏差 ±20% 甚至更多**。");
+    lines.push("- 影响：以此估算的利润率、ROI、判决结论均存在不确定性。");
+    lines.push("- 用户补充“进价”列后，利润数据会自动修正。");
+    lines.push("");
+  }
+
+  if (zeroAdCostCount > 0) {
+    lines.push("### 广告费用缺失（影响 " + zeroAdCostCount + " 个商品）");
+    lines.push("- 数据源中**没有广告费用字段**，当前广告费按 ¥0 计算。");
+    lines.push("- 实际情况中，电商广告费通常占售价的 5%-20%。零广告费的利润被**高估**。");
+    lines.push("- 影响：以此计算的利润和利润率**偏乐观**，实际利润可能低得多。");
+    lines.push("");
+  }
+
+  if (missingPlatformCount > 0) {
+    lines.push("### 平台信息缺失（影响 " + missingPlatformCount + " 个商品）");
+    lines.push("- 未能确认销售平台，未执行平台费率利润测算。");
+    lines.push("- 以下利润数据仅为简化估算，**不含平台佣金、运费险等真实扣费**。");
+    lines.push("");
+  }
+
+  lines.push("---");
+  lines.push("");
+
+  return lines.join("\n");
+}
 
 function formatMetricsSection(
   products: ProductMetrics[],

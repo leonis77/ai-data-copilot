@@ -21,12 +21,14 @@ import { computeStats } from "@/lib/parser";
 import { logger } from "@/lib/logger";
 import { detectPlatform } from "@/lib/platform/detect";
 import type { InjectionResult } from "@/lib/rag/inject";
+import { computeDataQuality } from "@/lib/data-quality";
 
 // ═══ Existing engine modules ═══
 import { computeProductMetrics, computeStoreMetrics } from "@/lib/engines/metrics-engine";
 import { diagnoseProducts, diagnoseProfitIssues } from "@/lib/engines/diagnosis-engine";
 import { generateActions } from "@/lib/engines/decision-engine";
 import { calculateProfit, PLATFORM_FEES_2026 } from "@/lib/profit/engine";
+import { buildAllScenarios } from "@/lib/engines/scenario-engine";
 import { injectKnowledgeV3, KNOWLEDGE } from "@/lib/rag";
 import { detectIndustry, assessKnowledgeCoverage } from "@/lib/rag/industry-detector";
 import { detectRoles } from "@/lib/semantic/roles";
@@ -60,6 +62,7 @@ import type { ColumnRole } from "@/lib/semantic/types";
 import type { ProductMetrics } from "@/lib/engines/metrics-engine";
 import type { Diagnosis } from "@/lib/engines/diagnosis-engine";
 import type { Action } from "@/lib/engines/decision-engine";
+import { matchBenchmark, getCategoryKnowledgeRefs } from "@/lib/rag/industry-benchmark";
 
 // ═══════════════════════════════════════════════
 // 主入口：执行完整经营决策链路
@@ -88,6 +91,9 @@ export async function executeDecisionPipeline(
   }
   const normalized = normalizeData(ds);
   const { columns, rows } = normalized;
+
+  // ═══ Layer 0: 数据质量评估（M1 Trusted Input） ═══
+  const dataQuality = computeDataQuality(columns, rows, rows.length);
 
   // ═══ Layer 0.5: 行业检测 ═══
   const industry = detectIndustry(columns, rows.slice(0, 5));
@@ -428,6 +434,7 @@ export async function executeDecisionPipeline(
     actions,
     crossDataset: crossDatasetSummaries.length > 0 ? crossDatasetSummaries : undefined,
     crossPlatform: crossPlatformComparisons.length > 0 ? crossPlatformComparisons : undefined,
+    scenarios: profitResults.length > 0 ? buildAllScenarios(profitResults) : undefined,
     meta: {
       industry,
       knowledgeCoverage: assessKnowledgeCoverage(
@@ -438,6 +445,7 @@ export async function executeDecisionPipeline(
       webSearchTriggered: knowledgeInjection.stats.webSearchTriggered || false,
       webSearchResults: knowledgeInjection.stats.webSearchResults,
       pipelineLatency,
+      dataQuality,
     },
   };
 }
@@ -617,6 +625,10 @@ function buildEvidenceCards(
     const ruleIds = inferRuleIds(r, platform);
 
     const knowledgeRefs = findRelatedKnowledgeRefs(r);
+
+    // 行业基准对比
+    const industryBenchmark = matchBenchmark(r);
+
     return {
       productName: r.productName,
       platform: r.platform,
@@ -632,6 +644,7 @@ function buildEvidenceCards(
         taxComplianceCost: r.costs.taxComplianceCost,
         purchaseCost: r.purchaseCost,
         totalCost: r.costs.totalCost,
+        adCostEstimated: r.costs.adCostEstimated,
       },
       sellPrice: r.sellPrice,
       profit: {
@@ -648,6 +661,7 @@ function buildEvidenceCards(
       knowledgeRefs,
       knowledgeConfidence: getKnowledgeConfidence(knowledgeRefs),
       purchaseCostEstimated: r.purchaseCostEstimated || false,
+      industryBenchmark,
       cardIndex: index,
     };
   });
@@ -737,7 +751,13 @@ function findRelatedKnowledgeRefs(r: ProfitResult): string[] {
   if (r.platformKey === "pdd") refs.push("platform_pdd_fee_2026");
   if (r.platformKey === "douyin") refs.push("platform_douyin_fee_2026");
 
-  // 利润基准
+  // 品类行业基准知识（按商品名推断品类）
+  const categoryRefs = getCategoryKnowledgeRefs(r.productName);
+  for (const refId of categoryRefs) {
+    if (!refs.includes(refId)) refs.push(refId);
+  }
+
+  // 利润基准（通用）
   if (r.profitMargin < 0.05) refs.push("benchmark_profit_margin_by_category");
   if (r.costs.returnLoss > 0) refs.push("benchmark_return_rate_by_category");
   if (r.costs.influencerCommission > 0) refs.push("platform_douyin_influencer");

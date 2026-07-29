@@ -14,6 +14,7 @@ import type { Action } from "@/lib/engines/decision-engine";
 import type { ProfitResult } from "@/lib/profit/engine";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
 import type { IndustryResult } from "@/lib/rag/industry-detector";
+import type { ScenarioResult } from "@/lib/engines/scenario-engine";
 
 // ═══════════════════════════════════════════════
 // Layer 3: Evidence Card（证据卡）
@@ -41,6 +42,8 @@ export interface CostBreakdownEvidence {
   purchaseCost: number;
   /** 总成本 */
   totalCost: number;
+  /** 广告费是否为估算值（未从数据中提取到广告费用字段） */
+  adCostEstimated?: boolean;
 }
 
 /** 利润摘要 */
@@ -93,6 +96,8 @@ export interface EvidenceCard {
   knowledgeConfidence?: Array<{ refId: string; confidence: number }>;
   /** 进货成本是否为估算值（非从数据中提取） */
   purchaseCostEstimated?: boolean;
+  /** 行业基准对比（可选） */
+  industryBenchmark?: import("@/lib/rag/industry-benchmark").BenchmarkMatch | null;
   /** 唯一索引（用于跨层引用） */
   cardIndex: number;
 }
@@ -201,6 +206,8 @@ export interface PipelineMeta {
   webSearchResults?: number;
   /** Pipeline总延迟（ms） */
   pipelineLatency: number;
+  /** 数据质量报告（M1 Trusted Input） */
+  dataQuality?: import("@/lib/data-quality").DataQualityReport;
 }
 
 // ═══════════════════════════════════════════════
@@ -275,6 +282,8 @@ export interface DecisionChain {
   crossDataset?: CrossDatasetSummary[];
   /** 跨平台对比（可选，从 metrics.crossPlatform 提升到顶层便于访问） */
   crossPlatform?: CrossPlatformComparison[];
+  /** "What if" 经营场景模拟（可选） */
+  scenarios?: ScenarioResult;
   /** 元数据 */
   meta: PipelineMeta;
 }

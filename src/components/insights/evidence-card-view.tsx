@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { BenchmarkMatch } from "@/lib/rag/industry-benchmark";
 import type { EvidenceCard } from "@/lib/pipeline/types";
 
 // 判决配置
@@ -54,6 +55,11 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
           {card.purchaseCostEstimated && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/70" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
               ⚠️ 成本估算
+            </span>
+          )}
+          {card.costBreakdown?.adCostEstimated && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400/70" title="广告费未提供，按¥0计算。实际广告费通常占售价5%-20%，当前利润可能被高估。">
+              ⚠️ 广告费缺失
             </span>
           )}
         </div>
@@ -128,6 +134,34 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
                 <span className="text-white/20 text-[10px]">+{card.costAttribution.length - 5} 项</span>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Industry benchmark comparison */}
+        {card.industryBenchmark && (
+          <div className="p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
+            <div className="text-[10px] text-indigo-400/70 mb-2">{card.industryBenchmark.title}</div>
+            <div className="space-y-1.5">
+              {card.industryBenchmark.metrics.map(function(m, i) {
+                const statusColor = m.status === "better" ? "text-green-400/70" : m.status === "worse" ? "text-red-400/70" : "text-white/40";
+                const statusIcon = m.status === "better" ? "↑" : m.status === "worse" ? "↓" : "-";
+                const benchmarkDisplay = Array.isArray(m.benchmarkValue)
+                  ? m.benchmarkValue[0] + "%-%" + m.benchmarkValue[1]
+                  : m.benchmarkValue + "%";
+                return (
+                  <div key={i} className="flex items-center justify-between text-[10px]">
+                    <span className="text-white/40">{m.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/60 font-mono">{m.userValue}%</span>
+                      <span className="text-white/20">vs</span>
+                      <span className="text-white/30 font-mono">{benchmarkDisplay}</span>
+                      <span className={"font-mono " + statusColor}>{statusIcon}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-white/20 mt-1.5">{card.industryBenchmark.summary}</p>
           </div>
         )}
 

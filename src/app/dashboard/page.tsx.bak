@@ -20,7 +20,6 @@ import { ActionCardView } from "@/components/insights/action-card-view";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import ExecutionTracker from "@/components/insights/execution-tracker";
 import LoopReviewBoard from "@/components/insights/loop-review-board";
-import ScenarioPanel from "@/components/insights/scenario-panel";
 import { logger } from "@/lib/logger";
 import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
@@ -214,8 +213,6 @@ export default function DashboardPage() {
   var diagnoses = decisionChain?.diagnoses || [];
   var actions = decisionChain?.actions || [];
   var aiSummary = decisionChain?.content || "";
-  var scenarios = decisionChain?.scenarios;
-  var hasScenarios = scenarios && scenarios.scenarios && scenarios.scenarios.length > 0;
   var crossPlatform: CrossPlatformComparison[] = decisionChain?.crossPlatform || [];
 
   // ═══ Unknown data ═══
@@ -501,11 +498,6 @@ export default function DashboardPage() {
             </motion.div>
           )}
         </div>
-
-        {/* ═══ Row 4.6: Scenario Simulation ═══ */}
-        {hasScenarios && (
-          <ScenarioPanel scenarios={scenarios!} profitResults={decisionChain?.metrics?.profit || []} />
-        )}
 
         {/* ═══ Row 4.5: Evidence Cards ═══ */}
         {evidenceCards.length > 0 && (

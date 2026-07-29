@@ -7,6 +7,7 @@ import { TrendingUp, CheckCircle2, XCircle, PlayCircle, BarChart3, Clock, Refres
 import { GlassCard } from "@/components/ui/glass-card";
 import type { Decision, ActionTask, Execution, Outcome } from "@/lib/loop/types";
 import { fetchLoopHistory, updateDecisionStatus, updateActionTaskStatus } from "@/lib/loop/client";
+import { getStore } from "@/lib/store";
 
 interface LoopReviewBoardProps {
   datasetId: string;
@@ -61,6 +62,8 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [comparison, setComparison] = useState<any>(null);
+  const [loadingComparison, setLoadingComparison] = useState(false);
 
   async function load() {
     if (!datasetId) return;
@@ -107,6 +110,10 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
 
   useEffect(function() {
     void load();
+  }, [datasetId]);
+
+  useEffect(function() {
+    void loadComparison();
   }, [datasetId]);
 
   if (rows.length === 0 && !loading) {
@@ -337,6 +344,86 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
           );
         })}
       </div>
+
+        {/* ═══ Before/After Comparison ═══ */}
+        {comparison && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="rounded-2xl p-5 border border-indigo-500/10 bg-indigo-500/[0.02]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <RefreshCcw className="w-4 h-4 text-indigo-400/70" />
+                <h3 className="text-sm text-white/50 font-medium">前后对比验证</h3>
+                <span className={"text-[10px] px-2 py-0.5 rounded-full " + (
+                  comparison.validation.confidence === "high" ? "bg-green-500/10 text-green-400/70" :
+                  comparison.validation.confidence === "medium" ? "bg-amber-500/10 text-amber-400/70" :
+                  "bg-red-500/10 text-red-400/70"
+                )}>
+                  {comparison.validation.confidence === "high" ? "高置信度" : comparison.validation.confidence === "medium" ? "中置信度" : "低置信度"}
+                </span>
+              </div>
+              <button
+                onClick={loadComparison}
+                disabled={loadingComparison}
+                className="text-[10px] text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
+                {loadingComparison ? "刷新中..." : "刷新对比"}
+              </button>
+            </div>
+
+            {comparison.validation.warnings.length > 0 && (
+              <div className="mb-3 p-2 rounded-lg border border-amber-500/10 bg-amber-500/[0.03]">
+                {comparison.validation.warnings.map(function(w: string, i: number) {
+                  return <p key={i} className="text-[10px] text-amber-400/70">⚠️ {w}</p>;
+                })}
+              </div>
+            )}
+
+            {/* Stats comparison */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                <div className="text-[10px] text-white/25 mb-1">利润变化</div>
+                <div className={"text-sm font-medium " + (comparison.improvements.profitDelta > 0 ? "text-green-400/80" : "text-red-400/80")}>
+                  {comparison.improvements.profitDelta > 0 ? "+" : ""}{formatMoney(comparison.improvements.profitDelta)}
+                </div>
+                <div className="text-[10px] text-white/25 mt-0.5">
+                  {comparison.improvements.profitDeltaPercent > 0 ? "+" : ""}{comparison.improvements.profitDeltaPercent}%
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                <div className="text-[10px] text-white/25 mb-1">利润率变化</div>
+                <div className={"text-sm font-medium " + (comparison.improvements.marginDelta > 0 ? "text-green-400/80" : "text-red-400/80")}>
+                  {comparison.improvements.marginDelta > 0 ? "+" : ""}{comparison.improvements.marginDelta.toFixed(1)}%
+                </div>
+                <div className="text-[10px] text-white/25 mt-0.5">
+                  {comparison.previous.profitMargin.toFixed(1)}% → {comparison.current.profitMargin.toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                <div className="text-[10px] text-white/25 mb-1">亏损商品</div>
+                <div className={"text-sm font-medium " + (comparison.improvements.lossCountDelta < 0 ? "text-green-400/80" : comparison.improvements.lossCountDelta > 0 ? "text-red-400/80" : "text-white/50")}>
+                  {comparison.current.lossCount} 个
+                </div>
+                <div className="text-[10px] text-white/25 mt-0.5">
+                  历史 {comparison.previous.lossCount} 个 → 当前 {comparison.current.lossCount} 个
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                <div className="text-[10px] text-white/25 mb-1">整体改善</div>
+                <div className={"text-sm font-medium " + (comparison.validation.hasImprovement ? "text-green-400/80" : "text-amber-400/70")}>
+                  {comparison.validation.hasImprovement ? "正向改善" : "待观察"}
+                </div>
+                <div className="text-[10px] text-white/25 mt-0.5">
+                  基于 {comparison.current.productCount} 个商品对比
+                </div>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+              <p className="text-xs text-white/60 leading-relaxed">{comparison.summary}</p>
+            </div>
+          </motion.div>
+        )}
+
     </motion.div>
   );
 }
