@@ -44,9 +44,8 @@ export function Navbar() {
         transition={{ duration: 0.3, ease: "easeOut" }}
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300",
-          scrolled ? "bg-bg-root/80 border-b border-white/[0.09]" : "bg-bg-root/40 border-b border-transparent"
+          scrolled ? "glass-strong border-b-0" : "glass border-b-0"
         )}
-        style={{ backdropFilter: scrolled ? "blur(16px)" : "blur(8px)" }}
       >
         <div className="section-container h-full flex items-center justify-between">
           {/* Brand */}
@@ -120,8 +119,7 @@ export function Navbar() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0.5 }}
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="fixed top-0 right-0 bottom-0 z-50 w-72 max-w-[85vw] md:hidden"
-              style={{ backdropFilter: "blur(24px)", background: "rgba(11,15,23,0.95)", borderLeft: "1px solid rgba(255,255,255,0.06)" }}
+              className="fixed top-0 right-0 bottom-0 z-50 w-72 max-w-[85vw] md:hidden glass-strong"
             >
               <div className="flex flex-col h-full pt-20 px-4">
                 <button

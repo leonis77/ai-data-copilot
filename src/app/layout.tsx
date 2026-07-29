@@ -48,11 +48,11 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className="min-h-screen bg-bg-root text-white antialiased touch-manipulation">
+      <body className="min-h-screen text-white antialiased touch-manipulation">
         <Navbar />
         <AnimatePresence mode="wait">
           <PageTransition>
-            <main className="pt-16">{children}</main>
+            <main className="pt-16 relative z-10">{children}</main>
           </PageTransition>
         </AnimatePresence>
       </body>
