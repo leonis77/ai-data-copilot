@@ -180,7 +180,22 @@ export default function ChatPage() {
     } finally { setLoading(false); }
   }
 
-  if (checking) return <div className="min-h-screen py-12 pt-20"><div className="max-w-4xl mx-auto px-6"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[60vh] glass mt-6" /></div></div>;
+  if (checking) return (
+    <div className="min-h-screen py-12 pt-20">
+      <div className="max-w-4xl mx-auto px-6">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+          </div>
+          <div>
+            <div className="h-6 w-32 skeleton rounded-lg mb-1.5" />
+            <div className="h-4 w-48 skeleton rounded-lg" />
+          </div>
+        </div>
+        <div className="h-[60vh] glass rounded-2xl shimmer" />
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen py-12 pt-20"><div className="max-w-4xl mx-auto px-6">
@@ -190,23 +205,42 @@ export default function ChatPage() {
           {hasData && <TableSelector className="ml-auto" />}
         </div>
       </motion.div>
-      {!hasData ? (<motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="text-center py-20">
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6"><Sparkles className="w-10 h-10 text-indigo-400/50" /></div>
-        <h2 className="text-2xl font-bold mb-3">{"\u8bf7\u5148\u4e0a\u4f20\u6570\u636e"}</h2><p className="text-white/40 mb-8">AI {"\u52a9\u624b\u9700\u8981\u7ecf\u8425\u6570\u636e\u624d\u80fd\u4e3a\u4f60\u63d0\u4f9b\u5206\u6790"}</p>
-        <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25"><Upload className="w-5 h-5" />{"\u4e0a\u4f20\u6570\u636e"}<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></motion.button></Link>
-      </motion.div>) : (<div className="flex flex-col h-[calc(100dvh-12rem)] glass rounded-2xl overflow-hidden">
-        <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
-          {msgs.map(function(m,i) {
-            var isUser = m.role === "user";
-            var Icon = AI[m.agentType||"general"] || Sparkles;
-            return <motion.div key={i} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
-              {!isUser && <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5"><Icon className={"w-4 h-4 " + (AC[m.agentType||"general"]||"text-indigo-400")} /></div>}
-              <div className="max-w-[85%] space-y-2">
-                <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed " + (isUser ? "bg-indigo-500/20 text-white/90 rounded-br-md" : "glass text-white/80 rounded-bl-md")}>
-                  <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-white [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+      {!hasData ? (
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6}} className="text-center py-20">
+          <motion.div
+            animate={{ y: [0, -10, 0], rotate: [0, 3, -3, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="w-20 h-20 mx-auto rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 relative"
+            style={{ boxShadow: "0 0 40px -10px rgba(99,102,241,0.2)" }}>
+            <Sparkles className="w-10 h-10 text-indigo-400/50 relative z-10" />
+          </motion.div>
+          <h2 className="text-2xl font-bold mb-3 text-white/80">\u8bf7\u5148\u4e0a\u4f20\u6570\u636e</h2>
+          <p className="text-white/40 mb-8 leading-relaxed">AI \u52a9\u624b\u9700\u8981\u7ecf\u8425\u6570\u636e\u624d\u80fd\u4e3a\u4f60\u63d0\u4f9b\u5206\u6790</p>
+          <Link href="/upload">
+            <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Upload className="w-5 h-5 relative z-10" />{"\u4e0a\u4f20\u6570\u636e"}
+              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+            </motion.button>
+          </Link>
+        </motion.div>
+      ) : (
+        <div className="flex flex-col h-[calc(100dvh-12rem)] rounded-2xl overflow-hidden border border-white/[0.06] shadow-elevated"
+          style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.8) 0%, rgba(17,24,39,0.6) 100%)", backdropFilter: "blur(16px)" }}>
+          <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
+            {msgs.map(function(m,i) {
+              var isUser = m.role === "user";
+              var Icon = AI[m.agentType||"general"] || Sparkles;
+              return <motion.div key={i} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className={"flex gap-3 " + (isUser ? "justify-end" : "justify-start")}>
+                {!isUser && <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-indigo-500/30"><Icon className={"w-4 h-4 " + (AC[m.agentType||"general"]||"text-indigo-400")} /></div>}
+                <div className="max-w-[85%] space-y-2">
+                  <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed " + (isUser
+                    ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/10 text-white/90 rounded-br-md border border-indigo-500/20"
+                    : "bg-white/[0.03] text-white/80 rounded-bl-md border border-white/[0.08]")}>
+                    <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-white [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                    </div>
                   </div>
-                </div>
                 {m.chart && <div className="glass p-3 rounded-xl text-xs text-white/60">{"\u56fe\u8868\u5efa\u8bae"}: {m.chart.title} ({m.chart.type})</div>}
                 {/* \u2550\u2550\u2550 DecisionChain \u7ed3\u6784\u5316\u5361\u7247 \u2550\u2550\u2550 */}
                 {m.evidenceCards && m.evidenceCards.length > 0 && (
@@ -295,9 +329,13 @@ export default function ChatPage() {
           })}
           {loading && <div className="flex gap-3"><div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0"><Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" /></div><div className="glass rounded-2xl rounded-bl-md px-4 py-3"><div className="flex gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"0ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"150ms"}} /><span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"300ms"}} /></div></div></div>}
         </div>
-        <div className="p-4 border-t border-white/5 flex gap-3">
-          <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"\u544a\u8bc9 AI \u52a9\u624b\u4f60\u60f3\u4e86\u89e3\u4ec0\u4e48..."} className="flex-1 glass px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 outline-none focus:border-indigo-400/50 transition-all" />
-          <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center disabled:opacity-30 transition-opacity"><ArrowRight className="w-5 h-5 text-white" /></motion.button>
+        <div className="p-4 border-t border-white/[0.06] bg-white/[0.01]">
+          <div className="flex gap-3">
+            <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"\u544a\u8bc9 AI \u52a9\u624b\u4f60\u60f3\u4e86\u89e3\u4ec0\u4e48..."} className="flex-1 bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 outline-none focus:border-indigo-400/50 focus:bg-white/[0.05] transition-all" />
+            <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center disabled:opacity-30 transition-opacity shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30">
+              <ArrowRight className="w-5 h-5 text-white" />
+            </motion.button>
+          </div>
         </div>
       </div>)}
     </div></div>

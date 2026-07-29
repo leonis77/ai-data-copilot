@@ -86,6 +86,46 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       setLoading(false);
     }
   }
+  async function loadComparison() {
+    if (!datasetId) return;
+    setLoadingComparison(true);
+    try {
+      const data = await fetchLoopHistory(datasetId);
+      const decisions = data.decisions || [];
+      if (decisions.length >= 2) {
+        const first = decisions[0];
+        const last = decisions[decisions.length - 1];
+        const prevProfit = Number(first.decision.expectedProfitImpact || 0);
+        const currProfit = Number(last.decision.expectedProfitImpact || 0);
+        const profitDelta = currProfit - prevProfit;
+        setComparison({
+          validation: { confidence: "medium", warnings: [], hasImprovement: profitDelta > 0 },
+          improvements: {
+            profitDelta,
+            profitDeltaPercent: prevProfit !== 0 ? Math.round((profitDelta / Math.abs(prevProfit)) * 100) : 0,
+            marginDelta: 0,
+            lossCountDelta: 0,
+          },
+          previous: { profitMargin: 0, lossCount: 0 },
+          current: { profitMargin: 0, lossCount: 0, productCount: 0 },
+        });
+      } else if (decisions.length === 1) {
+        setComparison({
+          validation: { confidence: "low", warnings: ["仅有一条决策记录，无法进行前后对比"], hasImprovement: false },
+          improvements: { profitDelta: 0, profitDeltaPercent: 0, marginDelta: 0, lossCountDelta: 0 },
+          previous: { profitMargin: 0, lossCount: 0 },
+          current: { profitMargin: 0, lossCount: 0, productCount: 0 },
+        });
+      } else {
+        setComparison(null);
+      }
+    } catch (e) {
+      console.warn("Failed to load comparison:", e);
+    } finally {
+      setLoadingComparison(false);
+    }
+  }
+
 
   async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
     setUpdating(function(prev) { const next = Object.assign({}, prev); next[decisionId] = true; return next; });

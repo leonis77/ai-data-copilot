@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (!supabaseUrl || !anonKey) {
       return NextResponse.json(
-        apiError(ApiErrorCode.INTERNAL, "Supabase 未配置，无法登录", { recoverable: false }),
+        apiError(ApiErrorCode.INTERNAL, "Supabase 未配置，无法登录", { recoverable: false, details: "missing SUPABASE_URL or SUPABASE_ANON_KEY" }),
         { status: 500 }
       );
     }
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL, "登录失败", { message: String(error) }),
+      apiError(ApiErrorCode.INTERNAL, "登录失败", { details: String(error) }),
       { status: 500 }
     );
   }

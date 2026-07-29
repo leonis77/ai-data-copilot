@@ -67,6 +67,10 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
     tooltip: {
       trigger: "axis" as const,
       axisPointer: { type: "shadow" as const },
+      backgroundColor: "rgba(17, 24, 39, 0.9)",
+      borderColor: "rgba(255, 255, 255, 0.1)",
+      borderWidth: 1,
+      textStyle: { color: "#E2E8F0", fontSize: 12 },
       formatter: function(params: any) {
         var idx = params[0]?.dataIndex;
         if (idx === undefined) return "";
@@ -102,7 +106,7 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
           return v.toString();
         },
       },
-      splitLine: { lineStyle: { color: "#1E293B", type: "dashed" as const } },
+      splitLine: { lineStyle: { color: "rgba(255,255,255,0.04)", type: "dashed" as const } },
       axisLine: { show: false },
     },
     yAxis: {
@@ -153,25 +157,53 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
-      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.06]"
-      style={{ backdropFilter: "blur(16px)", background: "rgba(17,24,39,0.5)" }}
+      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.06] card-lift"
+      style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
     >
-      <h3 className="text-sm text-white/40 font-medium mb-1">商品利润排行</h3>
+      {/* Background glow */}
+      <div className="absolute top-0 left-0 w-48 h-48 opacity-[0.03] pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(168,85,247,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
 
-      <div className="h-[280px] -mx-2">
-        <ReactEChartsCore echarts={echarts} option={option} style={{ height: "100%" }} theme="dark" />
-      </div>
+      <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-white/80 mb-0.5">商品利润排行</h3>
+            <p className="text-[10px] text-white/30">按月度净利润排序</p>
+          </div>
+          <div className="flex items-center gap-3 text-[10px]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-white/50">盈利</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-400" />
+              <span className="text-white/50">亏损</span>
+            </span>
+          </div>
+        </div>
 
-      {/* Summary footer */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/[0.04] text-[11px]">
-        <span>
-          <span className="text-green-400/70">盈利品 {evidenceCards.filter(function(c) { return c.profit.netMonthly > 0; }).length} 个</span>
-          <span className="text-white/20 mx-1">(+¥{Math.round(profitableTotal).toLocaleString()})</span>
-        </span>
-        <span>
-          <span className="text-red-400/70">亏损品 {evidenceCards.filter(function(c) { return c.profit.netMonthly <= 0; }).length} 个</span>
-          <span className="text-white/20 ml-1">(−¥{Math.abs(Math.round(losingTotal)).toLocaleString()})</span>
-        </span>
+        <div className="h-[280px] -mx-2">
+          <ReactEChartsCore echarts={echarts} option={option} style={{ height: "100%" }} theme="dark" />
+        </div>
+
+        {/* Summary footer */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-emerald-400/70 font-medium">
+                盈利 {evidenceCards.filter(function(c) { return c.profit.netMonthly > 0; }).length} 个
+              </span>
+              <span className="text-[10px] text-white/20">+¥{Math.round(profitableTotal).toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-red-400/70 font-medium">
+                亏损 {evidenceCards.filter(function(c) { return c.profit.netMonthly <= 0; }).length} 个
+              </span>
+              <span className="text-[10px] text-white/20">−¥{Math.abs(Math.round(losingTotal)).toLocaleString()}</span>
+            </div>
+          </div>
+          <span className="text-[10px] text-white/20">共 {evidenceCards.length} 个商品</span>
+        </div>
       </div>
     </motion.div>
   );

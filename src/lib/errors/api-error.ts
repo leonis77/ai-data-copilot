@@ -38,6 +38,8 @@ export const ApiErrorCode = {
 
   // 系统错误
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  INTERNAL: "INTERNAL",
+  AUTH_FAILED: "AUTH_FAILED",
   NOT_IMPLEMENTED: "NOT_IMPLEMENTED",
 } as const;
 

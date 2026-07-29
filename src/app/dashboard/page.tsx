@@ -163,9 +163,36 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen pt-16">
         <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="h-8 w-48 skeleton rounded-lg mb-2" />
-          <div className="h-4 w-64 skeleton rounded-lg" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8"><CardSkeleton /><CardSkeleton /><CardSkeleton /></div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+              </div>
+              <div>
+                <div className="h-6 w-40 skeleton rounded-lg mb-1.5" />
+                <div className="h-4 w-64 skeleton rounded-lg" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+              {[1, 2, 3].map(function(i) {
+                return (
+                  <div key={i} className="rounded-2xl p-6 border border-white/[0.06] bg-surface/50">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg skeleton-pulse" />
+                      <div className="flex-1">
+                        <div className="h-4 w-24 skeleton rounded mb-2" />
+                        <div className="h-3 w-32 skeleton rounded" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-full skeleton rounded" />
+                      <div className="h-3 w-3/4 skeleton rounded" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -179,20 +206,22 @@ export default function DashboardPage() {
           className="text-center max-w-md px-6">
           <motion.div animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8"
+            className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative"
             style={{ background: "radial-gradient(circle, rgba(124,92,255,0.15) 0%, transparent 70%)" }}>
-            <BarChart3 className="w-10 h-10 text-indigo-400/60" />
+            <div className="absolute inset-0 rounded-3xl bg-indigo-500/5" />
+            <BarChart3 className="w-10 h-10 text-indigo-400/60 relative z-10" />
           </motion.div>
-          <h2 className="text-2xl font-bold mb-3 text-white/80">上传数据开始分析</h2>
+          <h2 className="text-2xl font-bold mb-3 text-white/80 text-balance">上传数据开始分析</h2>
           <p className="text-white/30 mb-10 leading-relaxed">
             拖拽上传 Excel 或 CSV 文件<br />AI 将自动诊断您的经营状况
           </p>
           <Link href="/upload">
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300">
-              <Upload className="w-5 h-5" />
-              上传数据
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Upload className="w-5 h-5 relative z-10" />
+              <span className="relative z-10">上传数据</span>
+              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </Link>
         </motion.div>

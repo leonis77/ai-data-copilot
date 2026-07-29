@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json(
-        apiError(ApiErrorCode.INTERNAL, "Supabase 未配置，无法注册", { recoverable: false }),
+        apiError(ApiErrorCode.INTERNAL, "Supabase 未配置，无法注册", { recoverable: false, details: "missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
         { status: 500 }
       );
     }
@@ -54,15 +54,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 创建用户 profile
-    await adminClient.from("profiles").insert({
-      id: data.user.id,
-      email,
-      role: "user",
-      created_at: new Date().toISOString(),
-    }).catch(function (e) {
+    try {
+      await adminClient.from("profiles").insert({
+        id: data.user.id,
+        email,
+        role: "user",
+        created_at: new Date().toISOString(),
+      });
+    } catch (e) {
       // profile 创建失败不影响注册流程
       console.warn("Profile creation failed:", e);
-    });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL, "注册失败", { message: String(error) }),
+      apiError(ApiErrorCode.INTERNAL, "注册失败", { details: String(error) }),
       { status: 500 }
     );
   }
