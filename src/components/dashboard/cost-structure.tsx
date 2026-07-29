@@ -69,13 +69,8 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.15 }}
-      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.06] card-lift"
-      style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
     >
-      {/* Background glow */}
-      <div className="absolute bottom-0 right-0 w-48 h-48 opacity-[0.03] pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(168,85,247,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
-
       <div className="relative">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -85,10 +80,10 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white/80">成本结构分析</h3>
-              <p className="text-[10px] text-white/25">全部商品成本汇总</p>
+              <p className="text-[10px] text-white/30">全部商品成本汇总</p>
             </div>
           </div>
-          <span className="text-[10px] text-white/25 font-mono px-2 py-1 rounded-lg bg-white/[0.04]">
+          <span className="text-[10px] text-white/30 font-mono px-2 py-1 rounded-lg bg-white/[0.04]">
             ¥{Math.round(grandTotal).toLocaleString()}
           </span>
         </div>
@@ -134,7 +129,7 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
 
         {/* Comparison: profitable vs losing cost structure */}
         {profitableCards.length > 0 && losingCards.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.04]">
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.06]">
             <div className="rounded-lg p-3 bg-emerald-500/[0.03] border border-emerald-500/10">
               <span className="text-[10px] text-emerald-400/60 font-medium">盈利品成本</span>
               <p className="text-xs text-white/60 mt-1 font-medium">

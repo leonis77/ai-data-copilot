@@ -30,8 +30,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35 }}
-      className={"relative rounded-xl border p-4 card-lift " + p.border}
-      style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.6) 0%, rgba(17,24,39,0.4) 100%)", backdropFilter: "blur(12px)" }}
+      className={"relative rounded-xl border p-4 card-lift " + p.border + " bg-surface"}
     >
       {/* Priority + Confidence row */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -39,7 +38,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
           {p.icon}
           {action.priority} · {p.label}
         </span>
-        <span className="text-[10px] text-white/25 px-2 py-1 rounded-lg bg-white/[0.03]">
+        <span className="text-[10px] text-white/40 px-2 py-1 rounded-lg bg-white/[0.03]">
           置信度: {action.confidence === "high" ? "高" : action.confidence === "medium" ? "中" : "低"}
         </span>
         <span className={"ml-auto inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg border " + r.bg + " " + r.color + " " + r.border}>
@@ -75,7 +74,7 @@ export function ActionCardView({ action, index = 0 }: ActionCardViewProps) {
       </div>
 
       {/* References footer */}
-      <div className="flex items-center gap-3 flex-wrap ml-11 pt-2 border-t border-white/[0.04]">
+      <div className="flex items-center gap-3 flex-wrap ml-11 pt-2 border-t border-white/[0.06]">
         {action.evidenceRefs && action.evidenceRefs.length > 0 && (
           <span className="text-[10px] text-white/25">
             证据卡: {action.evidenceRefs.map(function(r) { return "#" + r; }).join(", ")}

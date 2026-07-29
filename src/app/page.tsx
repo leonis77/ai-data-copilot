@@ -100,10 +100,9 @@ function LandingPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Ambient glow — hidden on mobile to save GPU */}
-      <div className="fixed inset-0 pointer-events-none hidden sm:block">
-        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] rounded-full opacity-[0.06]" style={{background:"radial-gradient(circle,rgba(124,92,255,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
-        <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full opacity-[0.05]" style={{background:"radial-gradient(circle,rgba(0,212,255,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
+      {/* Ambient glow — 保留极少量，避免画面发闷 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden hidden sm:block">
+        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{background:"radial-gradient(circle,rgba(99,102,241,1) 0%,transparent 70%)",filter:"blur(100px)"}} />
       </div>
 
       <section className="relative min-h-screen flex items-center justify-center">
@@ -133,7 +132,7 @@ function LandingPage() {
             </Link>
           </motion.div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#070B14] to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0B0F17] to-transparent" />
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-16">

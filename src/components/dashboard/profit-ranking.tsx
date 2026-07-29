@@ -157,13 +157,8 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
-      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.06] card-lift"
-      style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+      className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
     >
-      {/* Background glow */}
-      <div className="absolute top-0 left-0 w-48 h-48 opacity-[0.03] pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(168,85,247,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
-
       <div className="relative">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -187,7 +182,7 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
         </div>
 
         {/* Summary footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-emerald-400/70 font-medium">

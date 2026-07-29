@@ -105,13 +105,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="relative overflow-hidden rounded-2xl p-5 border border-indigo-500/10 card-lift"
-          style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+          className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
         >
-          {/* Background glow */}
-          <div className="absolute top-0 right-0 w-48 h-48 opacity-[0.03] pointer-events-none"
-            style={{ background: "radial-gradient(circle, rgba(99,102,241,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
-
           <div className="relative">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
@@ -122,7 +117,7 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
 
             {/* Product selector */}
             <div className="mb-4">
-              <label className="text-[10px] text-white/30 block mb-1.5 uppercase tracking-wider font-medium">选择商品</label>
+              <label className="text-[10px] text-white/40 block mb-1.5 uppercase tracking-wider font-medium">选择商品</label>
               <div className="flex flex-wrap gap-1.5">
                 {profitResults.slice(0, 5).map(function(pr, i) {
                   const isActive = interactive.productIndex === i;
@@ -132,8 +127,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                       onClick={() => setInteractive(function(s) { return { ...s, productIndex: i }; })}
                       className={"text-[10px] px-2.5 py-1.5 rounded-lg border transition-all " + (
                         isActive
-                          ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 shadow-[0_0_10px_-5px_rgba(99,102,241,0.3)]"
-                          : "border-white/[0.06] bg-white/[0.02] text-white/30 hover:text-white/50 hover:bg-white/[0.04]"
+                          ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+                          : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/70 hover:bg-white/[0.05]"
                       )}>
                       {pr.productName}
                     </button>
@@ -145,8 +140,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
             {/* Price change slider */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] text-white/30 uppercase tracking-wider font-medium">调整幅度</label>
-                <span className={"text-sm font-mono font-bold " + (interactive.priceChangePercent >= 0 ? "text-green-400" : "text-red-400")}>
+                <label className="text-[10px] text-white/40 uppercase tracking-wider font-medium">调整幅度</label>
+                <span className={"text-sm font-mono font-bold " + (interactive.priceChangePercent >= 0 ? "text-emerald-400" : "text-red-400")}>
                   {interactive.priceChangePercent >= 0 ? "+" : ""}{interactive.priceChangePercent}%
                 </span>
               </div>
@@ -249,13 +244,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.25, duration: 0.5 }}
-            className="relative overflow-hidden rounded-2xl p-5 border border-indigo-500/10 card-lift"
-            style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+            className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.08] card-lift bg-surface"
           >
-            {/* Background glow */}
-            <div className="absolute bottom-0 left-0 w-48 h-48 opacity-[0.03] pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(6,182,212,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
-
             <div className="relative">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center">
@@ -266,7 +256,7 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
 
               {/* Platform selector */}
               <div className="mb-4">
-                <label className="text-[10px] text-white/30 block mb-1.5 uppercase tracking-wider font-medium">
+                <label className="text-[10px] text-white/40 block mb-1.5 uppercase tracking-wider font-medium">
                   当前平台：{profitResults[interactive.productIndex]?.platform || "—"}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -278,8 +268,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                         onClick={() => setInteractive(function(s) { return { ...s, targetPlatform: plat }; })}
                         className={"text-[10px] px-2.5 py-1.5 rounded-lg border transition-all " + (
                           isActive
-                            ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300 shadow-[0_0_10px_-5px_rgba(6,182,212,0.3)]"
-                            : "border-white/[0.06] bg-white/[0.02] text-white/30 hover:text-white/50 hover:bg-white/[0.04]"
+                            ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+                            : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/70 hover:bg-white/[0.05]"
                         )}>
                         {PLATFORM_NAMES[plat] || plat}
                       </button>
@@ -292,8 +282,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
               {interactivePlatformScenario ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                      <div className="text-[10px] text-white/25 mb-1 uppercase tracking-wider">当前平台月利润</div>
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+                      <div className="text-[10px] text-white/40 mb-1 uppercase tracking-wider">当前平台月利润</div>
                       <div className={"text-sm font-mono font-bold " + (interactivePlatformScenario.originalProfit.netProfitMonthly >= 0 ? "text-white/70" : "text-red-400/70")}>
                         {interactivePlatformScenario.originalProfit.netProfitMonthly >= 0 ? "+" : "−"}¥{Math.abs(Math.round(interactivePlatformScenario.originalProfit.netProfitMonthly)).toLocaleString()}
                       </div>
@@ -314,7 +304,7 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                       : "bg-red-500/[0.04] border-red-500/10"
                   )}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">利润差异</span>
+                      <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">利润差异</span>
                       <span className={"text-[10px] px-2 py-0.5 rounded-md border " + CONFIDENCE_CONFIG[interactivePlatformScenario.confidence].bg + " " + CONFIDENCE_CONFIG[interactivePlatformScenario.confidence].text + " " + CONFIDENCE_CONFIG[interactivePlatformScenario.confidence].border}>
                         {CONFIDENCE_CONFIG[interactivePlatformScenario.confidence].label}
                       </span>
@@ -325,7 +315,7 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
                     <p className="text-xs text-white/50 leading-relaxed">{interactivePlatformScenario.recommendation}</p>
                   </div>
                 </div>
@@ -343,13 +333,8 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
-              className="relative overflow-hidden rounded-2xl p-5 border border-red-500/10 card-lift"
-              style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+              className="relative overflow-hidden rounded-2xl p-5 border border-red-500/10 card-lift bg-surface"
             >
-              {/* Background glow */}
-              <div className="absolute bottom-0 right-0 w-48 h-48 opacity-[0.03] pointer-events-none"
-                style={{ background: "radial-gradient(circle, rgba(239,68,68,1) 0%, transparent 70%)", filter: "blur(30px)" }} />
-
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -374,9 +359,9 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                   })}
                 </div>
 
-                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">止损后月收益</span>
+                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">止损后月收益</span>
                     <span className={"text-[10px] px-2 py-0.5 rounded-md border " + CONFIDENCE_CONFIG[stopLossScenario.confidence].bg + " " + CONFIDENCE_CONFIG[stopLossScenario.confidence].text + " " + CONFIDENCE_CONFIG[stopLossScenario.confidence].border}>
                       {CONFIDENCE_CONFIG[stopLossScenario.confidence].label}
                     </span>
@@ -389,7 +374,7 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] mt-3">
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] mt-3">
                   <p className="text-xs text-white/50 leading-relaxed">{stopLossScenario.recommendation}</p>
                 </div>
               </div>
@@ -398,10 +383,9 @@ export function ScenarioPanel({ scenarios, profitResults }: ScenarioPanelProps) 
 
           {/* Pre-generated scenarios summary */}
           {scenarios.scenarios.length > 0 && (
-            <div className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.04]"
-              style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.5) 0%, rgba(17,24,39,0.3) 100%)", backdropFilter: "blur(16px)" }}>
-              <div className="text-[10px] text-white/25 mb-2 uppercase tracking-wider font-medium">AI 预设场景摘要</div>
-              <p className="text-xs text-white/40 leading-relaxed whitespace-pre-wrap">{scenarios.summary}</p>
+            <div className="relative overflow-hidden rounded-2xl p-5 border border-white/[0.06] bg-surface">
+              <div className="text-[10px] text-white/30 mb-2 uppercase tracking-wider font-medium">AI 预设场景摘要</div>
+              <p className="text-xs text-white/50 leading-relaxed whitespace-pre-wrap">{scenarios.summary}</p>
             </div>
           )}
         </div>

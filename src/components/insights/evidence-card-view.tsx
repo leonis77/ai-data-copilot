@@ -51,17 +51,16 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className={"relative overflow-hidden rounded-2xl border card-lift " + v.border + " " + v.glow}
-      style={{ background: "linear-gradient(135deg, rgba(17,24,39,0.7) 0%, rgba(17,24,39,0.5) 100%)", backdropFilter: "blur(16px)" }}
+      className={"relative overflow-hidden rounded-2xl border card-lift " + v.border + " bg-surface"}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-white/40 font-mono border border-white/[0.08]">
             #{card.cardIndex}
           </span>
           <span className="font-semibold text-sm text-white/90">{card.productName}</span>
-          <span className="text-xs text-white/25 px-1.5 py-0.5 rounded bg-white/[0.03]">{card.platform}</span>
+          <span className="text-xs text-white/30 px-1.5 py-0.5 rounded bg-white/[0.04]">{card.platform}</span>
           {card.purchaseCostEstimated && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/70 border border-amber-500/20" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
               ⚠️ 成本估算
@@ -86,23 +85,23 @@ export function EvidenceCardView({ card, defaultExpanded = true }: EvidenceCardV
       <div className="px-4 py-3 space-y-3">
         {/* Profit summary */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.04]">
+          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
             <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">售价</div>
             <div className="text-sm font-mono text-white/80 font-medium">¥{card.sellPrice.toFixed(2)}</div>
           </div>
-          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.04]">
+          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
             <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">单品利润</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.netPerItem >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.netPerItem >= 0 ? "+" : ""}¥{card.profit.netPerItem.toFixed(2)}
             </div>
           </div>
-          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.04]">
+          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
             <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">利润率</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.margin >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.margin >= 0 ? "+" : ""}{card.profit.margin}%
             </div>
           </div>
-          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.04]">
+          <div className="rounded-lg p-2.5 bg-white/[0.02] border border-white/[0.06]">
             <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">月利润</div>
             <div className={"text-sm font-mono font-medium " + (card.profit.netMonthly >= 0 ? "text-emerald-400" : "text-red-400")}>
               {card.profit.netMonthly >= 0 ? "+" : "−"}¥{Math.abs(Math.round(card.profit.netMonthly)).toLocaleString()}
