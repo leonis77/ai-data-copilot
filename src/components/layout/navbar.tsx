@@ -51,11 +51,11 @@ export function Navbar() {
         transition={{ duration: 0.3, ease: "easeOut" }}
         className={cn(
           "fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300",
-          scrolled ? "border-b border-white/[0.08]" : "border-b border-transparent"
+          scrolled ? "border-b border-white/15" : "border-b border-transparent"
         )}
         style={{
-          backdropFilter: scrolled ? "blur(20px)" : "blur(12px)",
-          background: scrolled ? "rgba(11,15,23,0.85)" : "rgba(11,15,23,0.6)",
+          backdropFilter: scrolled ? "blur(20px)" : "blur(10px)",
+          background: scrolled ? "rgba(7,11,20,0.85)" : "rgba(7,11,20,0.5)",
         }}
       >
         <div className="mx-auto max-w-7xl px-4 md:px-6 h-full flex items-center justify-between">

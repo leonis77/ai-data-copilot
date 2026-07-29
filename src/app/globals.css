@@ -7,101 +7,106 @@
 
 @layer base {
   * {
-    @apply border-white/10;
+    @apply border-white/15;
   }
   body {
     @apply bg-background text-white antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(99,102,241,0.12), transparent 35%),
+      radial-gradient(circle at 85% 20%, rgba(6,182,212,0.10), transparent 35%),
+      radial-gradient(circle at 50% 80%, rgba(168,85,247,0.08), transparent 40%);
+    background-attachment: fixed;
   }
 }
 
 @layer components {
-  /* ═══ Glass Morphism System ═══ */
+  /* ═══ Glass Morphism System — 更亮、更有科技感 ═══ */
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+    @apply bg-white/[0.07] backdrop-blur-xl border border-white/15 rounded-2xl;
   }
   .glass-sm {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl;
+    @apply bg-white/[0.07] backdrop-blur-md border border-white/15 rounded-xl;
   }
   .glass-lg {
-    @apply bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl;
+    @apply bg-white/[0.07] backdrop-blur-2xl border border-white/15 rounded-3xl;
   }
   .glass-hover {
-    @apply glass transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-primary/5;
+    @apply glass transition-all duration-300 hover:bg-white/[0.12] hover:border-white/25 hover:shadow-lg hover:shadow-primary/20;
   }
 
-  /* ═══ Surface System (solid backgrounds for depth) ═══ */
+  /* ═══ Surface System — 提升对比度 ═══ */
   .surface {
-    @apply bg-surface border border-white/[0.06] rounded-2xl;
+    @apply bg-surface border border-white/10 rounded-2xl;
   }
   .surface-light {
-    @apply bg-surface-light border border-white/[0.08] rounded-2xl;
+    @apply bg-surface-light border border-white/[0.12] rounded-2xl;
   }
   .surface-hover {
-    @apply surface transition-all duration-300 hover:bg-surface-light hover:border-white/[0.12] hover:shadow-lg hover:shadow-primary/5;
+    @apply surface transition-all duration-300 hover:bg-surface-light hover:border-white/20 hover:shadow-lg hover:shadow-primary/10;
   }
 
-  /* ═══ Gradient Text ═══ */
+  /* ═══ Gradient Text — 更鲜明的霓虹渐变 ═══ */
   .gradient-text {
-    @apply bg-gradient-to-r from-primary via-accent-purple to-accent-cyan bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 bg-clip-text text-transparent;
   }
   .gradient-text-subtle {
-    @apply bg-gradient-to-r from-white/80 via-white/60 to-white/40 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-white/90 via-white/70 to-white/50 bg-clip-text text-transparent;
   }
 
-  /* ═══ Gradient Border ═══ */
+  /* ═══ Gradient Border — 更亮的霓虹边框 ═══ */
   .gradient-border {
     @apply relative;
   }
   .gradient-border::before {
     content: '';
     @apply absolute inset-0 rounded-2xl p-[1px];
-    background: linear-gradient(135deg, #6366F1, #A855F7, #06B6D4);
+    background: linear-gradient(135deg, #818CF8, #A855F7, #06B6D4);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: exclude;
     -webkit-mask-composite: xor;
     pointer-events: none;
   }
 
-  /* ═══ Shadow System ═══ */
+  /* ═══ Shadow System — 更强的霓虹发光 ═══ */
   .shadow-glow {
-    box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 30px -8px rgba(99, 102, 241, 0.35);
   }
   .shadow-glow-lg {
-    box-shadow: 0 0 60px -15px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 60px -15px rgba(99, 102, 241, 0.45);
   }
   .shadow-elevated {
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 30px -10px rgba(99, 102, 241, 0.15);
   }
 
-  /* ═══ Status Badges ═══ */
+  /* ═══ Status Badges — 更鲜明 ═══ */
   .badge {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium;
   }
   .badge-success {
-    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+    @apply bg-emerald-500/15 text-emerald-300 border border-emerald-500/30;
   }
   .badge-warning {
-    @apply bg-amber-500/10 text-amber-400 border border-amber-500/20;
+    @apply bg-amber-500/15 text-amber-300 border border-amber-500/30;
   }
   .badge-danger {
-    @apply bg-red-500/10 text-red-400 border border-red-500/20;
+    @apply bg-red-500/15 text-red-300 border border-red-500/30;
   }
   .badge-info {
-    @apply bg-indigo-500/10 text-indigo-400 border border-indigo-500/20;
+    @apply bg-indigo-500/15 text-indigo-300 border border-indigo-500/30;
   }
   .badge-neutral {
-    @apply bg-white/5 text-white/60 border border-white/10;
+    @apply bg-white/[0.08] text-white/70 border border-white/15;
   }
 
-  /* ═══ Divider ═══ */
+  /* ═══ Divider — 更明显 ═══ */
   .divider {
-    @apply h-px bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    @apply h-px bg-gradient-to-r from-transparent via-white/15 to-transparent;
   }
 
   /* ═══ Micro-interactions ═══ */
   .btn-primary {
-    @apply relative overflow-hidden px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98];
+    @apply relative overflow-hidden px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98];
   }
   .btn-primary::before {
     content: '';
@@ -115,7 +120,7 @@
   }
 
   .btn-ghost {
-    @apply px-4 py-2 rounded-xl border border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.06] hover:border-white/[0.15] transition-all duration-200;
+    @apply px-4 py-2 rounded-xl border border-white/[0.12] text-white/70 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.2] transition-all duration-200;
   }
 
   /* ═══ Card Hover Effects ═══ */
@@ -125,7 +130,7 @@
 
   /* ═══ Data Visualization ═══ */
   .chart-container {
-    @apply relative rounded-2xl p-5 border border-white/[0.06] bg-surface/50 backdrop-blur-sm;
+    @apply relative rounded-2xl p-5 border border-white/10 bg-surface/60 backdrop-blur-sm;
   }
 
   /* ═══ Typography ═══ */
@@ -143,11 +148,11 @@
   }
 }
 
-/* ═══ Scrollbar ═══ */
+/* ═══ Scrollbar — 更亮的科技感滚动条 ═══ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
 
 /* ═══ CountUp animation ═══ */
 @keyframes count-up {
@@ -170,13 +175,13 @@
   animation: blink 0.8s infinite;
 }
 
-/* ═══ Skeleton ═══ */
+/* ═══ Skeleton — 更亮的加载骨架 ═══ */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -207,13 +212,13 @@
   100% { background-position: 200% 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
 
-/* ═══ Selection ═══ */
+/* ═══ Selection — 更亮的选中色 ═══ */
 ::selection {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.4);
   color: white;
 }
