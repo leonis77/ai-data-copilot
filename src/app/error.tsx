@@ -17,42 +17,49 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "#0B0F17" }}>
+    <div className="min-h-screen flex items-center justify-center bg-white">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
         className="text-center max-w-md px-6"
       >
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center mb-6">
-          <AlertTriangle className="w-10 h-10 text-red-400/70" />
-        </div>
-        <h2 className="text-2xl font-bold mb-3 text-white/80">{"\u51fa\u9519\u4e86"}</h2>
-        <p className="text-white/30 mb-2 text-sm leading-relaxed">
-          {"\u9875\u9762\u52a0\u8f7d\u65f6\u53d1\u751f\u4e86\u610f\u5916\u9519\u8bef"}
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 15 }}
+          className="w-20 h-20 mx-auto rounded-2xl bg-red-50 flex items-center justify-center mb-6 border border-red-100"
+        >
+          <AlertTriangle className="w-10 h-10 text-red-400" />
+        </motion.div>
+        <h2 className="text-title mb-3 text-primary">{"出错了"}</h2>
+        <p className="text-body mb-2">
+          {"页面加载时发生了意外错误"}
         </p>
         {error.digest && (
-          <p className="text-white/10 text-xs mb-8 font-mono">ID: {error.digest}</p>
+          <p className="text-caption mb-8 font-mono">ID: {error.digest}</p>
         )}
+        {!error.digest && <div className="mb-8" />}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <motion.button
-            whileHover={{ scale: 1.03 }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 15 }}
             onClick={reset}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium text-sm shadow-lg shadow-indigo-500/25"
+            className="btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-xl"
           >
             <RefreshCw className="w-4 h-4" />
-            {"\u91cd\u8bd5"}
+            {"重试"}
           </motion.button>
           <Link href="/">
             <motion.button
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 text-white/50 hover:text-white/70 font-medium text-sm transition-colors"
-              style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.5)" }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-200 text-secondary hover:text-primary hover:border-brand/30 hover:bg-blue-50 font-medium text-sm transition-all duration-200"
             >
               <Home className="w-4 h-4" />
-              {"\u8fd4\u56de\u9996\u9875"}
+              {"返回首页"}
             </motion.button>
           </Link>
         </div>
@@ -60,3 +67,4 @@ export default function ErrorPage({
     </div>
   );
 }
+

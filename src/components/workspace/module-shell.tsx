@@ -10,8 +10,8 @@ export function ModuleShell({ title, aiSummary, children }: { title: string; aiS
         <div className="mb-4">
           <h2 className="text-heading">{title}</h2>
           {aiSummary && (
-            <div className="mt-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
-              <p className="text-body text-white/70 leading-relaxed">{aiSummary}</p>
+            <div className="mt-2 p-3 rounded-xl bg-blue-50 border-blue-100">
+              <p className="text-body text-secondary leading-relaxed">{aiSummary}</p>
             </div>
           )}
         </div>

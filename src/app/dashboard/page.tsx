@@ -151,8 +151,8 @@ export default function DashboardPage() {
         <div className="section-container py-12">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="icon-box bg-indigo-500/10 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+              <div className="icon-box bg-blue-50 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-brand animate-pulse" />
               </div>
               <div>
                 <div className="h-6 w-40 skeleton rounded-lg mb-1.5" />
@@ -162,7 +162,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
               {[1, 2, 3].map(function(i) {
                 return (
-                  <div key={i} className="rounded-2xl p-6 border border-white/[0.06] bg-bg-surface/50">
+                  <div key={i} className="rounded-2xl p-6 border border-gray-200 bg-white card">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-8 h-8 rounded-lg skeleton-pulse" />
                       <div className="flex-1">
@@ -188,20 +188,20 @@ export default function DashboardPage() {
   if (!hasData) {
     return (
       <div className="min-h-screen pt-16 flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}
           className="text-center max-w-md px-6">
-          <motion.div animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative">
-            <div className="absolute inset-0 rounded-3xl bg-indigo-500/5" />
-            <BarChart3 className="w-10 h-10 text-indigo-400/60 relative z-10" />
+            <div className="absolute inset-0 rounded-3xl bg-blue-50" />
+            <BarChart3 className="w-10 h-10 text-brand relative z-10" />
           </motion.div>
-          <h2 className="text-title text-balance mb-3">上传数据开始分析</h2>
+          <h2 className="text-title text-balance mb-4">上传数据开始分析</h2>
           <p className="text-body mb-10 leading-relaxed">
             拖拽上传 Excel 或 CSV 文件<br />AI 将自动诊断您的经营状况
           </p>
           <Link href="/upload">
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
               className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
               <Upload className="w-5 h-5" />上传数据
               <ArrowRight className="w-5 h-5" />
@@ -284,57 +284,57 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen pt-16">
-      <div className="section-container py-8 md:py-12">
+      <div className="section-container py-8 md:py-12 relative">
         {/* Ambient glow */}
         <div className="ambient-glow" />
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="page-header">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="page-header">
           <div className="flex items-center gap-4 mb-2">
             <div>
               <h1 className="text-title">
-                <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">经营诊断</span>
+                <span className="bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text text-transparent">经营诊断</span>
               </h1>
-              {datasetName && <p className="text-caption mt-1 truncate max-w-[200px] md:max-w-none">{datasetName}</p>}
+              {datasetName && <p className="text-caption mt-1.5 truncate max-w-[200px] md:max-w-none">{datasetName}</p>}
             </div>
             <TableSelector onSelect={handleSelect} className="ml-auto" />
           </div>
           {relations.length > 0 && (
-            <div className="mt-3 p-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm text-indigo-300/80">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mt-4 p-4 rounded-xl border border-blue-100 bg-blue-50/50 flex items-center gap-3 hover-lift">
+              <div className="icon-box bg-blue-100 shrink-0"><Sparkles className="w-4 h-4 text-brand" /></div>
+              <span className="text-sm text-secondary">
                 检测到 {relations.length} 组数据关联关系：{relations[0].description}
               </span>
-              <Link href="/chat?auto=compare" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+              <Link href="/chat?auto=compare" className="ml-auto text-xs text-brand hover:text-brand-dark transition-colors duration-200 shrink-0 font-medium">
                 AI 跨平台分析 →
               </Link>
-            </div>
+            </motion.div>
           )}
         </motion.div>
 
         {/* Row 1: Profit KPI Bar */}
         {evidenceCards.length > 0 && (
-          <div className="section-gap">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="section-gap">
             <ProfitBar evidenceCards={evidenceCards} />
-          </div>
+          </motion.div>
         )}
 
         {/* Row 2: Profit Ranking + Cost Structure */}
         {evidenceCards.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 section-gap">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 section-gap">
             <div className="md:col-span-3">
               <ProfitRanking evidenceCards={evidenceCards} />
             </div>
             <div className="md:col-span-2">
               <CostStructure evidenceCards={evidenceCards} />
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Row 3: Diagnoses Feed */}
         {diagnoses.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="section-gap">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-3 mb-4">
               <span className="text-heading">经营诊断</span>
               <span className="text-caption">
                 {criticalDiagnoses.length > 0 ? "🔴 " + criticalDiagnoses.length + " 紧急 " : ""}
@@ -342,29 +342,29 @@ export default function DashboardPage() {
                 {opportunityDiagnoses.length > 0 ? "🟢 " + opportunityDiagnoses.length + " 机会" : ""}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {criticalDiagnoses.map(function(d: any, i: number) {
                 var linkedCards = evidenceCards.filter(function(c: any) {
                   return d.products && d.products.some(function(p: string) { return c.productName === p || (typeof p === "string" && p.includes(c.productName)); });
                 });
                 return (
-                  <motion.div key={"crit-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                    className="rounded-xl p-4 border border-red-500/20 bg-red-500/[0.04]">
+                  <motion.div key={"crit-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.4, ease: "easeOut" }}
+                    className="rounded-xl p-4 border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.06] transition-colors duration-200">
                     <div className="flex items-start gap-3">
                       <span className="text-red-400 text-sm mt-0.5">❌</span>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium text-red-300/90">{d.title}</h4>
-                        <p className="text-body mt-1 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-indigo-400/70 mt-1">→ {d.action}</p>}
-                        {d.impact && <p className="text-xs text-green-400/60 mt-0.5">预期: {d.impact}</p>}
-                        {d.reference && <p className="text-caption mt-1">📎 {d.reference}</p>}
+                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-sm text-brand/80 mt-2 font-medium">→ {d.action}</p>}
+                        {d.impact && <p className="text-xs text-emerald-500/60 mt-1.5">预期: {d.impact}</p>}
+                        {d.reference && <p className="text-caption mt-1.5">📎 {d.reference}</p>}
                         {d.products && d.products.length > 0 && (
-                          <div className="flex items-center gap-1 mt-2">
+                          <div className="flex items-center gap-1.5 mt-3">
                             {d.products.map(function(p: string, pi: number) {
                               var cardIdx = evidenceCards.findIndex(function(c: any) { return c.productName === p; });
                               return (
-                                <span key={pi} className="text-caption px-1.5 py-0.5 rounded bg-white/[0.04] text-white/25">
-                                  {p}{cardIdx >= 0 ? " · 卡片#" + cardIdx : ""}
+                                <span key={pi} className="text-caption px-2 py-0.5 rounded bg-gray-100 text-faint font-mono">
+                                  {p}{cardIdx >= 0 ? " · #" + cardIdx : ""}
                                 </span>
                               );
                             })}
@@ -377,15 +377,15 @@ export default function DashboardPage() {
               })}
               {warningDiagnoses.map(function(d: any, i: number) {
                 return (
-                  <motion.div key={"warn-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.15 }}
-                    className="rounded-xl p-4 border border-amber-500/15 bg-amber-500/[0.03]">
+                  <motion.div key={"warn-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.15, duration: 0.4, ease: "easeOut" }}
+                    className="rounded-xl p-4 border border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.05] transition-colors duration-200">
                     <div className="flex items-start gap-3">
                       <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium text-amber-300/80">{d.title}</h4>
-                        <p className="text-body mt-1 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-indigo-400/60 mt-1">→ {d.action}</p>}
-                        {d.reference && <p className="text-caption mt-1">📎 {d.reference}</p>}
+                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-sm text-brand/70 mt-2 font-medium">→ {d.action}</p>}
+                        {d.reference && <p className="text-caption mt-1.5">📎 {d.reference}</p>}
                       </div>
                     </div>
                   </motion.div>
@@ -393,15 +393,15 @@ export default function DashboardPage() {
               })}
               {opportunityDiagnoses.map(function(d: any, i: number) {
                 return (
-                  <motion.div key={"opp-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.3 }}
-                    className="rounded-xl p-4 border border-green-500/10 bg-green-500/[0.02]">
+                  <motion.div key={"opp-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.3, duration: 0.4, ease: "easeOut" }}
+                    className="rounded-xl p-4 border border-emerald-500/10 bg-emerald-500/[0.02] hover:bg-emerald-500/[0.04] transition-colors duration-200">
                     <div className="flex items-start gap-3">
-                      <span className="text-green-400 text-sm mt-0.5">💡</span>
+                      <span className="text-emerald-400 text-sm mt-0.5">💡</span>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-green-300/70">{d.title}</h4>
-                        <p className="text-body mt-1 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-indigo-400/60 mt-1">→ {d.action}</p>}
-                        {d.impact && <p className="text-xs text-green-400/50 mt-0.5">预期: {d.impact}</p>}
+                        <h4 className="text-sm font-medium text-emerald-300/70">{d.title}</h4>
+                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
+                        {d.action && <p className="text-sm text-brand/70 mt-2 font-medium">→ {d.action}</p>}
+                        {d.impact && <p className="text-xs text-emerald-400/50 mt-1.5">预期: {d.impact}</p>}
                       </div>
                     </div>
                   </motion.div>
@@ -413,22 +413,22 @@ export default function DashboardPage() {
 
         {/* Empty diagnosis state */}
         {diagnoses.length === 0 && evidenceCards.length === 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="section-gap p-6 rounded-2xl border border-white/[0.04] text-center card">
-            <Sparkles className="w-6 h-6 text-white/15 mx-auto mb-2" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }} className="section-gap p-8 rounded-2xl border border-gray-100 text-center card">
+            <div className="icon-box bg-blue-50 mx-auto mb-3"><Sparkles className="w-5 h-5 text-brand" /></div>
             <p className="text-body">AI 正在分析您的经营数据...</p>
-            <p className="text-caption mt-1">若持续未显示，请确认数据中包含价格和商品名称字段</p>
+            <p className="text-caption mt-2">若持续未显示，请确认数据中包含价格和商品名称字段</p>
           </motion.div>
         )}
 
         {/* Row 4: Actions + Cross-platform */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 section-gap">
           {actions.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
-              <div className="flex items-center gap-2 mb-3">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5, ease: "easeOut" }}>
+              <div className="flex items-center gap-2.5 mb-4">
                 <span className="text-heading">行动建议</span>
                 <span className="text-caption">{actions.length} 条</span>
               </div>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
                 {actions.map(function(act, ai) {
                   return (
                     <div key={ai} className="space-y-2">
@@ -467,7 +467,7 @@ export default function DashboardPage() {
           )}
 
           {hasMultiPlatform && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.5 }}>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}>
               <CrossPlatformView
                 comparisons={crossPlatform}
                 coveredPlatforms={
@@ -484,16 +484,16 @@ export default function DashboardPage() {
           )}
 
           {!hasMultiPlatform && currentPlatform && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-              className="rounded-2xl p-5 border border-indigo-500/10 bg-indigo-500/[0.03] flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-indigo-400/40 shrink-0" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }}
+              className="rounded-xl p-5 border border-blue-100 bg-blue-50/30 flex items-center gap-3 hover-lift">
+              <div className="icon-box bg-blue-100 shrink-0"><Sparkles className="w-5 h-5 text-brand" /></div>
               <div>
                 <p className="text-body">
                   当前仅{getPlatformLabel(currentPlatform)}平台数据
                 </p>
-                <p className="text-caption mt-0.5">上传其他平台数据后将自动展示跨平台利润对比</p>
+                <p className="text-caption mt-1">上传其他平台数据后将自动展示跨平台利润对比</p>
               </div>
-              <Link href="/upload" className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+              <Link href="/upload" className="ml-auto text-xs text-brand hover:text-brand-dark transition-colors duration-200 shrink-0 font-medium">
                 上传更多 →
               </Link>
             </motion.div>
@@ -507,8 +507,8 @@ export default function DashboardPage() {
 
         {/* Row 4.5: Evidence Cards */}
         {evidenceCards.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5 }} className="section-gap">
-            <div className="flex items-center gap-2 mb-3">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }} className="section-gap">
+            <div className="flex items-center gap-2.5 mb-4">
               <span className="text-heading">证据卡</span>
               <span className="text-caption">{evidenceCards.length} 张</span>
             </div>
@@ -518,7 +518,7 @@ export default function DashboardPage() {
               })}
             </div>
             {evidenceCards.length > 3 && (
-              <p className="text-caption text-center mt-2">
+              <p className="text-caption text-center mt-3">
                 +{evidenceCards.length - 3} 张更多证据卡 · 切换到 Chat 查看全部
               </p>
             )}
@@ -527,13 +527,13 @@ export default function DashboardPage() {
 
         {/* Row 5: AI Analysis */}
         {aiSummary && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}
-            className="rounded-2xl p-6 border border-white/[0.06] card">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.5, ease: "easeOut" }}
+            className="rounded-2xl p-6 border border-gray-200 card hover-lift">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="icon-box bg-blue-50"><Sparkles className="w-4 h-4 text-brand" /></div>
               <h2 className="text-heading">AI 综合分析</h2>
               {decisionChain?.aiExplanation?.confidence !== undefined && (
-                <span className={"text-caption px-2 py-0.5 rounded-full " + (
+                <span className={"text-caption px-2.5 py-1 rounded-full " + (
                   decisionChain.aiExplanation.confidence >= 0.8 ? "badge-success" :
                   decisionChain.aiExplanation.confidence >= 0.5 ? "badge-warning" :
                   "badge-danger"
@@ -549,13 +549,13 @@ export default function DashboardPage() {
               {aiSummary}
             </div>
             {decisionChain?.meta && (
-              <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center gap-4 text-caption">
-                <span>行业: {decisionChain.meta.industry?.name || "—"}</span>
+              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-4 text-caption">
+                <span className="font-mono">行业: {decisionChain.meta.industry?.name || "—"}</span>
                 {decisionChain.meta.pipelineLatency !== undefined && (
-                  <span>分析耗时: {(decisionChain.meta.pipelineLatency / 1000).toFixed(1)}s</span>
+                  <span className="font-mono">分析耗时: {(decisionChain.meta.pipelineLatency / 1000).toFixed(1)}s</span>
                 )}
                 {decisionChain.meta.freshnessScore !== undefined && (
-                  <span>知识时效: {Math.round(decisionChain.meta.freshnessScore)}%</span>
+                  <span className="font-mono">知识时效: {Math.round(decisionChain.meta.freshnessScore)}%</span>
                 )}
               </div>
             )}
@@ -564,12 +564,12 @@ export default function DashboardPage() {
 
         {/* Data limitation state */}
         {insufficientData && !decisionChain && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-            className="rounded-2xl p-6 border border-amber-500/15 bg-amber-500/[0.03] card">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
+            className="rounded-2xl p-6 border border-amber-200 bg-amber-50 card">
             <p className="text-sm text-amber-300/80 font-medium">当前数据不足以生成完整经营决策</p>
-            <p className="text-body mt-1">{insufficientData.content}</p>
+            <p className="text-body mt-2">{insufficientData.content}</p>
             {insufficientData.limitations.length > 0 && (
-              <ul className="mt-3 space-y-1 text-body list-disc pl-4">
+              <ul className="mt-4 space-y-2 text-body list-disc pl-5">
                 {insufficientData.limitations.map(function(item: string) { return <li key={item}>{item}</li>; })}
               </ul>
             )}
@@ -578,10 +578,10 @@ export default function DashboardPage() {
 
         {/* Pipeline error state */}
         {pipelineError && !decisionChain && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-            className="rounded-2xl p-6 border border-red-500/15 bg-red-500/[0.03] card">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
+            className="rounded-2xl p-6 border border-red-200 bg-red-50 card">
             <div className="flex items-center gap-4">
-              <span className="text-red-400 text-lg">⚠️</span>
+              <div className="icon-box bg-red-100 shrink-0"><span className="text-red-400 text-lg">⚠️</span></div>
               <div className="flex-1">
                 <p className="text-sm text-red-300/80 font-medium">AI 分析暂时不可用</p>
                 <p className="text-body mt-1">{pipelineError}</p>
@@ -597,13 +597,13 @@ export default function DashboardPage() {
 
         {/* Pipeline loading state */}
         {!decisionChain && !insufficientData && !pipelineError && !aiSummary && evidenceCards.length === 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-            className="rounded-2xl p-6 border border-white/[0.04] card">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
+            className="rounded-2xl p-6 border border-gray-100 card">
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"0ms"}} />
-                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"150ms"}} />
-                <span className="w-2 h-2 rounded-full bg-indigo-400/40 animate-bounce" style={{animationDelay:"300ms"}} />
+                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"0ms"}} />
+                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"150ms"}} />
+                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"300ms"}} />
               </div>
               <span className="text-body">AI 正在分析经营数据并生成诊断...</span>
             </div>

@@ -52,6 +52,10 @@ export interface ProfitSummary {
   netMonthly: number;
   margin: number;
   roi: number;
+  /** 月销量 */
+  monthlySales: number;
+  /** 月收入 */
+  monthlyRevenue: number;
 }
 
 /** 成本归因项：每项成本占总成本的比例 + 与行业基准的偏差 */
@@ -94,6 +98,10 @@ export interface EvidenceCard {
   knowledgeRefs: string[];
   /** 知识库条目置信度明细（每个引用条目的置信度） */
   knowledgeConfidence?: Array<{ refId: string; confidence: number }>;
+  /** 月销量 */
+  monthlySales: number;
+  /** 月收入（售价 × 月销量） */
+  monthlyRevenue: number;
   /** 进货成本是否为估算值（非从数据中提取） */
   purchaseCostEstimated?: boolean;
   /** 行业基准对比（可选） */

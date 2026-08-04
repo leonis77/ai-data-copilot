@@ -30,16 +30,16 @@ export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary 
   return (
     <ModuleShell title={t.workspace.categoryBreakdown} aiSummary={aiSummary}>
       <div className="mb-4 flex gap-4">
-        <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+        <div className="text-center p-3 rounded-xl bg-gray-50">
           <span className="text-xl font-bold gradient-text">{data.length}</span>
-          <p className="text-xs text-white/40">{t.workspace.categories}</p>
+          <p className="text-xs text-tertiary">{t.workspace.categories}</p>
         </div>
-        <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+        <div className="text-center p-3 rounded-xl bg-gray-50">
           <span className="text-xl font-bold gradient-text">{concentration}%</span>
-          <p className="text-xs text-white/40">{t.workspace.top3Concentration}</p>
+          <p className="text-xs text-tertiary">{t.workspace.top3Concentration}</p>
         </div>
       </div>
-      {data.length > 0 ? <PieChart title={t.workspace.categoryShare} data={data} /> : <p className="text-sm text-white/30 text-center py-8">{t.workspace.noCategoryData}</p>}
+      {data.length > 0 ? <PieChart title={t.workspace.categoryShare} data={data} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noCategoryData}</p>}
     </ModuleShell>
   );
 }

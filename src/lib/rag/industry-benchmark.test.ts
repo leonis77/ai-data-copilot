@@ -38,8 +38,8 @@ describe("matchBenchmark", () => {
     });
     const benchmark = matchBenchmark(result);
     expect(benchmark).not.toBeNull();
-    expect(benchmark.title).toContain("3C数码");
-    expect(benchmark.metrics.length).toBeGreaterThan(0);
+    expect(benchmark!.title).toContain("3C数码");
+    expect(benchmark!.metrics.length).toBeGreaterThan(0);
   });
 
   it("应包含毛利率、净利率、退货率、广告费率指标", () => {
@@ -52,7 +52,7 @@ describe("matchBenchmark", () => {
     });
     const benchmark = matchBenchmark(result);
     expect(benchmark).not.toBeNull();
-    const metricNames = benchmark.metrics.map((m: any) => m.name);
+    const metricNames = benchmark!.metrics.map((m: any) => m.name);
     expect(metricNames).toContain("毛利率");
     expect(metricNames).toContain("净利率");
   });
@@ -78,8 +78,8 @@ describe("matchBenchmark", () => {
     });
     const benchmark = matchBenchmark(result);
     expect(benchmark).not.toBeNull();
-    expect(benchmark.source).toBeTruthy();
-    expect(benchmark.confidence).toBeGreaterThan(0);
+    expect(benchmark!.source).toBeTruthy();
+    expect(benchmark!.confidence).toBeGreaterThan(0);
   });
 });
 

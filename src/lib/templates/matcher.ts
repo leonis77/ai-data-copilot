@@ -92,7 +92,9 @@ function scoreTemplate(
     var colName = findColumnByName(columns, keyword, template.fieldMap);
     if (colName) {
       requiredMatched++;
-      columnMapping[colName] = findStandardName(colName, template.fieldMap);
+      // 用实际列名作 key，确保映射到正确的 standard field
+      var stdName = findStandardName(colName, template.fieldMap);
+      columnMapping[colName] = stdName;
     }
   }
 
@@ -124,11 +126,16 @@ function scoreTemplate(
     ? optionalMatched / rules.optionalColumns.length
     : 0.5; // 没有可选列时给中等分
 
-  var confidence = requiredWeight * requiredRate
+  // required 分量归一化到 [0,1]：用最大 requiredColumns 总数做分母
+  // 保证 confidence 始终 <= 1.0，同时保留 cardinality 信号（3/4 > 2/2）
+  var MAX_REQUIRED_COLS = 4;
+  var requiredComponent = requiredRate * rules.requiredColumns.length / MAX_REQUIRED_COLS;
+  var confidence = requiredWeight * requiredComponent
     + optionalWeight * optionalRate
     + colCountWeight * colCountScore;
 
   confidence = Math.round(confidence * 100) / 100;
+  confidence = Math.max(0, Math.min(confidence, 1.0)); // clamp to [0, 1]
 
   return {
     template: template,
@@ -147,6 +154,60 @@ function scoreTemplate(
 // Internal: Column name matching
 // ============================================================================
 
+/** 中文分词器（浏览器/Node 均支持） */
+var segmenter = typeof Intl !== "undefined" && Intl.Segmenter
+  ? new Intl.Segmenter("zh-CN", { granularity: "word" })
+  : null;
+
+/**
+ * 将字符串拆成「词段」数组。
+ * 优先用 Intl.Segmenter 做中文分词；降级用正则按中文/非中文分块。
+ *
+ * 例: "京东订单号" → ["京东", "订单号"]
+ *     "订单ID"    → ["订单", "ID"]
+ *     "SKU编码"   → ["SKU", "编码"]
+ */
+function toWordSegments(text: string): string[] {
+  if (segmenter) {
+    var segs: string[] = [];
+    var iterator = segmenter.segment(text);
+    for (var s of iterator) {
+      if ((s as any).isWordLike) segs.push((s as any).segment);
+    }
+    return segs;
+  }
+  // 降级：逐个中文字符 + 连续非中文分块
+  // 注意：无 Segmenter 时精度下降，但保证不会出现「子串跨词边界误匹配」
+  return text.match(/[一-鿿]|[a-z0-9_]+/gi) || [];
+}
+
+/**
+ * 检查 keyword 是否以「词边界」形式出现在 text 中。
+ *
+ * 规则（滑动窗口）：
+ * - text === keyword → 命中
+ * - keyword 的词段序列作为 text 词段序列的连续子序列出现 → 命中
+ *   例: keyword="金额" 命中 text="实付金额"（seg ["实","付","金额"] 的末尾 ["金额"]）
+ *   例: keyword="订单" 命中 text="订单号"（seg ["订单","号"] 的开头 ["订单"]）
+ *   例: keyword="订单ID" 不命中 text="订单号"（seg ["订单","号"] vs ["订单","ID"] 末尾不同）
+ *   例: keyword="收货" 命中 text="收货地址"（seg ["收","货","地址"] 的子序列 ["货","址"]? No!）
+ *   Wait — "收货" = ["收","货"], "收货地址" = ["收","货","址"]. Subsequence ["收","货"] at start → 命中 ✓
+ */
+function matchesAtWordBoundary(text: string, keyword: string): boolean {
+  if (text === keyword) return true;
+  var textSegs = toWordSegments(text);
+  var kwSegs = toWordSegments(keyword);
+  // Sliding window: keyword segments must appear as consecutive subsequence of text segments
+  for (var start = 0; start <= textSegs.length - kwSegs.length; start++) {
+    var match = true;
+    for (var k = 0; k < kwSegs.length; k++) {
+      if (textSegs[start + k] !== kwSegs[k]) { match = false; break; }
+    }
+    if (match) return true;
+  }
+  return false;
+}
+
 /**
  * 根据关键词查找匹配的列名
  *
@@ -161,32 +222,35 @@ function findColumnByName(
 ): string | null {
   var kwLower = keyword.toLowerCase();
 
-  // 精确匹配：列名包含关键词
+  // ── Step 1: direct token match against column names ──
   for (var i = 0; i < columns.length; i++) {
-    if (columns[i].toLowerCase().indexOf(kwLower) !== -1) {
+    if (matchesAtWordBoundary(columns[i].toLowerCase(), kwLower)) {
       return columns[i];
     }
   }
 
-  // 别名匹配：fieldMap 中的别名
+  // ── Step 2: fieldMap key match ──
   var fieldKeys = Object.keys(fieldMap);
   for (var fi = 0; fi < fieldKeys.length; fi++) {
-    var field = fieldMap[fieldKeys[fi]];
-
-    // 检查主键名
-    if (fieldKeys[fi].toLowerCase().indexOf(kwLower) !== -1) {
+    var key = fieldKeys[fi];
+    var keyLower = key.toLowerCase();
+    // keyword must match the fieldMap key at word boundary
+    if (matchesAtWordBoundary(keyLower, kwLower)) {
+      // find a column that also contains the full fieldMap key at word boundary
       for (var ci = 0; ci < columns.length; ci++) {
-        if (columns[ci].toLowerCase().indexOf(fieldKeys[fi].toLowerCase()) !== -1) {
+        if (matchesAtWordBoundary(columns[ci].toLowerCase(), keyLower)) {
           return columns[ci];
         }
       }
     }
 
-    // 检查别名
-    for (var ai = 0; ai < field.aliases.length; ai++) {
-      if (field.aliases[ai].toLowerCase().indexOf(kwLower) !== -1) {
+    // ── Step 3: alias match ──
+    var aliases = fieldMap[key].aliases;
+    for (var ai = 0; ai < aliases.length; ai++) {
+      var aliasLower = aliases[ai].toLowerCase();
+      if (matchesAtWordBoundary(aliasLower, kwLower)) {
         for (var cj = 0; cj < columns.length; cj++) {
-          if (columns[cj].toLowerCase().indexOf(field.aliases[ai].toLowerCase()) !== -1) {
+          if (matchesAtWordBoundary(columns[cj].toLowerCase(), aliasLower)) {
             return columns[cj];
           }
         }
@@ -198,33 +262,37 @@ function findColumnByName(
 }
 
 /**
- * 根据原始列名查找标准字段名
+ * 根据原始列名查找标准字段名（词边界感知，精确优先）
+ *
+ * 优先级：
+ * 1. colLower 完整命中某个 fieldMap key（边界感知）→ 最高优先级
+ * 2. colLower 完整命中某个 alias（边界感知）→ 次优先级（处理 alias-only 场景）
+ *
+ * 不使用「keyword 是 fieldMap key 子段」的反向匹配，防止短词误匹配。
  */
 function findStandardName(
   columnName: string,
   fieldMap: Record<string, FieldMapping>
 ): string {
   var colLower = columnName.toLowerCase();
-
   var fieldKeys = Object.keys(fieldMap);
+
+  // Step 1: col name is (or contains at word boundary) a fieldMap key
   for (var i = 0; i < fieldKeys.length; i++) {
-    var key = fieldKeys[i];
-    var field = fieldMap[key];
-
-    // 主键匹配
-    if (colLower.indexOf(key.toLowerCase()) !== -1 || key.toLowerCase().indexOf(colLower) !== -1) {
-      return field.standard;
+    if (matchesAtWordBoundary(colLower, fieldKeys[i].toLowerCase())) {
+      return fieldMap[fieldKeys[i]].standard;
     }
+  }
 
-    // 别名匹配
-    for (var ai = 0; ai < field.aliases.length; ai++) {
-      if (colLower.indexOf(field.aliases[ai].toLowerCase()) !== -1 ||
-        field.aliases[ai].toLowerCase().indexOf(colLower) !== -1) {
-        return field.standard;
+  // Step 2: col name matches a fieldMap alias at word boundary
+  for (var i = 0; i < fieldKeys.length; i++) {
+    var aliases = fieldMap[fieldKeys[i]].aliases;
+    for (var ai = 0; ai < aliases.length; ai++) {
+      if (matchesAtWordBoundary(colLower, aliases[ai].toLowerCase())) {
+        return fieldMap[fieldKeys[i]].standard;
       }
     }
   }
 
-  // 兜底：返回原始列名
   return columnName;
 }

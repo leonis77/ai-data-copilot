@@ -5,13 +5,22 @@ import { chatWithData } from "@/lib/ai";
 import { computeStats } from "@/lib/parser";
 import { ApiErrorCode, apiError } from "@/lib/errors";
 import { logger, withRequestId } from "@/lib/logger";
+import { readJsonBody } from "@/lib/api-utils";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
+    }
+
     try {
-      const body = await request.json().catch(function () { return {}; });
-      const messages = Array.isArray(body.messages) ? body.messages : [];
+      const body = await readJsonBody(request);
+      if (body instanceof NextResponse) return body;
+      const messages = Array.isArray(body?.messages) ? body.messages : [];
 
       if (messages.length === 0) {
         return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "消息不能为空", { recoverable: true }), { status: 400 });

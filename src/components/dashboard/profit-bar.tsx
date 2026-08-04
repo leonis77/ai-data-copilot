@@ -32,38 +32,38 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
       className="card-elevated p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={cn("icon-box", isPositive ? "bg-emerald-500/10" : "bg-red-500/10")}>
+          <div className={cn("icon-box", isPositive ? "bg-emerald-50" : "bg-red-50")}>
             {isPositive ? (
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
             ) : (
-              <TrendingDown className="w-5 h-5 text-red-400" />
+              <TrendingDown className="w-5 h-5 text-red-500" />
             )}
           </div>
           <div>
             <p className="text-heading">本月预估利润</p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-caption text-emerald-400/80">{profitable.length} 盈利</span>
-              <span className="text-white/10">·</span>
-              <span className="text-caption text-red-400/80">{losing.length} 亏损</span>
+              <span className="text-caption text-emerald-500/80">{profitable.length} 盈利</span>
+              <span className="text-faint">·</span>
+              <span className="text-caption text-red-500/80">{losing.length} 亏损</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06]">
-          <Activity className="w-3.5 h-3.5 text-white/40" />
-          <span className="text-caption text-white/50 font-mono">{healthyRatio}% 健康</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100">
+          <Activity className="w-3.5 h-3.5 text-brand" />
+          <span className="text-caption text-brand font-mono">{healthyRatio}% 健康</span>
         </div>
       </div>
 
       {/* Big number */}
       <div className="mb-5">
         <div className="flex items-baseline gap-2">
-          <span className={"text-5xl font-bold font-mono tracking-tight " + (isPositive ? "text-emerald-400" : "text-red-400")}>
+          <span className={"text-5xl font-bold font-mono tracking-tight " + (isPositive ? "text-emerald-500" : "text-red-500")}>
             {isPositive ? "+" : "−"}¥{Math.abs(Math.round(totalMonthlyProfit)).toLocaleString()}
           </span>
         </div>
@@ -71,7 +71,7 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
       </div>
 
       {/* Health bar */}
-      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-5">
+      <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-5">
         <div className="flex h-full">
           <div
             className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
@@ -89,39 +89,39 @@ export function ProfitBar({ evidenceCards }: ProfitBarProps) {
       {/* 3 mini cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {topEarner && topEarner.profit.netMonthly > 0 && (
-          <div className="rounded-xl p-3.5 border border-emerald-500/10 bg-emerald-500/[0.04] group hover:bg-emerald-500/[0.06] transition-colors">
+          <div className="rounded-xl p-3.5 border border-emerald-200 bg-emerald-50/80 group hover:bg-emerald-50 transition-colors duration-200">
             <div className="flex items-center gap-1.5 mb-2">
-              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">最赚钱</p>
+              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
+              <p className="text-caption text-faint uppercase tracking-wider font-medium">最赚钱</p>
             </div>
-            <p className="text-sm text-white/70 font-medium truncate mb-1">{topEarner.productName}</p>
-            <p className="text-sm font-mono font-bold text-emerald-400">
+            <p className="text-sm text-secondary font-medium truncate mb-1">{topEarner.productName}</p>
+            <p className="text-sm font-mono font-bold text-emerald-500">
               +¥{Math.abs(Math.round(topEarner.profit.netMonthly)).toLocaleString()}
             </p>
           </div>
         )}
 
         {worstLoser && worstLoser.profit.netMonthly < 0 && (
-          <div className="rounded-xl p-3.5 border border-red-500/10 bg-red-500/[0.04] group hover:bg-red-500/[0.06] transition-colors">
+          <div className="rounded-xl p-3.5 border border-red-200 bg-red-50/80 group hover:bg-red-50 transition-colors duration-200">
             <div className="flex items-center gap-1.5 mb-2">
-              <ArrowDownRight className="w-3.5 h-3.5 text-red-400" />
-              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">最亏损</p>
+              <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
+              <p className="text-caption text-faint uppercase tracking-wider font-medium">最亏损</p>
             </div>
-            <p className="text-sm text-white/70 font-medium truncate mb-1">{worstLoser.productName}</p>
-            <p className="text-sm font-mono font-bold text-red-400">
+            <p className="text-sm text-secondary font-medium truncate mb-1">{worstLoser.productName}</p>
+            <p className="text-sm font-mono font-bold text-red-500">
               −¥{Math.abs(Math.round(worstLoser.profit.netMonthly)).toLocaleString()}
             </p>
           </div>
         )}
 
         {bestMargin && (
-          <div className="rounded-xl p-3.5 border border-indigo-500/10 bg-indigo-500/[0.04] group hover:bg-indigo-500/[0.06] transition-colors">
+          <div className="rounded-xl p-3.5 border border-blue-200 bg-blue-50/80 group hover:bg-blue-50 transition-colors duration-200">
             <div className="flex items-center gap-1.5 mb-2">
-              <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
-              <p className="text-caption text-white/30 uppercase tracking-wider font-medium">利润率最优</p>
+              <DollarSign className="w-3.5 h-3.5 text-brand" />
+              <p className="text-caption text-faint uppercase tracking-wider font-medium">利润率最优</p>
             </div>
-            <p className="text-sm text-white/70 font-medium truncate mb-1">{bestMargin.productName}</p>
-            <p className="text-sm font-mono font-bold text-indigo-400">
+            <p className="text-sm text-secondary font-medium truncate mb-1">{bestMargin.productName}</p>
+            <p className="text-sm font-mono font-bold text-brand">
               {bestMargin.profit.margin >= 0 ? "+" : "−"}{Math.abs(bestMargin.profit.margin)}%
             </p>
           </div>

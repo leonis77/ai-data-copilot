@@ -16,14 +16,13 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="rounded-2xl border border-cyan-500/10 overflow-hidden"
-      style={{ background: "rgba(6,182,212,0.03)", backdropFilter: "blur(16px)" }}
+      className="rounded-2xl border border-blue-100 overflow-hidden bg-blue-50/50"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-cyan-500/10 flex items-center gap-2">
-        <Layers className="w-4 h-4 text-cyan-400" />
-        <span className="text-sm font-semibold text-cyan-300">跨数据集对比</span>
-        <span className="text-[10px] text-cyan-400/50 ml-auto">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+        <Layers className="w-4 h-4 text-brand" />
+        <span className="text-sm font-semibold text-primary">跨数据集对比</span>
+        <span className="text-xs text-tertiary ml-auto">
           {data.length} 组关联
         </span>
       </div>
@@ -31,15 +30,15 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
       {/* Content */}
       {data.map(function(cd, idx) {
         return (
-          <div key={idx} className="px-4 py-3 space-y-3 border-b border-cyan-500/5 last:border-0">
+          <div key={idx} className="px-4 py-3 space-y-3 border-b border-gray-100 last:border-0">
             {/* Dataset name + overlap */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white/80">
+              <span className="text-sm font-medium text-primary">
                 关联到：{cd.relatedDatasetName}
               </span>
-              <span className="text-[10px] text-white/30">
+              <span className="text-xs text-faint">
                 实体重叠：{cd.entityOverlap.matched}/{cd.entityOverlap.totalCurrent} 商品
-                <span className="text-cyan-400/60 ml-1">
+                <span className="text-brand ml-1">
                   ({cd.entityOverlap.overlapRate}%)
                 </span>
               </span>
@@ -48,13 +47,13 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
             {/* Price comparison table */}
             {cd.priceComparisons.length > 0 && (
               <div>
-                <div className="text-[10px] text-white/25 mb-1.5 uppercase tracking-wider">
+                <div className="text-xs text-faint mb-1.5 uppercase tracking-wider">
                   价格对比
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-white/25 border-b border-white/5">
+                      <tr className="text-faint border-b border-gray-100">
                         <th className="text-left py-1.5 pr-2 font-normal">商品</th>
                         <th className="text-right py-1.5 px-2 font-normal">当前均价</th>
                         <th className="text-right py-1.5 px-2 font-normal">关联均价</th>
@@ -66,20 +65,20 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
                         const up = pc.diff > 0;
                         const zero = Math.abs(pc.diff) < 0.01;
                         return (
-                          <tr key={pi} className="border-b border-white/[0.02]">
-                            <td className="py-1.5 pr-2 text-white/70 truncate max-w-[120px]">
+                          <tr key={pi} className="border-b border-gray-50">
+                            <td className="py-1.5 pr-2 text-primary truncate max-w-[120px]">
                               {pc.entity}
                             </td>
-                            <td className="py-1.5 px-2 text-right font-mono text-white/60">
+                            <td className="py-1.5 px-2 text-right font-mono text-secondary">
                               ¥{pc.priceCurrent.toFixed(2)}
                             </td>
-                            <td className="py-1.5 px-2 text-right font-mono text-white/60">
+                            <td className="py-1.5 px-2 text-right font-mono text-secondary">
                               ¥{pc.priceRelated.toFixed(2)}
                             </td>
-                            <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-white/30" : up ? "text-green-400" : "text-red-400")}>
+                            <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-faint" : up ? "text-emerald-500" : "text-red-500")}>
                               {zero ? "—" : (up ? "+" : "") + pc.diff.toFixed(2)}
                               {!zero && (
-                                <span className="text-white/30 ml-0.5">
+                                <span className="text-faint ml-0.5">
                                   ({pc.diffPercent >= 0 ? "+" : ""}{pc.diffPercent}%)
                                 </span>
                               )}
@@ -91,7 +90,7 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
                   </table>
                 </div>
                 {cd.priceComparisons.length > 8 && (
-                  <div className="text-[10px] text-white/20 mt-1">
+                  <div className="text-xs text-faint mt-1">
                     +{cd.priceComparisons.length - 8} 项更多
                   </div>
                 )}
@@ -101,13 +100,13 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
             {/* Quantity comparison */}
             {cd.quantityComparisons.length > 0 && (
               <div>
-                <div className="text-[10px] text-white/25 mb-1.5 uppercase tracking-wider">
+                <div className="text-xs text-faint mb-1.5 uppercase tracking-wider">
                   销量对比
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-white/25 border-b border-white/5">
+                      <tr className="text-faint border-b border-gray-100">
                         <th className="text-left py-1.5 pr-2 font-normal">商品</th>
                         <th className="text-right py-1.5 px-2 font-normal">当前销量</th>
                         <th className="text-right py-1.5 px-2 font-normal">关联销量</th>
@@ -119,17 +118,17 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
                         const up = qc.gap > 0;
                         const zero = qc.gap === 0;
                         return (
-                          <tr key={qi} className="border-b border-white/[0.02]">
-                            <td className="py-1.5 pr-2 text-white/70 truncate max-w-[120px]">
+                          <tr key={qi} className="border-b border-gray-50">
+                            <td className="py-1.5 pr-2 text-primary truncate max-w-[120px]">
                               {qc.entity}
                             </td>
-                            <td className="py-1.5 px-2 text-right font-mono text-white/60">
+                            <td className="py-1.5 px-2 text-right font-mono text-secondary">
                               {qc.qtyCurrent}
                             </td>
-                            <td className="py-1.5 px-2 text-right font-mono text-white/60">
+                            <td className="py-1.5 px-2 text-right font-mono text-secondary">
                               {qc.qtyRelated}
                             </td>
-                            <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-white/30" : up ? "text-green-400" : "text-red-400")}>
+                            <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-faint" : up ? "text-emerald-500" : "text-red-500")}>
                               {zero ? "—" : (up ? "+" : "") + qc.gap}
                             </td>
                           </tr>

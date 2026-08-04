@@ -16,8 +16,8 @@ const variantStyles: Record<string, string> = {
   default: "card",
   elevated: "card-elevated",
   subtle: "card-subtle",
-  glow: "bg-[#151D2E] border border-primary/20 rounded-2xl shadow-glow-indigo",
-  gradient: "bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-cyan-500/10 border border-indigo-500/20 rounded-2xl",
+  glow: "bg-blue-50 border border-blue-100 rounded-xl shadow-glow-indigo",
+  gradient: "bg-gradient-to-br from-blue-50/80 via-white to-cyan-50/50 border border-blue-100/60 rounded-xl",
 };
 
 export function GlassCard({
@@ -37,7 +37,7 @@ export function GlassCard({
       className={cn(
         variantStyles[variant],
         hover && variant === "default" && "card-interactive",
-        hover && variant === "elevated" && "hover:bg-[#1C263B] hover:border-white/15 transition-all duration-300",
+        hover && variant === "elevated" && "hover:bg-gray-50 hover:border-gray-200 transition-all duration-200",
         gradient && "relative overflow-hidden",
         className
       )}
@@ -57,5 +57,6 @@ export function GlassCardContent({ children, className }: { children: React.Reac
 }
 
 export function GlassCardFooter({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("mt-4 pt-4 border-t border-white/[0.06]", className)}>{children}</div>;
+  return <div className={cn("mt-4 pt-4 border-t border-gray-100", className)}>{children}</div>;
 }
+

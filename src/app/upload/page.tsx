@@ -11,7 +11,7 @@ import { TemplateBadge } from "@/components/ui/template-badge";
 import { ColumnSelector } from "@/components/ui/column-selector";
 import { SheetPicker } from "@/components/ui/sheet-picker";
 import type { SheetInfo } from "@/components/ui/sheet-picker";
-import { matchTemplate, applyTemplate } from "@/lib/templates";
+import { matchPlatformTemplate } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 import { addDataset, saveDatasetRows } from "@/lib/store";
 import { classifyByRoles } from "@/lib/classifier";
@@ -34,6 +34,27 @@ function detectProfile(columns: string[], semanticRoles?: any): string {
   if (/订单|买家|收货|支付|退款|实付|商品标题/.test(joined)) return "order";
   if (/sku|供货|产地|规格|物流|发货地|供应商/.test(joined)) return "supply";
   return "unknown";
+}
+
+/** 将新版模板匹配结果转换为 ColumnMeta[] */
+function buildColumnMetas(columns: string[], matchResult: { template: any; columnMapping: Record<string, string> }): ColumnMeta[] {
+  var fieldMap = matchResult.template.fieldMap;
+  return columns.map(function(col) {
+    var standardName = matchResult.columnMapping[col];
+    var colType: ColumnMeta["type"] = "text";
+    if (standardName && fieldMap[standardName]) {
+      var role = fieldMap[standardName].role;
+      if (role === "money" || role === "quantity") colType = "number";
+      else if (role === "datetime") colType = "date";
+      else if (role === "category") colType = "category";
+    } else {
+      var n = col.toLowerCase();
+      if (/价格|金额|数量|运费|花费|total|amount|qty|count/.test(n)) colType = "number";
+      else if (/时间|日期|date|time|下单|创建/.test(n)) colType = "date";
+      else if (/状态|status|分类|category/.test(n)) colType = "category";
+    }
+    return { name: col, standardName: standardName || undefined, type: colType, selected: true };
+  });
 }
 
 export default function UploadPage() {
@@ -114,8 +135,10 @@ export default function UploadPage() {
 
       setSheets(null);
       setResult(data);
-      const tmpl = matchTemplate(data.columns) || null; setTemplate(tmpl);
-      setCols(applyTemplate(data.columns, tmpl));
+      var matchResult = matchPlatformTemplate(data.columns) || null;
+      var tmpl = matchResult ? matchResult.template : null;
+      setTemplate(tmpl);
+      setCols(matchResult ? buildColumnMetas(data.columns, matchResult) : data.columns.map(function(c: string) { return { name: c, type: "text" as const, selected: true }; }));
 
       const profile = detectProfile(data.columns, data.semanticRoles);
       addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
@@ -184,17 +207,17 @@ export default function UploadPage() {
     <div className="min-h-screen py-12 pt-20">
       <div className="section-container">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }} className="text-center mb-12 relative">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
-            <Upload className="w-4 h-4 text-primary-light" />
-            <span className="text-sm text-white/60">数据上传</span>
+          transition={{ duration: 0.7, ease: "easeOut" }} className="text-center mb-12 relative">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white shadow-sm mb-6">
+            <Upload className="w-4 h-4 text-brand" />
+            <span className="text-sm text-secondary font-medium">数据上传</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-5 tracking-tight">
             <span className="gradient-text">上传数据</span>
-            <span className="text-white/90">，AI 自动解析</span>
+            <span className="text-primary text-xl sm:text-2xl md:text-3xl font-normal mt-4 block">，AI 自动解析</span>
           </h1>
-          <p className="text-body">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
-          <button onClick={clearAll} className="absolute top-2 right-2 z-10 px-3 py-1.5 rounded-lg glass text-xs text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-1">
+          <p className="text-body max-w-xl mx-auto">支持 Excel / CSV，拖拽上传，AI 智能识别表格结构</p>
+          <button onClick={clearAll} className="absolute top-2 right-2 z-10 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-faint hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all duration-200 flex items-center gap-1 shadow-sm">
             <Trash2 className="w-3 h-3" />清除缓存
           </button>
         </motion.div>
@@ -204,33 +227,33 @@ export default function UploadPage() {
             <GlassCard gradient className="p-6 md:p-10">
               <div {...getRootProps()}
                 className={"relative border-2 border-dashed rounded-2xl p-8 md:p-16 text-center cursor-pointer transition-all touch-manipulation " +
-                  (isDragActive ? "border-indigo-400 bg-indigo-500/5" : "border-white/[0.09] hover:border-white/20 hover:bg-white/[0.02]")}>
+                  (isDragActive ? "border-brand bg-blue-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50")}>
                 <input {...getInputProps()} />
                 {file ? (
-                  <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-4">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-brand/10 flex items-center justify-center">
                       {file.name.endsWith(".csv")
-                        ? <FileText className="w-8 h-8 text-accent-cyan" />
-                        : <FileSpreadsheet className="w-8 h-8 text-primary-light" />}
+                        ? <FileText className="w-8 h-8 text-accent" />
+                        : <FileSpreadsheet className="w-8 h-8 text-brand" />}
                     </div>
                     <div>
-                      <p className="font-semibold text-lg">{file.name}</p>
-                      <p className="text-sm text-white/40">{(file.size / 1024).toFixed(1)} KB</p>
+                      <p className="text-heading">{file.name}</p>
+                      <p className="text-caption mt-1">{(file.size / 1024).toFixed(1)} KB</p>
                     </div>
                   </motion.div>
                 ) : (
                   <div className="space-y-4">
-                    <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }}
-                      className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                      <Upload className="w-10 h-10 text-primary-light/50" />
+                    <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-20 h-20 mx-auto rounded-2xl bg-brand/10 flex items-center justify-center">
+                      <Upload className="w-10 h-10 text-brand" />
                     </motion.div>
                     <div>
-                      <p className="font-semibold text-lg text-white/60">
+                      <p className="text-heading">
                         {isDragActive ? "松开上传" : "拖拽文件到此处或点击选择"}
                       </p>
-                      <p className="text-sm text-white/30 mt-1">.xlsx .xls .csv，AI 自动识别表格结构</p>
+                      <p className="text-caption mt-2">.xlsx .xls .csv，AI 自动识别表格结构</p>
                       <button onClick={function(e) { e.stopPropagation(); downloadTemplate(); }}
-                        className="mt-4 text-xs text-indigo-400/70 hover:text-indigo-400 transition-colors underline">
+                        className="mt-4 text-sm text-brand hover:text-brand-dark transition-colors duration-200 underline underline-offset-2">
                         下载标准模板 (CSV)
                       </button>
                     </div>
@@ -239,17 +262,17 @@ export default function UploadPage() {
               </div>
 
               {error && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                  className="mt-5 flex items-center gap-3 p-4 rounded-xl border border-red-200 bg-red-50">
                   <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-red-400 font-medium">{error}</p>
                 </motion.div>
               )}
 
               {file && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 flex justify-center">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-6 flex justify-center">
                   <button onClick={handleUpload} disabled={uploading}
-                    className="btn-primary flex items-center gap-2 px-8 py-3 rounded-xl">
+                    className="btn-primary flex items-center gap-2.5 px-8 py-3.5 rounded-xl">
                     {uploading ? (
                       <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />AI 解析中...</>
                     ) : (
@@ -265,24 +288,24 @@ export default function UploadPage() {
             transition={{ duration: 0.5 }} className="space-y-6">
             <GlassCard gradient>
               <div className="flex items-center gap-3 mb-6">
-                <div className="icon-box bg-green-500/20"><CheckCircle className="w-5 h-5 text-green-400" /></div>
+                <div className="icon-box bg-emerald-50"><CheckCircle className="w-5 h-5 text-emerald-500" /></div>
                 <div>
                   <h3 className="text-heading">解析成功</h3>
                   <div className="flex items-center gap-2 mt-1">
                     {template
                       ? <TemplateBadge name={template.name} />
-                      : <span className="text-sm text-white/40">通用模式</span>}
-                    {selectedSheet && <span className="text-xs text-white/20 ml-2">工作表: {selectedSheet}</span>}
+                      : <span className="text-sm text-tertiary">通用模式</span>}
+                    {selectedSheet && <span className="text-xs text-faint ml-2">工作表: {selectedSheet}</span>}
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="text-center p-4 rounded-xl bg-white/[0.03]">
-                  <CountUp end={result.rowCount} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
+                <div className="text-center p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+                  <CountUp end={result.rowCount} duration={1.5} className="text-2xl font-bold gradient-text block mb-1" />
                   <p className="text-caption">行数</p>
                 </div>
-                <div className="text-center p-4 rounded-xl bg-white/[0.03]">
-                  <CountUp end={cols.length} duration={1.2} className="text-2xl font-bold gradient-text block mb-1" />
+                <div className="text-center p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+                  <CountUp end={cols.length} duration={1.5} className="text-2xl font-bold gradient-text block mb-1" />
                   <p className="text-caption">字段</p>
                 </div>
               </div>

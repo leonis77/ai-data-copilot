@@ -652,7 +652,11 @@ function buildEvidenceCards(
         netMonthly: r.netProfitMonthly,
         margin: r.profitMargin,
         roi: r.roi,
+        monthlySales: r.monthlySales,
+        monthlyRevenue: Math.round(r.sellPrice * r.monthlySales * 100) / 100,
       },
+      monthlySales: r.monthlySales,
+      monthlyRevenue: Math.round(r.sellPrice * r.monthlySales * 100) / 100,
       verdict: r.verdict,
       verdictConfidence: r.verdictConfidence,
       verdictReason: r.verdictReason,
@@ -734,7 +738,7 @@ function inferRuleIds(r: ProfitResult, platform: string): string[] {
     ids.push("RULE_PDD_TAX_COMPLIANCE");
   }
 
-  if (r.platformKey === "jd" && r.costs.fixedFeePerItem > 0 && r.profitMargin < 0.05) {
+  if (r.platformKey === "jd" && r.costs.fixedFeePerItem > 0 && r.profitMargin < 5) {
     ids.push("RULE_JD_FIXED_FEE_BURDEN");
   }
 
@@ -758,7 +762,7 @@ function findRelatedKnowledgeRefs(r: ProfitResult): string[] {
   }
 
   // 利润基准（通用）
-  if (r.profitMargin < 0.05) refs.push("benchmark_profit_margin_by_category");
+  if (r.profitMargin < 5) refs.push("benchmark_profit_margin_by_category");
   if (r.costs.returnLoss > 0) refs.push("benchmark_return_rate_by_category");
   if (r.costs.influencerCommission > 0) refs.push("platform_douyin_influencer");
 

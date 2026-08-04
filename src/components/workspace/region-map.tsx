@@ -31,7 +31,7 @@ export function RegionMap({ rows, addressField, amountField, aiSummary }: { rows
   const data = rankByProvince(rows, addressField, amountField, 10);
   return (
     <ModuleShell title={t.workspace.regionMap} aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title={t.workspace.top10Regions} data={data} height={300} /> : <p className="text-sm text-white/30 text-center py-8">{t.workspace.noAddressData}</p>}
+      {data.length > 0 ? <BarChart title={t.workspace.top10Regions} data={data} height={300} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noAddressData}</p>}
     </ModuleShell>
   );
 }

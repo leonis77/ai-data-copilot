@@ -13,6 +13,9 @@ import type { ColumnRole, SemanticRole } from "@/lib/semantic/types";
 
 export type TableClass = "order" | "supply" | "inventory" | "financial" | "marketing" | "aftersales" | "product" | "unknown";
 
+/** 角色置信度阈值：≥此值视为"存在"该角色 */
+export const ROLE_THRESHOLD = 0.6;
+
 export interface ClassificationResult {
   class: TableClass;
   confidence: number;
@@ -165,7 +168,7 @@ export function classifyByColumns(columns: string[], semanticRoles: ColumnRole[]
   }
 
   // 低置信度加固
-  if (roleResult.confidence < 0.6 && hasSupplySignal) {
+  if (roleResult.confidence < ROLE_THRESHOLD && hasSupplySignal) {
     roleResult.confidence = Math.min(roleResult.confidence + 0.15, 0.65);
   }
 
@@ -177,7 +180,7 @@ export function classifyByColumns(columns: string[], semanticRoles: ColumnRole[]
 // ============================================================================
 
 function getPresentRoles(roles: ColumnRole[], threshold?: number): SemanticRole[] {
-  var t = threshold !== undefined ? threshold : 0.6;
+  var t = threshold !== undefined ? threshold : ROLE_THRESHOLD;
   var roleSet = new Set<SemanticRole>();
   for (var i = 0; i < roles.length; i++) {
     if (roles[i].confidence >= t) roleSet.add(roles[i].role);

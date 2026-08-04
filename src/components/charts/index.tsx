@@ -20,7 +20,7 @@ const darkTheme = {
   legend: { textStyle: { color: "#64748B" } },
 };
 
-export function PieChart({ title, data, className, height = 300 }: ChartProps) {
+export function PieChart({ title, data, className, height = 220 }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
@@ -72,7 +72,7 @@ export function PieChart({ title, data, className, height = 300 }: ChartProps) {
   );
 }
 
-export function BarChart({ title, data, className, height = 300 }: ChartProps) {
+export function BarChart({ title, data, className, height = 220 }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "axis" },
@@ -114,7 +114,7 @@ export function BarChart({ title, data, className, height = 300 }: ChartProps) {
   );
 }
 
-export function LineChart({ title, data, className, height = 300 }: ChartProps) {
+export function LineChart({ title, data, className, height = 220 }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "axis" },

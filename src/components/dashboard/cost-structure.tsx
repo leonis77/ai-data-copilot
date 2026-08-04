@@ -5,27 +5,27 @@ import { PieChart, AlertTriangle } from "lucide-react";
 import type { EvidenceCard } from "@/lib/pipeline/types";
 
 function costColor(label: string): string {
-  if (label.includes("进货")) return "bg-indigo-500";
-  if (label.includes("平台佣金")) return "bg-purple-500";
+  if (label.includes("进货")) return "bg-blue-500";
+  if (label.includes("平台佣金")) return "bg-blue-500";
   if (label.includes("达人佣金")) return "bg-fuchsia-500";
   if (label.includes("退货")) return "bg-red-500";
   if (label.includes("运费")) return "bg-amber-500";
   if (label.includes("广告")) return "bg-cyan-500";
   if (label.includes("固定费用")) return "bg-orange-500";
   if (label.includes("合规") || label.includes("税")) return "bg-rose-500";
-  return "bg-white/30";
+  return "bg-gray-300";
 }
 
 function costColorLight(label: string): string {
-  if (label.includes("进货")) return "bg-indigo-500/20";
-  if (label.includes("平台佣金")) return "bg-purple-500/20";
-  if (label.includes("达人佣金")) return "bg-fuchsia-500/20";
-  if (label.includes("退货")) return "bg-red-500/20";
-  if (label.includes("运费")) return "bg-amber-500/20";
-  if (label.includes("广告")) return "bg-cyan-500/20";
-  if (label.includes("固定费用")) return "bg-orange-500/20";
-  if (label.includes("合规") || label.includes("税")) return "bg-rose-500/20";
-  return "bg-white/10";
+  if (label.includes("进货")) return "bg-blue-100";
+  if (label.includes("平台佣金")) return "bg-blue-100";
+  if (label.includes("达人佣金")) return "bg-fuchsia-100";
+  if (label.includes("退货")) return "bg-red-100";
+  if (label.includes("运费")) return "bg-amber-100";
+  if (label.includes("广告")) return "bg-cyan-100";
+  if (label.includes("固定费用")) return "bg-orange-100";
+  if (label.includes("合规") || label.includes("税")) return "bg-rose-100";
+  return "bg-gray-100";
 }
 
 interface CostStructureProps {
@@ -75,21 +75,21 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="icon-box bg-purple-500/10">
-              <PieChart className="w-4 h-4 text-purple-400" />
+            <div className="icon-box bg-blue-50">
+              <PieChart className="w-4 h-4 text-brand" />
             </div>
             <div>
               <h3 className="text-heading">成本结构分析</h3>
               <p className="text-caption">全部商品成本汇总</p>
             </div>
           </div>
-          <span className="text-caption text-white/30 font-mono px-2 py-1 rounded-lg bg-white/[0.04]">
+          <span className="text-caption text-tertiary font-mono px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
             ¥{Math.round(grandTotal).toLocaleString()}
           </span>
         </div>
 
         {/* Stacked bar */}
-        <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden flex mb-4">
+        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden flex mb-4">
           {entries.map(function(entry) {
             var pct = grandTotal > 0 ? Math.max((entry.total / grandTotal) * 100, 1) : 0;
             var barColor = costColor(entry.item);
@@ -112,9 +112,9 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
             return (
               <div key={entry.item} className="flex items-center gap-2.5 text-xs group">
                 <div className={"w-2 h-2 rounded-full shrink-0 " + costColor(entry.item)} />
-                <span className="text-white/50 flex-1 truncate group-hover:text-white/70 transition-colors">{entry.item}</span>
-                <span className="text-white/70 font-mono tabular-nums w-12 text-right">{pct.toFixed(1)}%</span>
-                <span className="text-white/30 font-mono tabular-nums w-20 text-right">
+                <span className="text-secondary flex-1 truncate group-hover:text-primary transition-colors duration-200">{entry.item}</span>
+                <span className="text-secondary font-mono tabular-nums w-12 text-right">{pct.toFixed(1)}%</span>
+                <span className="text-tertiary font-mono tabular-nums w-20 text-right">
                   ¥{Math.round(entry.total).toLocaleString()}
                 </span>
                 {hasWarning && (
@@ -129,19 +129,19 @@ export function CostStructure({ evidenceCards }: CostStructureProps) {
 
         {/* Comparison: profitable vs losing cost structure */}
         {profitableCards.length > 0 && losingCards.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.06]">
-            <div className="rounded-lg p-3 bg-emerald-500/[0.03] border border-emerald-500/10">
-              <span className="text-caption text-emerald-400/60 font-medium">盈利品成本</span>
-              <p className="text-body text-white/60 mt-1 font-medium">
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
+            <div className="rounded-lg p-3 bg-emerald-50/80 border border-emerald-100">
+              <span className="text-caption text-emerald-500/70 font-medium">盈利品成本</span>
+              <p className="text-body text-secondary mt-1 font-medium">
                 ¥{Math.round(profitableCards.reduce(function(s, c) { return s + c.costBreakdown.totalCost; }, 0)).toLocaleString()}
-                <span className="text-white/30 ml-1">/ {profitableCards.length} 品</span>
+                <span className="text-faint ml-1">/ {profitableCards.length} 品</span>
               </p>
             </div>
-            <div className="rounded-lg p-3 bg-red-500/[0.03] border border-red-500/10">
-              <span className="text-caption text-red-400/60 font-medium">亏损品成本</span>
-              <p className="text-body text-white/60 mt-1 font-medium">
+            <div className="rounded-lg p-3 bg-red-50/80 border border-red-100">
+              <span className="text-caption text-red-500/70 font-medium">亏损品成本</span>
+              <p className="text-body text-secondary mt-1 font-medium">
                 ¥{Math.round(losingCards.reduce(function(s, c) { return s + c.costBreakdown.totalCost; }, 0)).toLocaleString()}
-                <span className="text-white/30 ml-1">/ {losingCards.length} 品</span>
+                <span className="text-faint ml-1">/ {losingCards.length} 品</span>
               </p>
             </div>
           </div>

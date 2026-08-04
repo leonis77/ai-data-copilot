@@ -1359,7 +1359,7 @@ export function getKnowledgeStats() {
   return {
     total,
     expiredCount,
-    freshnessRate: Math.round((total - expiredCount) / total * 100),
+    freshnessRate: total > 0 ? Math.round((total - expiredCount) / total * 100) : 0,
     byCategory,
     byVolatility,
     byTier,

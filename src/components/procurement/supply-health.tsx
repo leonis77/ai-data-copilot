@@ -23,43 +23,42 @@ export function SupplyHealth({ price, tagged, datasetName }: SupplyHealthProps) 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
-      style={{ backdropFilter: "blur(20px)", background: "radial-gradient(circle at 30% 20%, rgba(124,92,255,0.08), transparent 40%), rgba(17,24,39,0.5)" }}
+      className="relative overflow-hidden rounded-2xl p-6 border border-gray-100 bg-white"
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-1">{"\u4f9b\u8d27\u62a5\u4ef7\u8868"}</p>
-          <p className="text-sm text-white/50">{datasetName}</p>
+          <p className="text-xs text-tertiary uppercase tracking-widest mb-1">{"\u62a5\u4ef7\u8868"}</p>
+          <p className="text-sm text-secondary">{datasetName}</p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-          <Package className="w-5 h-5 text-amber-400" />
+          <Package className="w-5 h-5 text-amber-500" />
         </div>
       </div>
 
       {/* Price stats */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+        <div className="text-center p-3 rounded-xl bg-gray-50">
           <span className="text-xl font-bold gradient-text block">{price.skuCount}</span>
-          <p className="text-xs text-white/30">SKU</p>
+          <p className="text-xs text-tertiary">SKU</p>
         </div>
-        <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+        <div className="text-center p-3 rounded-xl bg-gray-50">
           <span className="text-xl font-bold gradient-text block">{"\u00A5"}{price.median}</span>
-          <p className="text-xs text-white/30">{"\u4e2d\u4f4d\u6570"}</p>
+          <p className="text-xs text-tertiary">{"\u4e2d\u4f4d\u6570"}</p>
         </div>
-        <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+        <div className="text-center p-3 rounded-xl bg-gray-50">
           <span className="text-xl font-bold gradient-text block">{"\u00A5"}{price.min}-{"\u00A5"}{price.max}</span>
-          <p className="text-xs text-white/30">{"\u4ef7\u683c\u533a\u95f4"}</p>
+          <p className="text-xs text-tertiary">{"\u4ef7\u683c\u533a\u95f4"}</p>
         </div>
       </div>
 
       {/* Main range bar */}
       <div className="mb-5">
-        <div className="flex items-center justify-between text-xs text-white/30 mb-1.5">
+        <div className="flex items-center justify-between text-xs text-tertiary mb-1.5">
           <span>{"\u00A5"}{price.min}</span>
-          <span className="text-white/50">{price.mainRange} {"\u4e3b\u529b\u4ef7\u683c\u5e26"}</span>
+          <span className="text-secondary">{price.mainRange} {"\u4e3b\u529b\u4ef7\u683c\u5e26"}</span>
           <span>{"\u00A5"}{price.max}</span>
         </div>
-        <div className="h-2 rounded-full bg-white/[0.05] overflow-hidden">
+        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: barPercent + "%" }}

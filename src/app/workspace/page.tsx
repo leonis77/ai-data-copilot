@@ -57,11 +57,11 @@ export default function WorkspacePage() {
   if (!hasData || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 pt-20">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="text-center max-w-md px-6">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6"><BarChart3 className="w-10 h-10 text-primary-light/50" /></div>
-          <h2 className="text-title mb-3">{t.workspace.noData}</h2>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.7, ease: "easeOut"}} className="text-center max-w-md px-6">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-brand/10 flex items-center justify-center mb-6"><BarChart3 className="w-10 h-10 text-brand" /></div>
+          <h2 className="text-title mb-4 text-primary">{t.workspace.noData}</h2>
           <p className="text-body mb-8">{t.workspace.noDataHint}</p>
-          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2"><Upload className="w-5 h-5" />{t.workspace.uploadData}<ArrowRight className="w-5 h-5" /></motion.button></Link>
+          <Link href="/upload"><motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2"><Upload className="w-5 h-5" />{t.workspace.uploadData}<ArrowRight className="w-5 h-5" /></motion.button></Link>
         </motion.div>
       </div>
     );
@@ -88,23 +88,23 @@ export default function WorkspacePage() {
   return (
     <div className="min-h-screen py-12 pt-20">
       <div className="section-container">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="page-header">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.7, ease: "easeOut"}} className="page-header">
           <div className="flex items-center gap-3 mb-2">
-            <div className="icon-box bg-gradient-to-br from-indigo-500 to-purple-600"><BarChart3 className="w-5 h-5 text-white" /></div>
-            <div><h1 className="text-title"><span className="gradient-text">{t.workspace.title}</span></h1><p className="text-caption">{rows.length}/{allRows.length} {t.workspace.records}</p></div>
+            <div className="icon-box bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm"><BarChart3 className="w-5 h-5 text-white" /></div>
+            <div><h1 className="text-title"><span className="gradient-text">{t.workspace.title}</span></h1><p className="text-caption mt-1">{rows.length}/{allRows.length} {t.workspace.records}</p></div>
           </div>
         </motion.div>
         <div className="flex items-center gap-4 mb-6">
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 bg-gray-100 p-1 rounded-lg">
             {[7, 30, 90].map(d => (
-              <button key={d} onClick={() => setDateRange(d)} className={"px-3 py-1 rounded-lg text-xs transition-all " + (dateRange === d ? "bg-primary/20 text-white border border-primary/30" : "text-white/40 hover:text-white/60")}>{t.workspace.last}{d}{t.workspace.days}</button>
+              <button key={d} onClick={() => setDateRange(d)} className={"px-3 py-2 rounded-md text-xs font-medium transition-all " + (dateRange === d ? "bg-white text-primary shadow-sm" : "text-tertiary hover:text-primary")}>{t.workspace.last}{d}{t.workspace.days}</button>
             ))}
           </div>
           <div className="flex gap-2 overflow-x-auto">
             {TABS.map((tab, i) => {
               const Icon = tab.icon;
               return (
-                <button key={tab.key} onClick={() => setActive(i)} className={"flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap " + (active === i ? "bg-primary/20 text-white border border-primary/30" : "text-white/50 hover:text-white/80 hover:bg-white/5")}><Icon className="w-4 h-4" />{tab.label}</button>
+                <button key={tab.key} onClick={() => setActive(i)} className={"flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap border " + (active === i ? "bg-white text-primary border-gray-200 shadow-sm" : "text-tertiary hover:text-primary border-transparent hover:border-gray-200 hover:bg-white")}><Icon className="w-4 h-4" />{tab.label}</button>
               );
             })}
           </div>

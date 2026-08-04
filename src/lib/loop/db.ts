@@ -61,7 +61,10 @@ export async function getAnalysisRun(id: string): Promise<AnalysisRun | null> {
     const { data, error } = await client.from("analysis_runs").select("*").eq("id", id).single();
     if (error || !data) return null;
     return mapAnalysisRun(data);
-  } catch { return null; }
+  } catch (e: unknown) {
+    logger.warn("getAnalysisRun error", { message: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
 }
 
 export async function listAnalysisRuns(datasetId: string, limit = 10): Promise<AnalysisRun[]> {
@@ -74,7 +77,10 @@ export async function listAnalysisRuns(datasetId: string, limit = 10): Promise<A
       .limit(limit);
     if (error || !data) return [];
     return data.map(mapAnalysisRun);
-  } catch { return []; }
+  } catch (e: unknown) {
+    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -137,7 +143,10 @@ export async function getDecision(id: string): Promise<Decision | null> {
     const { data, error } = await client.from("decisions").select("*").eq("id", id).single();
     if (error || !data) return null;
     return mapDecision(data);
-  } catch { return null; }
+  } catch (e: unknown) {
+    logger.warn("getAnalysisRun error", { message: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
 }
 
 export async function listDecisions(datasetId: string, limit = 10): Promise<Decision[]> {
@@ -150,7 +159,10 @@ export async function listDecisions(datasetId: string, limit = 10): Promise<Deci
       .limit(limit);
     if (error || !data) return [];
     return data.map(mapDecision);
-  } catch { return []; }
+  } catch (e: unknown) {
+    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -213,7 +225,10 @@ export async function listActionTasks(decisionId: string): Promise<ActionTask[]>
       .order("created_at", { ascending: true });
     if (error || !data) return [];
     return data.map(mapActionTask);
-  } catch { return []; }
+  } catch (e: unknown) {
+    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -263,7 +278,10 @@ export async function getExecution(id: string): Promise<Execution | null> {
     const { data, error } = await client.from("executions").select("*").eq("id", id).single();
     if (error || !data) return null;
     return mapExecution(data);
-  } catch { return null; }
+  } catch (e: unknown) {
+    logger.warn("getAnalysisRun error", { message: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
 }
 
 export async function listExecutions(actionTaskId: string): Promise<Execution[]> {
@@ -275,7 +293,10 @@ export async function listExecutions(actionTaskId: string): Promise<Execution[]>
       .order("created_at", { ascending: false });
     if (error || !data) return [];
     return data.map(mapExecution);
-  } catch { return []; }
+  } catch (e: unknown) {
+    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -318,7 +339,10 @@ export async function listOutcomes(executionId: string): Promise<Outcome[]> {
       .order("verified_at", { ascending: false });
     if (error || !data) return [];
     return data.map(mapOutcome);
-  } catch { return []; }
+  } catch (e: unknown) {
+    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
 }
 
 // ═══════════════════════════════════════════════

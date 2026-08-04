@@ -165,7 +165,7 @@ export function diagnoseProfitIssues(
     if (
       r.platformKey === "jd" &&
       r.costs.fixedFeePerItem > 0 &&
-      r.profitMargin < 0.05
+      r.profitMargin < 5
     ) {
       jdFeeBurdenProducts.push(r);
       // 避免重复添加同一类诊断

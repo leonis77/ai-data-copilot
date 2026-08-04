@@ -14,8 +14,8 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
   if (loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        className="rounded-2xl p-6 border border-white/[0.05]"
-        style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
+        className="rounded-2xl p-6 border border-gray-100"
+        style={{ backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.6)" }}>
         <div className="h-6 w-48 skeleton rounded mb-4" />
         <div className="space-y-3">
           <div className="h-12 skeleton rounded" />
@@ -29,49 +29,49 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
   if (!analysis || analysis.campaigns.length === 0) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        className="rounded-2xl p-6 border border-white/[0.05]"
-        style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
+        className="rounded-2xl p-6 border border-gray-100"
+        style={{ backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.6)" }}>
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-4 h-4 text-white/30" />
-          <h3 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"推广分析"}</h3>
+          <TrendingUp className="w-4 h-4 text-tertiary" />
+          <h3 className="text-sm text-tertiary uppercase tracking-widest font-medium">{"推广分析"}</h3>
         </div>
-        <p className="text-white/30 text-sm">{"上传推广报表（直通车/引力魔方/万相台/巨量千川）后自动分析"}</p>
+        <p className="text-tertiary text-sm">{"上传推广报表（直通车/引力魔方/万相台/巨量千川）后自动分析"}</p>
       </motion.div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-white/[0.05] overflow-hidden"
-      style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
+      className="rounded-2xl border border-gray-100 overflow-hidden"
+      style={{ backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.6)" }}>
 
       {/* Header */}
-      <div className="p-6 border-b border-white/[0.05]">
+      <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm text-white/40 uppercase tracking-widest font-medium">{"推广分析"}</h3>
+            <h3 className="text-sm text-tertiary uppercase tracking-widest font-medium">{"推广分析"}</h3>
           </div>
-          <span className="text-xs text-white/20">{analysis.campaigns.length} {"个计划"}</span>
+          <span className="text-xs text-faint">{analysis.campaigns.length} {"个计划"}</span>
         </div>
 
         {/* KPI row */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
-            <p className="text-xs text-white/30 mb-1">{"总花费"}</p>
-            <p className="text-xl font-bold text-white/80">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
+            <p className="text-xs text-tertiary mb-1">{"总花费"}</p>
+            <p className="text-xl font-bold text-primary">
               {"¥" + Math.round(analysis.totalSpend).toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
-            <p className="text-xs text-white/30 mb-1">{"总成交"}</p>
-            <p className="text-xl font-bold text-white/80">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
+            <p className="text-xs text-tertiary mb-1">{"总成交"}</p>
+            <p className="text-xl font-bold text-primary">
               {"¥" + Math.round(analysis.totalRevenue).toLocaleString()}
             </p>
           </div>
           <div className="text-center p-3 rounded-xl"
             style={{ background: analysis.overallROI >= 3 ? "rgba(34,197,94,0.1)" : analysis.overallROI >= 1 ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)" }}>
-            <p className="text-xs text-white/30 mb-1">{"投产比"}</p>
+            <p className="text-xs text-tertiary mb-1">{"投产比"}</p>
             <p className="text-xl font-bold"
               style={{ color: analysis.overallROI >= 3 ? "#4ade80" : analysis.overallROI >= 1 ? "#fbbf24" : "#f87171" }}>
               {analysis.overallROI}
@@ -81,8 +81,8 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
       </div>
 
       {/* Summary */}
-      <div className="px-6 py-3 border-b border-white/[0.05]">
-        <p className="text-sm text-white/50">{analysis.summary}</p>
+      <div className="px-6 py-3 border-b border-gray-100">
+        <p className="text-sm text-secondary">{analysis.summary}</p>
       </div>
 
       {/* Alerts */}
@@ -90,7 +90,7 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
         <div className="p-6 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-3 h-3 text-red-400" />
-            <span className="text-xs text-white/30 uppercase tracking-wider">
+            <span className="text-xs text-tertiary uppercase tracking-wider">
               {analysis.alerts.filter(function (a: CampaignAlert) { return a.level === "critical"; }).length > 0
                 ? "需要立即处理" : "优化建议"}
             </span>
@@ -111,17 +111,17 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
                 style={{ background: bgColor }}>
                 <div className="flex items-start gap-3">
                   <div className={"mt-0.5 w-5 h-5 rounded-full flex items-center justify-center " + iconColor}
-                    style={{ background: "rgba(255,255,255,0.05)" }}>
+                    style={{ background: "rgba(0,0,0,0.05)" }}>
                     {alert.level === "critical" ? "!" : alert.level === "warning" ? "?" : "+"}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-white/80">{alert.title}</p>
-                    <p className="text-xs text-white/40 mt-1">{alert.detail}</p>
+                    <p className="text-sm font-medium text-primary">{alert.title}</p>
+                    <p className="text-xs text-tertiary mt-1">{alert.detail}</p>
                     <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs text-indigo-400/80">
+                      <span className="text-xs text-blue-400/80">
                         {"→ " + alert.action}
                       </span>
-                      <span className="text-xs text-white/25">
+                      <span className="text-xs text-faint">
                         {"影响: " + alert.impact}
                       </span>
                     </div>
@@ -134,20 +134,20 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
       )}
 
       {/* Top campaigns by ROI */}
-      <div className="p-6 border-t border-white/[0.05]">
+      <div className="p-6 border-t border-gray-100">
         <div className="flex items-center gap-2 mb-3">
-          <Target className="w-3 h-3 text-white/30" />
-          <span className="text-xs text-white/30 uppercase tracking-wider">{"计划排行"}</span>
+          <Target className="w-3 h-3 text-tertiary" />
+          <span className="text-xs text-tertiary uppercase tracking-wider">{"计划排行"}</span>
         </div>
         <div className="space-y-2">
           {analysis.campaigns.slice(0, 5).map(function (c, i) {
             return (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02]">
-                <span className="text-xs text-white/20 w-5">{i + 1}</span>
-                <span className="text-sm text-white/70 flex-1 truncate">{c.name}</span>
-                <span className="text-xs text-white/30">{"¥" + Math.round(c.spend)}</span>
-                <span className="text-xs text-white/30">{"→"}</span>
-                <span className="text-xs text-white/30">{"¥" + Math.round(c.revenue)}</span>
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                <span className="text-xs text-faint w-5">{i + 1}</span>
+                <span className="text-sm text-primary flex-1 truncate">{c.name}</span>
+                <span className="text-xs text-tertiary">{"¥" + Math.round(c.spend)}</span>
+                <span className="text-xs text-tertiary">{"→"}</span>
+                <span className="text-xs text-tertiary">{"¥" + Math.round(c.revenue)}</span>
                 <span className="text-xs font-mono font-medium px-2 py-0.5 rounded"
                   style={{
                     color: c.roi >= 3 ? "#4ade80" : c.roi >= 1 ? "#fbbf24" : "#f87171",
@@ -168,7 +168,7 @@ export function MarketingPanel({ analysis, loading, onAskAI }: MarketingPanelPro
             {["哪个广告该停？", "哪个计划值得加预算？", "点击单价合理吗？"].map(function (q, i) {
               return (
                 <button key={i} onClick={function () { onAskAI(q); }}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.04] text-white/40 hover:text-white/70 hover:bg-white/[0.08] transition-colors">
+                  className="text-xs px-3 py-1.5 rounded-lg bg-gray-50 text-tertiary hover:text-primary hover:bg-gray-100 transition-colors">
                   {q}
                 </button>
               );

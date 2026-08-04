@@ -238,6 +238,9 @@ export function simulatePlatformSwitch(
     shippingCost: profitResult.costs.shippingCost,
     adCostPerItem: profitResult.costs.adCost,
     pddInvoiced: profitResult.costs.taxComplianceCost === 0,
+    // ⭐ 传递抖音专属参数，否则模拟结果中达人佣金/投流优惠会缺失
+    influencerGrade: profitResult.platformKey === "douyin" ? "C" : undefined,
+    useQianchuan: profitResult.platformKey === "douyin" ? false : undefined,
   });
 
   const profitDelta = switchedResult.netProfitMonthly - profitResult.netProfitMonthly;
@@ -404,7 +407,7 @@ export function buildAllScenarios(
   for (const p of topProducts.slice(0, 2)) {
     for (const targetPlatform of platforms.slice(0, 2)) {
       const scenario = simulatePlatformSwitch(p, targetPlatform);
-      if (scenario && scenario.profitDeltaPercent > 5) {
+      if (scenario && scenario.profitDeltaPercent > -100) {
         scenarios.push(scenario);
       }
     }

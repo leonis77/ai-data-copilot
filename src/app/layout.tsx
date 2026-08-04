@@ -11,12 +11,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: "cover",
 };
 
 import { AnimatePresence } from "@/components/layout/animate-presence";
+import { AuthProvider } from "@/lib/auth-context";
 
 export default function RootLayout({
   children,
@@ -48,13 +49,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className="min-h-screen text-white antialiased touch-manipulation">
-        <Navbar />
-        <AnimatePresence mode="wait">
-          <PageTransition>
-            <main className="pt-16 relative z-10">{children}</main>
-          </PageTransition>
-        </AnimatePresence>
+      <body className="min-h-screen text-primary antialiased touch-manipulation">
+        <AuthProvider>
+          <Navbar />
+          <AnimatePresence mode="wait">
+            <PageTransition>
+              <main className="pt-16 relative z-10">{children}</main>
+            </PageTransition>
+          </AnimatePresence>
+        </AuthProvider>
       </body>
     </html>
   );

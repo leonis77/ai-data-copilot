@@ -5,45 +5,45 @@ const config: Config = {
   theme: {
     extend: {
       /* ═══════════════════════════════════════════
-         DESIGN TOKENS — 色板/间距/字号/阴影
+         DESIGN TOKENS — 极简素雅色板
          ═══════════════════════════════════════════ */
 
       colors: {
-        /* Background layers */
-        "bg-root": "var(--color-bg-root)",
-        "bg-subtle": "var(--color-bg-subtle)",
-        "bg-surface": "var(--color-bg-surface)",
-        "bg-elevated": "var(--color-bg-elevated)",
+        /* Background layers — 温暖白 */
+        "bg-root": "#FAFAF8",
+        "bg-subtle": "#F5F5F0",
+        "bg-surface": "#FFFFFF",
+        "bg-elevated": "#FFFFFF",
 
-        /* Brand */
+        /* Brand — 克制冷蓝 */
         primary: {
-          DEFAULT: "#6366F1",
-          light: "#818CF8",
-          dark: "#4F46E5",
+          DEFAULT: "#2563EB",
+          light: "#3B82F6",
+          dark: "#1D4ED8",
         },
         accent: {
-          cyan: "#06B6D4",
-          purple: "#A855F7",
+          cyan: "#0EA5E9",
+          purple: "#6366F1",
         },
 
         /* Semantic */
         semantic: {
-          info: "var(--color-semantic-info-text)",
-          success: "var(--color-semantic-success-text)",
-          warning: "var(--color-semantic-warning-text)",
-          danger: "var(--color-semantic-danger-text)",
+          info: "#1E40AF",
+          success: "#16A34A",
+          warning: "#B45309",
+          danger: "#DC2626",
         },
 
         /* Chart palette */
         chart: {
-          1: "var(--color-chart-1)",
-          2: "var(--color-chart-2)",
-          3: "var(--color-chart-3)",
-          4: "var(--color-chart-4)",
-          5: "var(--color-chart-5)",
-          6: "var(--color-chart-6)",
-          7: "var(--color-chart-7)",
-          8: "var(--color-chart-8)",
+          1: "#2563EB",
+          2: "#0EA5E9",
+          3: "#16A34A",
+          4: "#D97706",
+          5: "#DC2626",
+          6: "#EA580C",
+          7: "#6366F1",
+          8: "#DB2777",
         },
       },
 
@@ -53,35 +53,37 @@ const config: Config = {
         "22": "5.5rem",
       },
 
-      /* Typography scale — 统一 8px 节奏 */
+      /* Typography scale — 精致 8px 节奏 */
       fontSize: {
-        "xs": ["0.6875rem", { lineHeight: "1rem" }],
-        "sm": ["0.8125rem", { lineHeight: "1.25rem" }],
-        "base": ["0.9375rem", { lineHeight: "1.5rem" }],
-        "lg": ["1.0625rem", { lineHeight: "1.6rem" }],
-        "xl": ["1.25rem", { lineHeight: "1.7rem" }],
-        "2xl": ["1.5rem", { lineHeight: "1.75rem" }],
-        "3xl": ["1.875rem", { lineHeight: "2rem" }],
-        "4xl": ["2.25rem", { lineHeight: "2.25rem" }],
+        "micro":   ["0.625rem", { lineHeight: "0.75rem" }],
+        "xs":      ["0.75rem",   { lineHeight: "1rem" }],
+        "sm":      ["0.8125rem",{ lineHeight: "1.125rem" }],
+        "base":    ["0.9375rem",{ lineHeight: "1.5rem" }],
+        "lg":      ["1.0625rem",{ lineHeight: "1.6rem" }],
+        "xl":      ["1.25rem",  { lineHeight: "1.75rem" }],
+        "2xl":     ["1.5rem",   { lineHeight: "1.75rem" }],
+        "3xl":     ["1.875rem", { lineHeight: "2rem" }],
+        "4xl":     ["2.25rem",  { lineHeight: "2.25rem" }],
+        "5xl":     ["2.75rem",  { lineHeight: "1.2" }],
+        "display": ["3.5rem",   { lineHeight: "1.1" }],
       },
 
       /* Border radius scale */
       borderRadius: {
-        "xl": "0.875rem",
-        "2xl": "1.25rem",
-        "3xl": "1.75rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
       },
 
-      /* Shadows */
+      /* Shadows — 极淡阴影 */
       boxShadow: {
-        "elevated": "0 12px 32px -8px rgba(0, 0, 0, 0.4)",
-        "elevated-lg": "0 20px 48px -12px rgba(0, 0, 0, 0.5)",
-        "glow-indigo": "0 0 24px -6px rgba(99, 102, 241, 0.35)",
-        "glow-purple": "0 0 24px -6px rgba(124, 58, 237, 0.3)",
-        "inner-glow": "inset 0 1px 0 rgba(255,255,255,0.04)",
+        "elevated": "0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03)",
+        "elevated-lg": "0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.03)",
+        "glow-brand": "0 0 20px -4px rgba(37, 99, 235, 0.15)",
+        "inner-glow": "inset 0 1px 0 rgba(255,255,255,0.6)",
       },
 
-      /* Backdrop blur steps */
+      /* Backdrop blur */
       backdropBlur: {
         xs: "2px",
         sm: "4px",

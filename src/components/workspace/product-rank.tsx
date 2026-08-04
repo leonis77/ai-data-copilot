@@ -19,7 +19,7 @@ export function ProductRank({ rows, productField, amountField, aiSummary }: { ro
   const data = useMemo(() => rankProducts(rows, productField, amountField, 10), [rows, productField, amountField]);
   return (
     <ModuleShell title={t.workspace.productRank} aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title={t.workspace.top10Revenue} data={data} height={350} /> : <p className="text-sm text-white/30 text-center py-8">{t.workspace.noProductData}</p>}
+      {data.length > 0 ? <BarChart title={t.workspace.top10Revenue} data={data} height={350} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noProductData}</p>}
     </ModuleShell>
   );
 }

@@ -78,8 +78,9 @@ function tryMatch(a: string, b: string, jaccardThreshold: number): MatchAttempt 
     return { confidence: 1.0, strategy: "exact" };
   }
 
-  // 2. Contains match
-  if (aNorm.indexOf(bNorm) !== -1 || bNorm.indexOf(aNorm) !== -1) {
+  // 2. Prefix/suffix match (safer than raw substring — prevents "Air Force" matching "Air Force 1" mid-string)
+  if (aNorm.startsWith(bNorm) || bNorm.startsWith(aNorm) ||
+      aNorm.endsWith(bNorm) || bNorm.endsWith(aNorm)) {
     var lenRatio = Math.min(aNorm.length, bNorm.length) / Math.max(aNorm.length, bNorm.length);
     return { confidence: 0.7 + lenRatio * 0.2, strategy: "contains" };
   }

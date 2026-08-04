@@ -100,6 +100,8 @@ export interface ProfitResult {
   platformKey: string;
   sellPrice: number;
   purchaseCost: number;
+  /** 月销量 */
+  monthlySales: number;
   /** 成本明细 */
   costs: CostBreakdown;
   /** 真实利润（元/件） */
@@ -282,6 +284,7 @@ export function calculateProfit(input: ProductProfitInput): ProfitResult {
     platformKey: feeConfig.platformKey,
     sellPrice: input.sellPrice,
     purchaseCost: input.purchaseCost,
+    monthlySales: input.monthlySales,
     costs: {
       commissionFee: Math.round(commissionFee * 100) / 100,
       fixedFeePerItem: Math.round(fixedFeePerItem * 100) / 100,

@@ -34,19 +34,19 @@ export function ColumnMapper({ columns, onConfirm, onCancel }: ColumnMapperProps
   });
 
   return (
-    <div className="glass rounded-xl p-4 space-y-4">
-      <div className="text-sm font-medium text-white/70">手动映射列到标准字段</div>
+    <div className="card rounded-xl p-4 space-y-4">
+      <div className="text-sm font-medium text-primary">手动映射列到标准字段</div>
       <div className="space-y-2 max-h-80 overflow-y-auto">
         {columns.map(function(col) {
           const current = mapping[col] || "ignore";
           return (
-            <div key={col} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03]">
-              <span className="flex-1 text-sm text-white/70 truncate">{col}</span>
-              <ArrowRight className="w-4 h-4 text-white/20 shrink-0" />
+            <div key={col} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50">
+              <span className="flex-1 text-sm text-primary truncate">{col}</span>
+              <ArrowRight className="w-4 h-4 text-tertiary shrink-0" />
               <select
                 value={current}
                 onChange={function(e) { setMapping({...mapping, [col]: e.target.value}); }}
-                className="glass px-3 py-1.5 rounded-lg text-xs text-white/70 bg-transparent outline-none"
+                className="border border-gray-200 bg-white rounded-lg text-xs text-primary outline-none"
               >
                 {STANDARD_FIELDS.map(function(f) {
                   return <option key={f} value={f}>{FIELD_LABELS[f]}</option>;
@@ -57,8 +57,8 @@ export function ColumnMapper({ columns, onConfirm, onCancel }: ColumnMapperProps
         })}
       </div>
       <div className="flex justify-end gap-3 pt-2">
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl glass text-sm text-white/50 hover:text-white/80 transition-all">取消</button>
-        <button onClick={function() { onConfirm(mapping); }} className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-primary to-accent-purple text-white text-sm font-medium transition-all hover:shadow-lg hover:shadow-primary/25"><Check className="w-3.5 h-3.5" />确认映射</button>
+        <button onClick={onCancel} className="px-4 py-2 rounded-xl border border-gray-200 text-secondary hover:text-primary transition-all">取消</button>
+        <button onClick={function() { onConfirm(mapping); }} className="flex items-center gap-2 px-5 py-2 rounded-xl bg-brand text-white text-sm font-medium transition-all"><Check className="w-3.5 h-3.5" />确认映射</button>
       </div>
     </div>
   );

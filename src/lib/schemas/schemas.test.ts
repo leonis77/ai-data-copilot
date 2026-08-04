@@ -179,7 +179,7 @@ describe("validateLoopPostAction", () => {
       status: "approved",
     });
     expect(result.action).toBe("update_decision_status");
-    expect(result.status).toBe("approved");
+    expect((result as any).status).toBe("approved");
   });
 
   it("未知 action 应抛出", () => {

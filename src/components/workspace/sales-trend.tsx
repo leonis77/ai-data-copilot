@@ -24,12 +24,12 @@ export function SalesTrend({ rows, amountField, orderTimeField, dateRange, aiSum
     <ModuleShell title={t.workspace.salesTrend} aiSummary={aiSummary}>
       <div className="mb-4">
         <span className="text-3xl font-bold gradient-text">{"¥"}{total.toLocaleString()}</span>
-        <span className="text-sm text-white/40 ml-2">{t.workspace.last}{dateRange}{t.workspace.days}</span>
+        <span className="text-sm text-tertiary ml-2">{t.workspace.last}{dateRange}{t.workspace.days}</span>
       </div>
       {data.length > 0 ? (
         <LineChart title={t.workspace.dailySales} data={data} height={300} />
       ) : (
-        <p className="text-sm text-white/30 text-center py-8">{t.workspace.noTimeData}</p>
+        <p className="text-sm text-faint text-center py-8">{t.workspace.noTimeData}</p>
       )}
     </ModuleShell>
   );

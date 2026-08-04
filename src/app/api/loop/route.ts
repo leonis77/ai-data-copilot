@@ -15,11 +15,17 @@ import type { Decision, ActionTask } from "@/lib/loop/types";
 import { validateLoopPostAction } from "@/lib/schemas";
 import { ApiErrorCode, apiError, zodErrorToDetails } from "@/lib/errors";
 import { logger, withRequestId } from "@/lib/logger";
+import { readJsonBody } from "@/lib/api-utils";
+import { authenticateRequest } from "@/lib/auth";
 
 // ═══ GET /api/loop?datasetId=... ═══
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+    }
     const url = new URL(request.url);
     const datasetId = url.searchParams.get("datasetId");
     if (!datasetId) {
@@ -68,8 +74,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
+    }
+
     try {
-      const raw = await request.json().catch(function () { return null; });
+      const raw = await readJsonBody(request);
+      if (raw instanceof Response) return raw;
       if (!raw || typeof raw !== "object") {
         return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON 对象", { recoverable: true }), { status: 400 });
       }

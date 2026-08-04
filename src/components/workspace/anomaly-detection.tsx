@@ -21,20 +21,20 @@ export function AnomalyDetection({ rows, amountField, aiSummary }: { rows: any[]
     <ModuleShell title={t.workspace.anomalyDetection} aiSummary={aiSummary}>
       {anomalies.length === 0 ? (
         <div className="text-center py-8">
-          <AlertTriangle className="w-10 h-10 text-white/20 mx-auto mb-3" />
-          <p className="text-sm text-white/30">{t.workspace.noAnomalies}</p>
+          <AlertTriangle className="w-10 h-10 text-faint mx-auto mb-3" />
+          <p className="text-sm text-faint">{t.workspace.noAnomalies}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-white/40 mb-3">{t.workspace.detected} {anomalies.length} {t.workspace.anomalyRecords}</p>
+          <p className="text-sm text-tertiary mb-3">{t.workspace.detected} {anomalies.length} {t.workspace.anomalyRecords}</p>
           {anomalies.map((a, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border-gray-100">
               <div className={"w-8 h-8 rounded-lg flex items-center justify-center " + (a.zScore > 3 ? "bg-red-500/20" : "bg-yellow-500/20")}>
                 {a.zScore > 3 ? <AlertTriangle className="w-4 h-4 text-red-400" /> : <TrendingUp className="w-4 h-4 text-yellow-400" />}
               </div>
               <div className="flex-1">
                 <p className="text-sm">{t.workspace.record}{a.index + 1} | {t.workspace.amount}{"¥"}{a.value.toLocaleString()}</p>
-                <p className="text-xs text-white/40">{t.workspace.zscore} {a.zScore.toFixed(1)} | {t.workspace.deviation} {a.zScore > 3 ? t.workspace.high : t.workspace.medium}</p>
+                <p className="text-xs text-tertiary">{t.workspace.zscore} {a.zScore.toFixed(1)} | {t.workspace.deviation} {a.zScore > 3 ? t.workspace.high : t.workspace.medium}</p>
               </div>
             </div>
           ))}

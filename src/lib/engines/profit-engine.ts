@@ -234,8 +234,10 @@ export function computeProductPnL(
 function findKeywordCol(rows: Record<string, unknown>[], regex: RegExp): string | undefined {
   if (!rows || rows.length === 0) return undefined;
   var cols = Object.keys(rows[0]);
+  // 用无状态副本避免 g/y 标志的 lastIndex 污染（RegExp.test 会推进 lastIndex）
+  var safeRe = new RegExp(regex.source, regex.flags.replace(/[gy]/g, ""));
   for (var i = 0; i < cols.length; i++) {
-    if (regex.test(cols[i])) return cols[i];
+    if (safeRe.test(cols[i])) return cols[i];
   }
   return undefined;
 }
@@ -246,8 +248,9 @@ function fuzzyMatchCost(productName: string, costMap: Record<string, { totalCost
 
   for (var i = 0; i < keys.length; i++) {
     var keyLower = keys[i].toLowerCase();
-    // Contains match
-    if (nameLower.indexOf(keyLower) !== -1 || keyLower.indexOf(nameLower) !== -1) {
+    // Prefix/suffix match only (prevent "包装" matching "包装材料" mid-string)
+    if (nameLower.startsWith(keyLower) || keyLower.startsWith(nameLower) ||
+        nameLower.endsWith(keyLower) || keyLower.endsWith(nameLower)) {
       return costMap[keys[i]];
     }
   }

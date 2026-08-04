@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger, withRequestId } from "@/lib/logger";
 import { ApiErrorCode, apiError } from "@/lib/errors";
 import { z } from "zod";
+import { readJsonBody } from "@/lib/api-utils";
 
 const MetricEventSchema = z.object({
   type: z.string().min(1),
@@ -22,7 +23,8 @@ export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
     try {
-      const raw = await request.json().catch(function () { return null; });
+      const raw = await readJsonBody(request);
+      if (raw instanceof Response) return raw;
       if (!raw || typeof raw !== "object") {
         return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON 对象", { recoverable: true }), { status: 400 });
       }

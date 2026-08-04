@@ -21,10 +21,18 @@ import {
 } from "@/lib/loop";
 import { startTimer, endTimer, logPipelineResult, logApiCall } from "@/lib/observability";
 import { applyRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { readJsonBody } from "@/lib/api-utils";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
+    }
+
     // ⭐ 限流：Agent 分析接口 1 分钟 10 次
     const rateResult = applyRateLimit(request, { strategy: "agent" });
     if (!rateResult.allowed) {
@@ -34,7 +42,8 @@ export async function POST(request: NextRequest) {
     var pipelineType: string = "unknown";
     var timerId = startTimer("agent.pipeline", { route: "/api/agent" });
     try {
-      const body = await request.json().catch(function () { return null; });
+      const body = await readJsonBody(request);
+      if (body instanceof NextResponse) return body;
       if (!body || typeof body !== "object") {
         logApiCall("/api/agent", false, { reason: "invalid_body" });
         return NextResponse.json({ type: "agent_error", content: "请求体必须是 JSON 对象", error: { code: "INVALID_BODY", message: "missing json body", recoverable: true } }, { status: 400 });

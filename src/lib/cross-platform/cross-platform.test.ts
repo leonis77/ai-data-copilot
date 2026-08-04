@@ -76,6 +76,7 @@ describe("buildCrossPlatformComparison", () => {
       platformKey: "tmall",
       sellPrice: 199,
       purchaseCost: 80,
+      monthlySales: 100,
       costs: {
         commissionFee: 10, fixedFeePerItem: 0, shippingInsurance: 2,
         influencerCommission: 0, shippingCost: 3, adCost: 0,
@@ -91,6 +92,7 @@ describe("buildCrossPlatformComparison", () => {
       platformKey: "pdd",
       sellPrice: 169,
       purchaseCost: 75,
+      monthlySales: 200,
       costs: {
         commissionFee: 3.38, fixedFeePerItem: 0, shippingInsurance: 0.85,
         influencerCommission: 0, shippingCost: 3, adCost: 0,

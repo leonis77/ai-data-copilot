@@ -53,20 +53,20 @@ export function ChatPanel({ messages, onSend, loading }: ChatPanelProps) {
               className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
             >
               {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="w-4 h-4 text-primary-light" />
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4 text-brand" />
                 </div>
               )}
               <div
                 className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-3 text-sm",
                   msg.role === "user"
-                    ? "bg-primary/20 text-white/90 rounded-br-md"
-                    : "glass text-white/80 rounded-bl-md"
+                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-md shadow-sm"
+                    : "bg-white border border-gray-200 text-secondary rounded-bl-md shadow-sm"
                 )}
               >
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-white/5 [&_pre]:p-3 [&_pre]:rounded-xl [&_table]:text-xs">
+                  <div className="prose prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-gray-50 [&_pre]:p-3 [&_pre]:rounded-xl [&_table]:text-xs">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {msg.content}
                     </ReactMarkdown>
@@ -76,8 +76,8 @@ export function ChatPanel({ messages, onSend, loading }: ChatPanelProps) {
                 )}
               </div>
               {msg.role === "user" && (
-                <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="w-4 h-4 text-accent-cyan" />
+                <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center shrink-0 mt-0.5">
+                  <User className="w-4 h-4 text-sky-500" />
                 </div>
               )}
             </motion.div>
@@ -89,14 +89,14 @@ export function ChatPanel({ messages, onSend, loading }: ChatPanelProps) {
             animate={{ opacity: 1 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 text-primary-light animate-pulse" />
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-brand animate-pulse" />
             </div>
-            <div className="glass rounded-2xl rounded-bl-md px-4 py-3">
+            <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           </motion.div>
@@ -115,14 +115,14 @@ export function ChatPanel({ messages, onSend, loading }: ChatPanelProps) {
           onKeyDown={handleKeyDown}
           placeholder="基于数据提问，例如：哪些商品销量最好？"
           rows={1}
-          className="flex-1 glass px-4 py-3 rounded-xl text-sm text-white/80 placeholder:text-white/20 resize-none focus:outline-none focus:border-primary/50 focus:bg-white/8 transition-all"
+          className="flex-1 bg-white border border-gray-200 px-4 py-3 rounded-xl text-sm text-primary placeholder:text-faint resize-none focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/10 transition-all"
         />
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
           disabled={!input.trim() || loading}
-          className="w-12 h-12 rounded-xl bg-gradient-to-r from-primary to-accent-purple flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+          className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
         >
           <Send className="w-5 h-5 text-white" />
         </motion.button>

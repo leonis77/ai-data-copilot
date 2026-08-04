@@ -13,6 +13,7 @@
  */
 
 import type { ProfitResult } from "@/lib/profit/engine";
+export type { ProfitResult } from "@/lib/profit/engine";
 
 // ═══════════════════════════════════════════════
 // 类型定义
@@ -74,7 +75,7 @@ export interface CrossPlatformComparison {
 /**
  * 中文文本分词（简单2-gram + 单字）
  */
-function tokenize(text: string): Set<string> {
+export function tokenize(text: string): Set<string> {
   const cleaned = text.toLowerCase()
     .replace(/[【】\[\]\(\)（）\s]+/g, " ")
     .replace(/[^\w一-鿿\s]/g, "")

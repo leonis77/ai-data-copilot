@@ -44,7 +44,7 @@ function parseCSV(data: Uint8Array): ParsedData {
     for (let j = 0; j < headers.length; j++) {
       const raw = (vals[j] || "").replace(/\r$/, "");
       if (/^\d+\.\d+$/.test(raw) || /^-\d+\.\d+$/.test(raw)) { row[headers[j]] = Number(raw); }
-      else if (/^[1-9]\d{0,12}$/.test(raw)) { row[headers[j]] = Number(raw); }
+      else if (/^(?:0|[1-9]\d{0,12})$/.test(raw)) { row[headers[j]] = Number(raw); }
       else { row[headers[j]] = raw; }
     }
     rows.push(row);

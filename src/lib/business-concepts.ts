@@ -173,13 +173,26 @@ export function getConceptLabel(conceptId: BusinessConceptId): string {
 
 function matchConcept(roleInfo: ColumnRole, tableClass: TableClass): { concept: BusinessConceptId; confidence: number } {
   var colName = roleInfo.column;
+
+  // ── Phase 1: exact rules (no .* catch-all) ──
   for (var i = 0; i < CONCEPT_RULES.length; i++) {
     var rule = CONCEPT_RULES[i];
+    if (rule.keywords.source === ".*") continue; // skip fallback rules
     if (rule.role !== roleInfo.role) continue;
     if (rule.tableClasses && rule.tableClasses.indexOf(tableClass) === -1) continue;
     if (rule.keywords.test(colName)) {
       return { concept: rule.concept, confidence: Math.min(roleInfo.confidence * 1.1, 1.0) };
     }
   }
+
+  // ── Phase 2: fallback rules (only when no exact match) ──
+  for (var i = 0; i < CONCEPT_RULES.length; i++) {
+    var rule = CONCEPT_RULES[i];
+    if (rule.keywords.source !== ".*") continue; // only fallback rules
+    if (rule.role !== roleInfo.role) continue;
+    if (rule.tableClasses && rule.tableClasses.indexOf(tableClass) === -1) continue;
+    return { concept: rule.concept, confidence: roleInfo.confidence * 0.5 };
+  }
+
   return { concept: "unknown", confidence: roleInfo.confidence * 0.5 };
 }

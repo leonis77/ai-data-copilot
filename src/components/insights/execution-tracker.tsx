@@ -35,12 +35,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: "text-white/40",
-  in_progress: "text-amber-400",
-  completed: "text-green-400",
-  cancelled: "text-white/20",
-  running: "text-amber-400",
-  failed: "text-red-400",
+  pending: "text-faint",
+  in_progress: "text-amber-500",
+  completed: "text-emerald-500",
+  cancelled: "text-faint",
+  running: "text-amber-500",
+  failed: "text-red-500",
 };
 
 export default function ExecutionTracker(props: ExecutionTrackerProps) {
@@ -134,12 +134,12 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 text-xs text-white/40">
-        <span className={"inline-flex items-center gap-1 " + (latestExecution ? STATUS_COLOR[latestExecution.status] || "text-white/40" : "text-white/30")}>
+      <div className="flex items-center gap-2 text-xs text-tertiary">
+        <span className={"inline-flex items-center gap-1 " + (latestExecution ? STATUS_COLOR[latestExecution.status] || "text-faint" : "text-faint")}>
           {latestExecution ? STATUS_LABEL[latestExecution.status] || latestExecution.status : "未执行"}
         </span>
         {latestOutcome && (
-          <span className={"inline-flex items-center gap-1 " + (isPositive ? "text-green-400/70" : isNegative ? "text-red-400/70" : "text-white/40")}>
+          <span className={"inline-flex items-center gap-1 " + (isPositive ? "text-emerald-500/70" : isNegative ? "text-red-500/70" : "text-faint")}>
             {outcomeMetric} {isPositive ? "+" : ""}{improvementPercent.toFixed(1)}%
           </span>
         )}
@@ -151,48 +151,48 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
     <GlassCard className="p-4 rounded-xl space-y-3">
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-white/50">{priority}</span>
-            <span className={"text-[10px] px-1.5 py-0.5 rounded " + (riskLevel === "high" ? "bg-red-500/10 text-red-400/70" : riskLevel === "medium" ? "bg-amber-500/10 text-amber-400/70" : "bg-green-500/10 text-green-400/70")}>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-50 text-tertiary border border-gray-200">{priority}</span>
+            <span className={"text-xs px-1.5 py-0.5 rounded border " + (riskLevel === "high" ? "bg-red-50 text-red-500 border-red-200" : riskLevel === "medium" ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-emerald-50 text-emerald-500 border-emerald-200")}>
               {riskLevel === "high" ? "高风险" : riskLevel === "medium" ? "中风险" : "低风险"}
             </span>
             {latestExecution && (
-              <span className={"text-[10px] px-1.5 py-0.5 rounded " + (STATUS_COLOR[latestExecution.status] || "text-white/40")}>
+              <span className={"text-xs px-1.5 py-0.5 rounded " + (STATUS_COLOR[latestExecution.status] || "text-faint")}>
                 {STATUS_LABEL[latestExecution.status] || latestExecution.status}
               </span>
             )}
           </div>
-          <h4 className="text-sm font-medium text-white/80 mb-1">{title}</h4>
-          {description && <p className="text-xs text-white/40 leading-relaxed">{description}</p>}
+          <h4 className="text-sm font-medium text-primary mb-1">{title}</h4>
+          {description && <p className="text-xs text-tertiary leading-relaxed">{description}</p>}
           {expectedProfitImpact > 0 && (
-            <p className="text-xs text-green-400/60 mt-1">预期收益: {formatMoney(expectedProfitImpact)}</p>
+            <p className="text-xs text-emerald-500/70 mt-1.5">预期收益: {formatMoney(expectedProfitImpact)}</p>
           )}
         </div>
       </div>
 
       {latestExecution && (
-        <div className="space-y-1">
-          <div className="text-[10px] text-white/25 uppercase tracking-wider">执行记录</div>
+        <div className="space-y-1.5">
+          <div className="text-xs text-faint uppercase tracking-wider font-medium">执行记录</div>
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            {latestExecution.status === "running" && <span className="text-amber-400 flex items-center gap-1"><Play className="w-3 h-3" /> 执行中...</span>}
-            {latestExecution.status === "completed" && <span className="text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> 已完成</span>}
-            {latestExecution.status === "failed" && <span className="text-red-400 flex items-center gap-1"><XCircle className="w-3 h-3" /> 失败</span>}
-            {latestExecution.status === "cancelled" && <span className="text-white/30 flex items-center gap-1"><XCircle className="w-3 h-3" /> 已取消</span>}
-            {latestExecution.executedBy && <span className="text-white/25">by {latestExecution.executedBy}</span>}
-            {latestExecution.executedAt && <span className="text-white/20">{new Date(latestExecution.executedAt).toLocaleString()}</span>}
+            {latestExecution.status === "running" && <span className="text-amber-500 flex items-center gap-1"><Play className="w-3 h-3" /> 执行中...</span>}
+            {latestExecution.status === "completed" && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> 已完成</span>}
+            {latestExecution.status === "failed" && <span className="text-red-500 flex items-center gap-1"><XCircle className="w-3 h-3" /> 失败</span>}
+            {latestExecution.status === "cancelled" && <span className="text-faint flex items-center gap-1"><XCircle className="w-3 h-3" /> 已取消</span>}
+            {latestExecution.executedBy && <span className="text-faint">by {latestExecution.executedBy}</span>}
+            {latestExecution.executedAt && <span className="text-faint">{new Date(latestExecution.executedAt).toLocaleString()}</span>}
           </div>
-          {latestExecution.result && <p className="text-xs text-white/35 bg-white/[0.02] rounded-lg px-3 py-2">{latestExecution.result}</p>}
+          {latestExecution.result && <p className="text-xs text-secondary bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">{latestExecution.result}</p>}
         </div>
       )}
 
       {latestOutcome && (
-        <div className="space-y-1">
-          <div className="text-[10px] text-white/25 uppercase tracking-wider">结果验证</div>
+        <div className="space-y-1.5">
+          <div className="text-xs text-faint uppercase tracking-wider font-medium">结果验证</div>
           <div className="flex items-center gap-3 text-xs flex-wrap">
-            <span className="text-white/50">{latestOutcome.metric}</span>
-            <span className="text-white/30">基线: {formatMoney(latestOutcome.beforeValue)}</span>
-            <span className="text-white/30">→ 实际: {formatMoney(latestOutcome.afterValue)}</span>
-            <span className={"flex items-center gap-1 " + (isPositive ? "text-green-400/70" : isNegative ? "text-red-400/70" : "text-white/40")}>
+            <span className="text-secondary">{latestOutcome.metric}</span>
+            <span className="text-tertiary">基线: {formatMoney(latestOutcome.beforeValue)}</span>
+            <span className="text-tertiary">→ 实际: {formatMoney(latestOutcome.afterValue)}</span>
+            <span className={"flex items-center gap-1 " + (isPositive ? "text-emerald-500/70" : isNegative ? "text-red-500/70" : "text-faint")}>
               <TrendingUp className="w-3 h-3" />
               {isPositive ? "+" : ""}{improvementPercent.toFixed(1)}%
             </span>
@@ -200,12 +200,12 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
         </div>
       )}
 
-      <div className="flex items-center gap-2 pt-2 border-t border-white/[0.04] flex-wrap">
+      <div className="flex items-center gap-2 pt-2 border-t border-gray-100 flex-wrap">
         {latestExecution && latestExecution.status === "completed" ? null : (
           <button
             onClick={handleStart}
             disabled={running}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs transition-colors disabled:opacity-50">
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-xs hover:bg-brand-dark transition-colors disabled:opacity-50">
             <Play className="w-3 h-3" />
             开始执行
           </button>
@@ -214,7 +214,7 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
           <button
             onClick={handleComplete}
             disabled={running}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 text-xs transition-colors disabled:opacity-50">
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500 text-white text-xs hover:bg-emerald-600 transition-colors disabled:opacity-50">
             <CheckCircle2 className="w-3 h-3" />
             完成执行
           </button>
@@ -223,7 +223,7 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
         {latestExecution && latestExecution.status === "completed" && !showOutcomeForm && !latestOutcome && (
           <button
             onClick={function() { setShowOutcomeForm(true); }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 text-xs transition-colors">
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-secondary hover:text-primary hover:border-brand/30 hover:bg-blue-50 text-xs transition-all duration-200">
             <Plus className="w-3 h-3" />
             录入结果
           </button>
@@ -235,37 +235,37 @@ export default function ExecutionTracker(props: ExecutionTrackerProps) {
               value={outcomeMetric}
               onChange={function(e) { setOutcomeMetric(e.target.value); }}
               placeholder="指标名称"
-              className="flex-1 min-w-[80px] glass px-2 py-1 rounded-lg text-xs text-white/70 outline-none"
+              className="flex-1 min-w-[80px] px-2 py-2 rounded-lg text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all"
             />
             <input
               type="number"
               value={beforeValue}
               onChange={function(e) { setBeforeValue(e.target.value); }}
               placeholder="执行前"
-              className="w-20 glass px-2 py-1 rounded-lg text-xs text-white/70 outline-none"
+              className="w-20 px-2 py-2 rounded-lg text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all"
             />
             <input
               type="number"
               value={afterValue}
               onChange={function(e) { setAfterValue(e.target.value); }}
               placeholder="执行后"
-              className="w-20 glass px-2 py-1 rounded-lg text-xs text-white/70 outline-none"
+              className="w-20 px-2 py-2 rounded-lg text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all"
             />
             <button
               onClick={handleSaveOutcome}
               disabled={running}
-              className="px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 text-xs transition-colors disabled:opacity-50">
+              className="px-3 py-2 rounded-lg bg-emerald-500 text-white text-xs hover:bg-emerald-600 transition-colors disabled:opacity-50">
               保存
             </button>
             <button
               onClick={function() { setShowOutcomeForm(false); setOutcomeResult(null); }}
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 text-xs transition-colors">
+              className="px-3 py-2 rounded-lg border border-gray-200 text-secondary hover:text-primary hover:border-brand/30 text-xs transition-all duration-200">
               取消
             </button>
           </>
         )}
 
-        {outcomeResult && <span className="text-[10px] text-red-400/60">{outcomeResult}</span>}
+        {outcomeResult && <span className="text-xs text-red-500/70">{outcomeResult}</span>}
       </div>
     </GlassCard>
   );

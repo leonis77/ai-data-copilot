@@ -5,15 +5,24 @@ import { analyzeData } from "@/lib/ai";
 import { computeStats } from "@/lib/parser";
 import { ApiErrorCode, apiError } from "@/lib/errors";
 import { logger, withRequestId } from "@/lib/logger";
+import { readJsonBody } from "@/lib/api-utils";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
+    }
+
     try {
       const { searchParams } = new URL(request.url);
       const datasetId = searchParams.get("datasetId");
-      const body = await request.json().catch(() => ({}));
-      const question = String(body.question || "");
+      const body = await readJsonBody(request);
+      if (body instanceof NextResponse) return body;
+      const question = String(body?.question || "");
 
       let ds;
       if (datasetId) {
@@ -58,6 +67,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const datasetId = searchParams.get("datasetId");
 

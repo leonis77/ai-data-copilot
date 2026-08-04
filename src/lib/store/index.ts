@@ -38,6 +38,12 @@ export interface AppStore {
   activeId: string;
   datasets: LocalDatasetMeta[];
   columnConfig: { datasetId: string; templateId?: string | null; selectedColumns: string[] } | null;
+  auth?: {
+    userId: string;
+    email: string;
+    fullName: string;
+    avatarUrl: string;
+  };
 }
 
 function estimateSize(): number {

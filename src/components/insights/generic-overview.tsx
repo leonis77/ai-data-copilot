@@ -83,28 +83,27 @@ export function GenericOverview({ columns, rows, datasetName }: GenericOverviewP
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="space-y-6">
       {/* Summary card */}
-      <div className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
-        style={{ backdropFilter: "blur(20px)", background: "radial-gradient(circle at 30% 20%, rgba(124,92,255,0.08), transparent 40%), rgba(17,24,39,0.5)" }}>
+      <div className="relative overflow-hidden rounded-2xl p-6 border border-gray-100 bg-white">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
             <span className="text-xl font-bold gradient-text block">{analysis.totalRows}</span>
-            <p className="text-xs text-white/30">{"\u884c\u6570"}</p>
+            <p className="text-xs text-tertiary">{"\u884c\u6570"}</p>
           </div>
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
             <span className="text-xl font-bold gradient-text block">{analysis.totalCols}</span>
-            <p className="text-xs text-white/30">{"\u5217\u6570"}</p>
+            <p className="text-xs text-tertiary">{"\u5217\u6570"}</p>
           </div>
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
             <span className="text-xl font-bold gradient-text block">{analysis.numeric.length}</span>
-            <p className="text-xs text-white/30">{"\u6570\u503c\u5217"}</p>
+            <p className="text-xs text-tertiary">{"\u6570\u503c\u5217"}</p>
           </div>
-          <div className="text-center p-3 rounded-xl bg-white/[0.03]">
+          <div className="text-center p-3 rounded-xl bg-gray-50">
             <span className="text-xl font-bold gradient-text block">{analysis.effectiveCols}</span>
-            <p className="text-xs text-white/30">{"\u6709\u6548\u5217"}</p>
+            <p className="text-xs text-tertiary">{"\u6709\u6548\u5217"}</p>
           </div>
         </div>
         {analysis.ids.length > 0 && (
-          <p className="text-xs text-white/20">
+          <p className="text-xs text-faint">
             {"\u5df2\u8fc7\u6ee4 ID \u5217: "}{analysis.ids.join("\u3001")}
           </p>
         )}
@@ -118,14 +117,13 @@ export function GenericOverview({ columns, rows, datasetName }: GenericOverviewP
           return (
             <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }} whileHover={{ scale: 1.01 }}
-              className="flex items-center gap-3 p-4 rounded-xl border border-white/[0.05]"
-              style={{ backdropFilter: "blur(12px)", background: "rgba(17,24,39,0.4)" }}>
-              <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center shrink-0">
-                <Icon className="w-4 h-4 text-white/40" />
+              className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-200 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                <Icon className="w-4 h-4 text-secondary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white/70">{item.col}</p>
-                <p className="text-xs text-white/25">{label} {"\u00b7"} {item.valType}</p>
+                <p className="text-sm text-primary">{item.col}</p>
+                <p className="text-xs text-tertiary">{label} {"\u00b7"} {item.valType}</p>
               </div>
             </motion.div>
           );
@@ -134,22 +132,21 @@ export function GenericOverview({ columns, rows, datasetName }: GenericOverviewP
 
       {/* Numeric quick stats */}
       {analysis.numeric.length > 0 && (
-        <div className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
-          style={{ backdropFilter: "blur(20px)", background: "radial-gradient(circle at 30% 20%, rgba(124,92,255,0.08), transparent 40%), rgba(17,24,39,0.5)" }}>
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-4">{"\u6570\u503c\u5217\u7edf\u8ba1"}</p>
+        <div className="relative overflow-hidden rounded-2xl p-6 border border-gray-100 bg-white">
+          <p className="text-xs text-tertiary uppercase tracking-widest mb-4">{"\u6570\u503c\u5217\u7edf\u8ba1"}</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {analysis.numeric.map(function(item, i) {
               var Icon = roleIcons[item.role] || Hash;
               return (
-                <div key={i} className="p-3 rounded-xl bg-white/[0.03]">
+                <div key={i} className="p-3 rounded-xl bg-gray-50">
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-3 h-3 text-white/40" />
-                    <span className="text-xs text-white/50">{item.col}</span>
+                    <Icon className="w-3 h-3 text-tertiary" />
+                    <span className="text-xs text-secondary">{item.col}</span>
                   </div>
-                  <div className="text-sm text-white/70">
+                  <div className="text-sm text-primary">
                     {"\u00A5"}{item.min} - {"\u00A5"}{item.max}
                   </div>
-                  <div className="text-xs text-white/25">
+                  <div className="text-xs text-faint">
                     {"\u5747\u503c"} {"\u00A5"}{item.avg} {"\u00b7"} {item.count} {"\u6761"}
                   </div>
                 </div>

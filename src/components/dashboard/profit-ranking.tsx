@@ -166,36 +166,36 @@ export function ProfitRanking({ evidenceCards }: ProfitRankingProps) {
           <div className="flex items-center gap-3 text-caption">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-white/50">盈利</span>
+              <span className="text-tertiary">盈利</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-400" />
-              <span className="text-white/50">亏损</span>
+              <span className="text-tertiary">亏损</span>
             </span>
           </div>
         </div>
 
         <div className="h-[280px] -mx-2">
-          <ReactEChartsCore echarts={echarts} option={option} style={{ height: "100%" }} theme="dark" />
+          <ReactEChartsCore echarts={echarts} option={option} style={{ height: "100%" }} />
         </div>
 
         {/* Summary footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="text-caption text-emerald-400/70 font-medium">
+              <span className="text-caption text-emerald-500 font-medium">
                 盈利 {evidenceCards.filter(function(c) { return c.profit.netMonthly > 0; }).length} 个
               </span>
-              <span className="text-caption text-white/20">+¥{Math.round(profitableTotal).toLocaleString()}</span>
+              <span className="text-caption text-faint">+¥{Math.round(profitableTotal).toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-caption text-red-400/70 font-medium">
+              <span className="text-caption text-red-500 font-medium">
                 亏损 {evidenceCards.filter(function(c) { return c.profit.netMonthly <= 0; }).length} 个
               </span>
-              <span className="text-caption text-white/20">−¥{Math.abs(Math.round(losingTotal)).toLocaleString()}</span>
+              <span className="text-caption text-faint">−¥{Math.abs(Math.round(losingTotal)).toLocaleString()}</span>
             </div>
           </div>
-          <span className="text-caption text-white/20">共 {evidenceCards.length} 个商品</span>
+          <span className="text-caption text-faint">共 {evidenceCards.length} 个商品</span>
         </div>
       </div>
     </motion.div>

@@ -9,6 +9,7 @@ import { detectPlatform } from "@/lib/platform/detect";
 import { validateUploadRequest } from "@/lib/schemas";
 import { ApiErrorCode, apiError, zodErrorToDetails } from "@/lib/errors";
 import { startTimer, endTimer, logApiCall } from "@/lib/observability";
+import { authenticateRequest } from "@/lib/auth";
 
 var XLSX = require("xlsx");
 
@@ -18,9 +19,13 @@ function requestId(): string {
 }
 
 export async function POST(request: NextRequest) {
-  const rid = requestId();
-  return withRequestId(rid, async function () {
-    var timerId = startTimer("upload.parse", { route: "/api/upload" });
+  return withRequestId("req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8), async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
+    }
+    var timerId = startTimer("upload.parse", { route: "/api/upload", userId: authResult.user!.id });
     try {
       var raw = await request.json().catch(function () { return null; });
       if (!raw || typeof raw !== "object") {
@@ -183,6 +188,10 @@ function XLSX_enc3(r: number, c: number): string {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+    }
     var url = new URL(request.url);
     var id = url.searchParams.get("id");
     if (!id) return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "missing id", { recoverable: true }), { status: 400 });
@@ -194,6 +203,10 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+    }
     var url = new URL(request.url);
     var id = url.searchParams.get("id");
     var latest = url.searchParams.get("latest");
