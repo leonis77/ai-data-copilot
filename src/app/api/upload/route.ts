@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
     }
-    var timerId = startTimer("upload.parse", { route: "/api/upload", userId: authResult.user!.id });
+    const userId = authResult.user!.id;
+    var timerId = startTimer("upload.parse", { route: "/api/upload", userId });
     try {
       var raw = await request.json().catch(function () { return null; });
       if (!raw || typeof raw !== "object") {
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
           var aiStructure = await analyzeSheetStructure(
             firstSheet.name, firstSheet.preview, firstSheet.mergeInfo, firstSheet.totalRows
           );
-          
+
           if (aiStructure && aiStructure.headerRow >= 0) {
             // Re-parse using AI guidance
             var wb = XLSX.read(data, { type: "array", cellDates: true });
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
     try {
       saveToServerStore({
         id,
+        userId,
         name: "dataset_" + Date.now(),
         originalName: fileName,
         columns: parsed.columns,
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     // Save to Supabase (non-blocking - runs in background, failures are logged)
     try {
-      await saveDataset({
+      await saveDataset(userId, {
         id, name: "dataset_" + Date.now(), originalName: fileName,
         columns: parsed.columns, rows: saveRows, summary: parsed.summary,
         platform: platform || undefined, semanticRoles: semProfile || undefined,
@@ -192,11 +194,12 @@ export async function DELETE(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
     }
+    const userId = authResult.user!.id;
     var url = new URL(request.url);
     var id = url.searchParams.get("id");
     if (!id) return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "missing id", { recoverable: true }), { status: 400 });
-    await deleteDataset(id);
-    deleteFromServerStore(id);
+    await deleteDataset(userId, id);
+    deleteFromServerStore(userId, id);
     return NextResponse.json({ ok: true });
   } catch (e) { return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, "delete failed", { recoverable: true }), { status: 500 }); }
 }
@@ -207,6 +210,7 @@ export async function GET(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
     }
+    const userId = authResult.user!.id;
     var url = new URL(request.url);
     var id = url.searchParams.get("id");
     var latest = url.searchParams.get("latest");
@@ -214,17 +218,17 @@ export async function GET(request: NextRequest) {
 
     if (list === "true") {
       // Merge in-memory store + Supabase datasets, dedupe by id
-      var supabaseDatasets = await listDatasets();
+      var supabaseDatasets = await listDatasets(userId);
       var seenIds = new Set((supabaseDatasets || []).map(function(d: any) { return d.id; }));
       // Add all in-memory datasets not already in Supabase results
-      var memDatasets = listFromServerStore();
+      var memDatasets = listFromServerStore(userId);
       for (var mdi = 0; mdi < memDatasets.length; mdi++) {
         var memListDs = memDatasets[mdi];
         if (!seenIds.has(memListDs.id)) {
           supabaseDatasets.unshift({
             id: memListDs.id, name: memListDs.name, originalName: memListDs.originalName,
             rowCount: memListDs.rowCount, columns: memListDs.columns, createdAt: memListDs.createdAt,
-            semanticRoles: memListDs.semanticRoles || null, platform: memListDs.platform || null,
+            summary: memListDs.summary || "", semanticRoles: memListDs.semanticRoles || undefined, platform: memListDs.platform || undefined,
           });
           seenIds.add(memListDs.id);
         }
@@ -234,7 +238,7 @@ export async function GET(request: NextRequest) {
 
     if (id) {
       // Check in-memory store first (fast path, works within same function instance)
-      var memDs = getFromServerStore(id);
+      var memDs = getFromServerStore(userId, id);
       if (memDs) {
         return NextResponse.json({
           id: memDs.id, name: memDs.name, original_name: memDs.originalName,
@@ -244,14 +248,14 @@ export async function GET(request: NextRequest) {
         });
       }
       // Fall back to Supabase
-      var ds = await getDataset(id);
+      var ds = await getDataset(userId, id);
       if (!ds) return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "not found", { recoverable: true }), { status: 404 });
       return NextResponse.json(ds);
     }
 
     if (latest === "true") {
       // Check in-memory store first
-      var memLatestDs = getLatestFromServerStore();
+      var memLatestDs = getLatestFromServerStore(userId);
       if (memLatestDs) {
         return NextResponse.json({
           id: memLatestDs.id, name: memLatestDs.name, original_name: memLatestDs.originalName,
@@ -260,7 +264,7 @@ export async function GET(request: NextRequest) {
           platform: memLatestDs.platform || null,
         });
       }
-      var lds = await getLatestDataset();
+      var lds = await getLatestDataset(userId);
       if (!lds) return NextResponse.json(null);
       return NextResponse.json(lds);
     }

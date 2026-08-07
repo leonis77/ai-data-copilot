@@ -9,31 +9,31 @@ import { authFetch } from "@/lib/auth-fetch";
 interface DatasetSummary { id: string; originalName: string; rowCount: number; columns: string[]; createdAt: string }
 
 
-export function getSavedDatasets() {
-  const s = getStore();
+export function getSavedDatasets(userId?: string) {
+  const s = getStore(userId || "");
   return { activeId: s.activeId, list: s.datasets };
 }
-export function saveDatasets(data: { activeId: string; list: any[] }) {
-  setStore({ activeId: data.activeId, datasets: data.list });
+export function saveDatasets(userId: string, data: { activeId: string; list: any[] }) {
+  setStore(userId, { activeId: data.activeId, datasets: data.list });
 }
 
-export function TableSelector({ onSelect, className }: { onSelect?: (id: string) => void; className?: string }) {
+export function TableSelector({ onSelect, className, userId }: { onSelect?: (id: string) => void; className?: string; userId?: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<DatasetSummary[]>([]);
   const [active, setActive] = useState("");
 
   function refresh() {
-    const s = getStore();
+    const s = getStore(userId || "");
     setItems(s.datasets);
     setActive(s.activeId);
   }
 
-  useEffect(function() { refresh(); }, []);
+  useEffect(function() { refresh(); }, [userId]);
 
   function doSelect(id: string) {
-    const s = getStore();
+    const s = getStore(userId || "");
     s.activeId = id;
-    setStore(s);
+    setStore(userId || "", s);
     setActive(id); setOpen(false);
     if (onSelect) onSelect(id);
   }
@@ -42,7 +42,7 @@ export function TableSelector({ onSelect, className }: { onSelect?: (id: string)
     e.stopPropagation();
     if (!confirm("确定删除这个数据集？")) return;
     try { await authFetch("/api/upload?id=" + id, { method: "DELETE" }); } catch {}
-    const s = removeDataset(id);
+    const s = removeDataset(userId || "", id);
     setItems(s.datasets);
     setActive(s.activeId);
     if (onSelect && s.activeId) onSelect(s.activeId);

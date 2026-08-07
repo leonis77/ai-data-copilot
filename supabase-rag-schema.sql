@@ -1,7 +1,7 @@
--- RAG 知识库表 + 用户基准表
+-- RAG 知识库表 + 用户基准表（含 RLS）
 -- 在 Supabase SQL Editor 中执行
 
--- 1. 行业知识库
+-- 1. 行业知识库（共享数据，所有人可读，仅服务端可写）
 CREATE TABLE IF NOT EXISTS knowledge_base (
   id SERIAL PRIMARY KEY,
   category TEXT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
 
 CREATE INDEX IF NOT EXISTS idx_kb_category ON knowledge_base(category);
 
--- 2. 用户历史基准
+-- 2. 用户历史基准（按 user_id 隔离）
 CREATE TABLE IF NOT EXISTS user_benchmarks (
   id SERIAL PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -27,11 +27,19 @@ CREATE TABLE IF NOT EXISTS user_benchmarks (
 
 CREATE INDEX IF NOT EXISTS idx_ub_user_metric ON user_benchmarks(user_id, metric);
 
--- 3. RLS 关闭（开发阶段）
-ALTER TABLE knowledge_base DISABLE ROW LEVEL SECURITY;
-ALTER TABLE user_benchmarks DISABLE ROW LEVEL SECURITY;
+-- 3. RLS
+ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_benchmarks ENABLE ROW LEVEL SECURITY;
 
--- 4. 初始种子数据（20 条，带来源标注）
+-- 知识库：所有人可读，仅服务端可写（通过 service_role key 绕过 RLS）
+CREATE POLICY "Anyone can read knowledge_base" ON knowledge_base FOR SELECT USING (true);
+CREATE POLICY "Service role can manage knowledge_base" ON knowledge_base FOR ALL USING (false);
+
+-- 用户基准：仅本人可读写
+CREATE POLICY "Users can view own benchmarks" ON user_benchmarks FOR SELECT USING (user_id = auth.uid()::text);
+CREATE POLICY "Users can insert own benchmarks" ON user_benchmarks FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+
+-- 4. 初始种子数据（20 条）
 INSERT INTO knowledge_base (category, topic, keywords, content, source, confidence) VALUES
 ('pricing', '毛利率', '{利润,毛利率,赚钱,盈利,亏钱}', '电商综合毛利率通常 20-40%。食品/生鲜类 15-30%，美妆个护 40-60%，3C数码 5-15%，服装鞋帽 30-50%。毛利率 = (销售额-成本)/销售额×100%。', '公开行业报告', 60),
 ('pricing', '定价策略', '{定价,价格,售价,涨价,降价}', '建议零售价 = 采购成本/(1-目标毛利率)。例如成本¥20，目标毛利率40%，售价应为¥33。同时考虑竞品价格和平台价格带分布。', '定价公式', 80),

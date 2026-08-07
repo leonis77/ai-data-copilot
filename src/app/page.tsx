@@ -19,6 +19,7 @@ import {
   Zap, CheckCircle2, ChevronRight, Menu, X,
 } from "lucide-react";
 import { getStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 // ═══════════════════════════════════════════════
 // 动画工具
@@ -325,7 +326,7 @@ export default function HomePage() {
 
   useEffect(function () {
     try {
-      var s = getStore();
+      var s = getStore("");
       setHasData(s.activeId !== "" && s.datasets.length > 0);
     } catch (e) { setHasData(false); }
   }, []);
@@ -340,7 +341,7 @@ function Workbench() {
   var [loading, setLoading] = useState(true);
 
   useEffect(function() {
-    var s = getStore();
+    var s = getStore("");
     if (s.activeId && s.datasets.length > 0) {
       var item = s.datasets.find(function(d: any) { return d.id === s.activeId; });
       setData({ name: item?.originalName, profile: item?.profile || "unknown", rowCount: item?.rowCount, datasets: s.datasets });

@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
     }
+    const userId = authResult.user!.id;
 
     try {
       const { searchParams } = new URL(request.url);
@@ -26,11 +27,11 @@ export async function POST(request: NextRequest) {
 
       let ds;
       if (datasetId) {
-        ds = await getDataset(datasetId);
-        if (!ds) ds = getFromServerStore(datasetId);
+        ds = await getDataset(userId, datasetId);
+        if (!ds) ds = getFromServerStore(userId, datasetId);
       } else {
-        ds = await getLatestDataset();
-        if (!ds) ds = getLatestFromServerStore();
+        ds = await getLatestDataset(userId);
+        if (!ds) ds = getLatestFromServerStore(userId);
       }
       if (!ds) {
         return NextResponse.json(apiError(ApiErrorCode.DATASET_NOT_FOUND, "未找到数据，请先上传文件", { recoverable: true }), { status: 400 });
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 
       const result = await analyzeData(dataSummary, question);
 
-      await saveAnalysis({
+      await saveAnalysis(userId, {
         id: `analysis_${dsId}`,
         datasetId: dsId,
         summary: result.summary,
@@ -71,20 +72,21 @@ export async function GET(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
     }
+    const userId = authResult.user!.id;
     const { searchParams } = new URL(request.url);
     const datasetId = searchParams.get("datasetId");
 
     let ds;
     if (datasetId) {
-      ds = await getDataset(datasetId);
-      if (!ds) ds = getFromServerStore(datasetId);
+      ds = await getDataset(userId, datasetId);
+      if (!ds) ds = getFromServerStore(userId, datasetId);
     } else {
-      ds = await getLatestDataset();
-      if (!ds) ds = getLatestFromServerStore();
+      ds = await getLatestDataset(userId);
+      if (!ds) ds = getLatestFromServerStore(userId);
     }
     if (!ds) return NextResponse.json(null);
 
-    const analysis = await getAnalysis((ds as any).id);
+    const analysis = await getAnalysis(userId, (ds as any).id);
 
     if (!analysis) return NextResponse.json(null);
 

@@ -78,6 +78,7 @@ export interface InlineDataset {
 
 export async function executeDecisionPipeline(
   input: string,
+  userId: string,
   datasetId: string,
   crossDatasetIds?: string[],
   inlineDatasets?: Record<string, InlineDataset>,
@@ -85,7 +86,7 @@ export async function executeDecisionPipeline(
   const startTime = Date.now();
 
   // ═══ Layer 0: 数据加载 ═══
-  const ds = await loadDataset(datasetId, inlineDatasets);
+  const ds = await loadDataset(userId, datasetId, inlineDatasets);
   if (!ds) {
     throw new Error(`Dataset not found: ${datasetId}`);
   }
@@ -184,7 +185,7 @@ export async function executeDecisionPipeline(
     const currentRoles = detectRoles(columns, rows.slice(0, 50));
     for (const relatedId of crossDatasetIds) {
       try {
-        const relatedDs = await loadDataset(relatedId, inlineDatasets);
+        const relatedDs = await loadDataset(userId, relatedId, inlineDatasets);
         if (!relatedDs) continue;
         const related = normalizeData(relatedDs);
         const relatedRoles = detectRoles(related.columns, related.rows.slice(0, 50));
@@ -252,7 +253,7 @@ export async function executeDecisionPipeline(
   if (crossDatasetSummaries.length > 0 && platform && profitResults.length > 0) {
     for (const cd of crossDatasetSummaries) {
       try {
-        const relatedDs = await loadDataset(cd.relatedDatasetId, inlineDatasets);
+        const relatedDs = await loadDataset(userId, cd.relatedDatasetId, inlineDatasets);
         if (!relatedDs) continue;
         const related = normalizeData(relatedDs);
         const relatedPlatform = detectPlatform(related.columns, related.platform);
@@ -510,6 +511,7 @@ function buildDeterministicExplanation(
 // ═══════════════════════════════════════════════
 
 async function loadDataset(
+  userId: string,
   datasetId: string,
   inlineDatasets?: Record<string, InlineDataset>,
 ): Promise<Record<string, unknown> | null> {
@@ -530,14 +532,14 @@ async function loadDataset(
 
   // Try Supabase first
   try {
-    const ds = await getDataset(datasetId);
+    const ds = await getDataset(userId, datasetId);
     if (ds) return ds as unknown as Record<string, unknown>;
   } catch (e) {
     logger.info("Supabase unavailable for pipeline, trying in-memory store");
   }
 
   // Fall back to in-memory store
-  const memDs = getFromServerStore(datasetId);
+  const memDs = getFromServerStore(userId, datasetId);
   if (memDs) return memDs as unknown as Record<string, unknown>;
 
   return null;

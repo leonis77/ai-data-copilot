@@ -1,8 +1,7 @@
 /**
- * ProcureWise Business Closed-Loop Persistence
+ * ProcureWise Business Closed-Loop Persistence — User-Scoped
  *
- * 最小 Supabase 持久化层，只依赖 datasets 表已存在的假设。
- * 新表通过 migration SQL 创建。
+ * 所有记录均关联 user_id，确保跨用户数据隔离。
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -14,7 +13,7 @@ let supabase: SupabaseClient | null = null;
 function getClient(): SupabaseClient {
   if (!supabase) {
     const url = process.env.SUPABASE_URL || "";
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
     supabase = createClient(url, key);
   }
   return supabase;
@@ -24,7 +23,7 @@ function getClient(): SupabaseClient {
 // AnalysisRun CRUD
 // ═══════════════════════════════════════════════
 
-export async function saveAnalysisRun(data: {
+export async function saveAnalysisRun(userId: string, data: {
   id: string;
   datasetId: string;
   input: string;
@@ -39,6 +38,7 @@ export async function saveAnalysisRun(data: {
     const client = getClient();
     const { error } = await client.from("analysis_runs").insert({
       id: data.id,
+      user_id: userId,
       dataset_id: data.datasetId,
       input: data.input,
       chain_snapshot: data.chainSnapshot,
@@ -49,16 +49,16 @@ export async function saveAnalysisRun(data: {
       web_search_triggered: data.webSearchTriggered,
       created_at: new Date().toISOString(),
     });
-    if (error) logger.warn("saveAnalysisRun failed", { message: error.message, details: error.details, hint: error.hint });
+    if (error) logger.warn("saveAnalysisRun failed", { message: error.message });
   } catch (e: any) {
     logger.warn("saveAnalysisRun error", { message: e.message });
   }
 }
 
-export async function getAnalysisRun(id: string): Promise<AnalysisRun | null> {
+export async function getAnalysisRun(userId: string, id: string): Promise<AnalysisRun | null> {
   try {
     const client = getClient();
-    const { data, error } = await client.from("analysis_runs").select("*").eq("id", id).single();
+    const { data, error } = await client.from("analysis_runs").select("*").eq("user_id", userId).eq("id", id).single();
     if (error || !data) return null;
     return mapAnalysisRun(data);
   } catch (e: unknown) {
@@ -67,11 +67,12 @@ export async function getAnalysisRun(id: string): Promise<AnalysisRun | null> {
   }
 }
 
-export async function listAnalysisRuns(datasetId: string, limit = 10): Promise<AnalysisRun[]> {
+export async function listAnalysisRuns(userId: string, datasetId: string, limit = 10): Promise<AnalysisRun[]> {
   try {
     const client = getClient();
     const { data, error } = await client.from("analysis_runs")
       .select("*")
+      .eq("user_id", userId)
       .eq("dataset_id", datasetId)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -87,7 +88,7 @@ export async function listAnalysisRuns(datasetId: string, limit = 10): Promise<A
 // Decision CRUD
 // ═══════════════════════════════════════════════
 
-export async function saveDecision(data: {
+export async function saveDecision(userId: string, data: {
   id: string;
   analysisRunId: string;
   datasetId: string;
@@ -105,6 +106,7 @@ export async function saveDecision(data: {
     const client = getClient();
     const { error } = await client.from("decisions").insert({
       id: data.id,
+      user_id: userId,
       analysis_run_id: data.analysisRunId,
       dataset_id: data.datasetId,
       summary: data.summary,
@@ -119,48 +121,49 @@ export async function saveDecision(data: {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
-    if (error) logger.warn("saveDecision failed", { message: error.message, details: error.details, hint: error.hint });
+    if (error) logger.warn("saveDecision failed", { message: error.message });
   } catch (e: any) {
     logger.warn("saveDecision error", { message: e.message });
   }
 }
 
-export async function updateDecisionStatus(id: string, status: Decision["status"], notes?: string | null): Promise<void> {
+export async function updateDecisionStatus(userId: string, id: string, status: Decision["status"], notes?: string | null): Promise<void> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     if (notes !== undefined) updates.notes = notes;
-    const { error } = await client.from("decisions").update(updates).eq("id", id);
+    const { error } = await client.from("decisions").update(updates).eq("id", id).eq("user_id", userId);
     if (error) logger.warn("updateDecisionStatus failed", { message: error.message });
   } catch (e: any) {
     logger.warn("updateDecisionStatus error", { message: e.message });
   }
 }
 
-export async function getDecision(id: string): Promise<Decision | null> {
+export async function getDecision(userId: string, id: string): Promise<Decision | null> {
   try {
     const client = getClient();
-    const { data, error } = await client.from("decisions").select("*").eq("id", id).single();
+    const { data, error } = await client.from("decisions").select("*").eq("user_id", userId).eq("id", id).single();
     if (error || !data) return null;
     return mapDecision(data);
   } catch (e: unknown) {
-    logger.warn("getAnalysisRun error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("getDecision error", { message: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }
 
-export async function listDecisions(datasetId: string, limit = 10): Promise<Decision[]> {
+export async function listDecisions(userId: string, datasetId: string, limit = 10): Promise<Decision[]> {
   try {
     const client = getClient();
     const { data, error } = await client.from("decisions")
       .select("*")
+      .eq("user_id", userId)
       .eq("dataset_id", datasetId)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error || !data) return [];
     return data.map(mapDecision);
   } catch (e: unknown) {
-    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("listDecisions error", { message: e instanceof Error ? e.message : String(e) });
     return [];
   }
 }
@@ -169,7 +172,7 @@ export async function listDecisions(datasetId: string, limit = 10): Promise<Deci
 // ActionTask CRUD
 // ═══════════════════════════════════════════════
 
-export async function saveActionTask(data: {
+export async function saveActionTask(userId: string, data: {
   id: string;
   decisionId: string;
   title: string;
@@ -185,6 +188,7 @@ export async function saveActionTask(data: {
     const client = getClient();
     const { error } = await client.from("action_tasks").insert({
       id: data.id,
+      user_id: userId,
       decision_id: data.decisionId,
       title: data.title,
       description: data.description,
@@ -204,29 +208,30 @@ export async function saveActionTask(data: {
   }
 }
 
-export async function updateActionTaskStatus(id: string, status: ActionTask["status"], notes?: string | null): Promise<void> {
+export async function updateActionTaskStatus(userId: string, id: string, status: ActionTask["status"], notes?: string | null): Promise<void> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     if (notes !== undefined) updates.notes = notes;
-    const { error } = await client.from("action_tasks").update(updates).eq("id", id);
+    const { error } = await client.from("action_tasks").update(updates).eq("id", id).eq("user_id", userId);
     if (error) logger.warn("updateActionTaskStatus failed", { message: error.message });
   } catch (e: any) {
     logger.warn("updateActionTaskStatus error", { message: e.message });
   }
 }
 
-export async function listActionTasks(decisionId: string): Promise<ActionTask[]> {
+export async function listActionTasks(userId: string, decisionId: string): Promise<ActionTask[]> {
   try {
     const client = getClient();
     const { data, error } = await client.from("action_tasks")
       .select("*")
+      .eq("user_id", userId)
       .eq("decision_id", decisionId)
       .order("created_at", { ascending: true });
     if (error || !data) return [];
     return data.map(mapActionTask);
   } catch (e: unknown) {
-    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("listActionTasks error", { message: e instanceof Error ? e.message : String(e) });
     return [];
   }
 }
@@ -235,7 +240,7 @@ export async function listActionTasks(decisionId: string): Promise<ActionTask[]>
 // Execution CRUD
 // ═══════════════════════════════════════════════
 
-export async function saveExecution(data: {
+export async function saveExecution(userId: string, data: {
   id: string;
   actionTaskId: string;
   status: Execution["status"];
@@ -246,6 +251,7 @@ export async function saveExecution(data: {
     const client = getClient();
     const { error } = await client.from("executions").insert({
       id: data.id,
+      user_id: userId,
       action_task_id: data.actionTaskId,
       status: data.status,
       result: data.result || null,
@@ -259,42 +265,43 @@ export async function saveExecution(data: {
   }
 }
 
-export async function updateExecutionStatus(id: string, status: Execution["status"], result?: string | null): Promise<void> {
+export async function updateExecutionStatus(userId: string, id: string, status: Execution["status"], result?: string | null): Promise<void> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status };
     if (result !== undefined) updates.result = result;
     if (status === "completed" || status === "failed") updates.executed_at = new Date().toISOString();
-    const { error } = await client.from("executions").update(updates).eq("id", id);
+    const { error } = await client.from("executions").update(updates).eq("id", id).eq("user_id", userId);
     if (error) logger.warn("updateExecutionStatus failed", { message: error.message });
   } catch (e: any) {
     logger.warn("updateExecutionStatus error", { message: e.message });
   }
 }
 
-export async function getExecution(id: string): Promise<Execution | null> {
+export async function getExecution(userId: string, id: string): Promise<Execution | null> {
   try {
     const client = getClient();
-    const { data, error } = await client.from("executions").select("*").eq("id", id).single();
+    const { data, error } = await client.from("executions").select("*").eq("user_id", userId).eq("id", id).single();
     if (error || !data) return null;
     return mapExecution(data);
   } catch (e: unknown) {
-    logger.warn("getAnalysisRun error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("getExecution error", { message: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }
 
-export async function listExecutions(actionTaskId: string): Promise<Execution[]> {
+export async function listExecutions(userId: string, actionTaskId: string): Promise<Execution[]> {
   try {
     const client = getClient();
     const { data, error } = await client.from("executions")
       .select("*")
+      .eq("user_id", userId)
       .eq("action_task_id", actionTaskId)
       .order("created_at", { ascending: false });
     if (error || !data) return [];
     return data.map(mapExecution);
   } catch (e: unknown) {
-    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("listExecutions error", { message: e instanceof Error ? e.message : String(e) });
     return [];
   }
 }
@@ -303,7 +310,7 @@ export async function listExecutions(actionTaskId: string): Promise<Execution[]>
 // Outcome CRUD
 // ═══════════════════════════════════════════════
 
-export async function saveOutcome(data: {
+export async function saveOutcome(userId: string, data: {
   id: string;
   executionId: string;
   metric: string;
@@ -316,6 +323,7 @@ export async function saveOutcome(data: {
     const client = getClient();
     const { error } = await client.from("outcomes").insert({
       id: data.id,
+      user_id: userId,
       execution_id: data.executionId,
       metric: data.metric,
       before_value: data.beforeValue,
@@ -330,23 +338,24 @@ export async function saveOutcome(data: {
   }
 }
 
-export async function listOutcomes(executionId: string): Promise<Outcome[]> {
+export async function listOutcomes(userId: string, executionId: string): Promise<Outcome[]> {
   try {
     const client = getClient();
     const { data, error } = await client.from("outcomes")
       .select("*")
+      .eq("user_id", userId)
       .eq("execution_id", executionId)
       .order("verified_at", { ascending: false });
     if (error || !data) return [];
     return data.map(mapOutcome);
   } catch (e: unknown) {
-    logger.warn("listAnalysisRuns error", { message: e instanceof Error ? e.message : String(e) });
+    logger.warn("listOutcomes error", { message: e instanceof Error ? e.message : String(e) });
     return [];
   }
 }
 
 // ═══════════════════════════════════════════════
-// Mappers（Supabase snake_case → TS camelCase）
+// Mappers
 // ═══════════════════════════════════════════════
 
 function mapAnalysisRun(row: Record<string, unknown>): AnalysisRun {

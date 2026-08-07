@@ -185,7 +185,7 @@ export default function AuthPage() {
   // 已登录用户根据数据状态跳转：有数据 → 仪表盘，无数据 → 上传页
   useEffect(function () {
     if (initialized && user && !loading) {
-      const store = getStore();
+      const store = getStore(user.id);
       const redirect = store.activeId && store.datasets.length > 0
         ? "/dashboard"
         : "/upload";

@@ -10,6 +10,7 @@ import { CategoryBreakdown } from "@/components/workspace/category-breakdown";
 import { RegionMap } from "@/components/workspace/region-map";
 import { AnomalyDetection } from "@/components/workspace/anomaly-detection";
 import { getStore, getDatasetRows } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { RequireAuth } from "@/hooks/use-auth-guard";
 import { t } from "@/lib/i18n";
 
@@ -34,6 +35,7 @@ function findCol(cols: string[], patterns: RegExp[], exclude?: RegExp[]): string
 }
 
 export default function WorkspacePage() {
+  const { user } = useAuth();
   const [active, setActive] = useState(0);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export default function WorkspacePage() {
   const [dateRange, setDateRange] = useState(30);
 
   useEffect(() => {
-    const s = getStore();
+    const s = getStore(user?.id || "");
     if (!s.activeId) { setLoading(false); return; }
     setHasData(true);
     const localData = getDatasetRows(s.activeId);

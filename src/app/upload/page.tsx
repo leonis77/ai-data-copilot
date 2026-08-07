@@ -13,7 +13,8 @@ import { SheetPicker } from "@/components/ui/sheet-picker";
 import type { SheetInfo } from "@/components/ui/sheet-picker";
 import { matchPlatformTemplate } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
-import { addDataset, saveDatasetRows } from "@/lib/store";
+import { addDataset, saveDatasetRows, getStore, setStore, removeDataset, getUserKey } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { RequireAuth } from "@/hooks/use-auth-guard";
 import { classifyByRoles } from "@/lib/classifier";
 
@@ -62,6 +63,7 @@ export default function UploadPage() {
   const MAX_FILE_SIZE = 20 * 1024 * 1024;
   const FETCH_TIMEOUT = 30000;
   const router = useRouter();
+  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -74,7 +76,7 @@ export default function UploadPage() {
 
   const clearAll = function() {
     if (!confirm("确定清除所有缓存数据？这将删除所有已上传的数据集和配置，此操作不可撤销。")) return;
-    localStorage.removeItem("aicopilot");
+    localStorage.removeItem(getUserKey(user?.id || ""));
     setFile(null); setResult(null); setCols([]); setTemplate(null);
     setSheets(null); setSelectedSheet(""); setFileDataB64("");
   };
@@ -142,9 +144,9 @@ export default function UploadPage() {
       setCols(matchResult ? buildColumnMetas(data.columns, matchResult) : data.columns.map(function(c: string) { return { name: c, type: "text" as const, selected: true }; }));
 
       const profile = detectProfile(data.columns, data.semanticRoles);
-      addDataset(data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
+      addDataset(user?.id || "", data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
       if (data.rows && data.rows.length > 0) {
-        saveDatasetRows(data.id, data.rows, data.columns);
+        saveDatasetRows(user?.id || "", data.id, data.rows, data.columns);
       }
     } catch (e: any) {
       if (e.name === "AbortError") {
@@ -160,12 +162,12 @@ export default function UploadPage() {
   const handleSheetConfirm = function() { doUpload(selectedSheet); };
 
   const handleConfirm = function() {
-    const storeObj = JSON.parse(localStorage.getItem("aicopilot") || "{}");
+    const storeObj = JSON.parse(localStorage.getItem(getUserKey(user?.id || "")) || "{}");
     storeObj.columnConfig = {
       datasetId: result.id, templateId: template ? template.id : null,
       selectedColumns: cols.filter(function(c) { return c.selected; }).map(function(c) { return c.name; }),
     };
-    localStorage.setItem("aicopilot", JSON.stringify(storeObj));
+    localStorage.setItem(getUserKey(user?.id || ""), JSON.stringify(storeObj));
     router.push("/dashboard");
   };
 

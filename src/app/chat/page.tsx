@@ -7,6 +7,7 @@ import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbul
 import { GlassCard } from "@/components/ui/glass-card";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { logger } from "@/lib/logger";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -43,6 +44,7 @@ interface Msg {
 
 export default function ChatPage() {
   const obs = useObservability();
+  const { user } = useAuth();
   var [msgs, setMsgs] = useState<Msg[]>([]);
   var [inp, setInp] = useState("");
   var [loading, setLoading] = useState(false);
@@ -68,7 +70,7 @@ export default function ChatPage() {
       var url = new URL(window.location.href);
       url.searchParams.delete("auto");
       window.history.replaceState({}, "", url.toString());
-      var saved = getStore();
+      var saved = getStore(user?.id || "");
       if (saved.datasets.length >= 2) {
         send("帮我对比分析所有已上传数据的跨平台利润情况，找出同一商品在不同平台的定价和利润差异");
       }
@@ -77,7 +79,7 @@ export default function ChatPage() {
 
   function checkData() {
     try {
-      var saved = getStore();
+      var saved = getStore(user?.id || "");
       if (saved.activeId && saved.datasets.length > 0) {
         setHasData(true);
         setMsgs([{
@@ -94,7 +96,7 @@ export default function ChatPage() {
     if (!msg.trim() || loading) return; setInp("");
     setMsgs(function(p: Msg[]) { return [...p, { role: "user", content: msg }]; }); setLoading(true);
     try {
-      var saved = getStore(); var dsId = saved.activeId || "";
+      var saved = getStore(user?.id || ""); var dsId = saved.activeId || "";
       var relatedIds: string[] = [];
       if (saved.datasets.length > 1) {
         for (var rdi = 0; rdi < saved.datasets.length; rdi++) {
@@ -202,7 +204,7 @@ export default function ChatPage() {
               <h1 className="text-title"><span className="gradient-text">AI 分析助手</span></h1>
               <p className="text-caption">{"问数据 · 出报告 · 深解读 · 找爆款"}</p>
             </div>
-            {hasData && <TableSelector className="ml-auto" />}
+            {hasData && <TableSelector userId={user?.id} className="ml-auto" />}
           </div>
         </motion.div>
         {!hasData ? (

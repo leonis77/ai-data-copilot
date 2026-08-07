@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const result = await authenticateRequest(authHeader);
 
-  if (!result.ok) {
-    return NextResponse.json({ authenticated: false, error: result.error }, { status: 401 });
+  if (!result.ok || !result.user) {
+    return NextResponse.json({ authenticated: false, error: result.error || "未授权" }, { status: 401 });
   }
 
+  // 精简返回：只返回必要字段，不泄露完整 user object
   return NextResponse.json({
     authenticated: true,
-    user: result.user,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+    },
   });
 }

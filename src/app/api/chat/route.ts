@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
     }
+    const userId = authResult.user!.id;
 
     try {
       const body = await readJsonBody(request);
@@ -26,14 +27,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(apiError(ApiErrorCode.MISSING_FIELD, "消息不能为空", { recoverable: true }), { status: 400 });
       }
 
-      const ds = await getLatestDataset();
-      const fallbackDs = ds || getLatestFromServerStore();
+      const ds = await getLatestDataset(userId);
+      const fallbackDs = ds || getLatestFromServerStore(userId);
       if (!fallbackDs) {
         return NextResponse.json({ reply: "请先上传数据文件，我才能帮你分析。" });
       }
 
       const columns = fallbackDs.columns;
-      const rows = fallbackDs.rows;
+      const rows = (fallbackDs as any).rows || [];
       const stats = computeStats(rows, columns);
 
       let dataContext = `数据集: ${(fallbackDs as any).original_name || (fallbackDs as any).originalName}\n`;
@@ -50,8 +51,8 @@ export async function POST(request: NextRequest) {
 
       const reply = await chatWithData(dataContext, messages);
 
-      saveChatMessage(fallbackDs.id, "user", messages[messages.length - 1].content);
-      saveChatMessage(fallbackDs.id, "assistant", reply);
+      saveChatMessage(userId, fallbackDs.id, "user", messages[messages.length - 1].content);
+      saveChatMessage(userId, fallbackDs.id, "assistant", reply);
 
       return NextResponse.json({ reply });
     } catch (error) {

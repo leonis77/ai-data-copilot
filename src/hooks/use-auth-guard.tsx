@@ -29,10 +29,14 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
   }
 
   if (!user) {
-    return fallback ? <div>{fallback}</div> : null;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-sm text-tertiary">正在跳转到登录页...</p>
+      </div>
+    );
   }
 
-  const store = getStore();
+  const store = getStore(user.id);
   const hasData = store.activeId && store.datasets.length > 0;
 
   if (!hasData) {

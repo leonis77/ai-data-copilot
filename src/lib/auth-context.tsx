@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase-client";
 import type { User, Session } from "@supabase/supabase-js";
-import { getStore, setStore } from "@/lib/store";
+import { getStore, setStore, clearUserStore, getUserKey } from "@/lib/store";
 import { logger } from "@/lib/logger";
 
 // ═══ Auth Context ═══
@@ -34,8 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialized: false,
   });
 
+  // Keep a ref to the current user so onAuthStateChange can access it
+  // without capturing a stale closure (the effect below has [] deps).
+  var userRef = useRef<User | null>(null);
+  useEffect(function () {
+    userRef.current = state.user;
+  }, [state.user]);
+
   useEffect(function () {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
+
     logger.info("[AuthProvider] init start", {
       supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL || !!process.env.SUPABASE_URL,
       supabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || !!process.env.SUPABASE_ANON_KEY,
@@ -65,6 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             initialized: true,
           };
         });
+        if (session?.user) {
+          syncProfileToStore(session.user);
+        }
       })
       .catch(function (err) {
         logger.error("[AuthProvider] getSession failed", { message: err instanceof Error ? err.message : String(err) });
@@ -83,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       var subResult = supabase.auth.onAuthStateChange(function (event, session) {
         if (!mounted) return;
+        // Use ref to capture the actual current user (not the stale closure value)
+        var currentUser = userRef.current;
         setState(function (prev) {
           return {
             user: session?.user ?? null,
@@ -91,15 +105,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             initialized: true,
           };
         });
+        if (session?.user) {
+          syncProfileToStore(session.user);
+        }
+        if (event === "SIGNED_OUT") {
+          // Clean up user-specific localStorage on sign out
+          if (currentUser) {
+            clearUserStore(currentUser.id);
+          }
+          // Also clear legacy key for backward compatibility
+          try { localStorage.removeItem("aicopilot"); } catch {}
+        }
       });
-      var subscription = subResult.data.subscription;
+      subscription = subResult.data.subscription;
     } catch (e) {
       logger.error("[AuthProvider] onAuthStateChange subscription error", { message: e instanceof Error ? e.message : String(e) });
     }
 
     return function () {
       mounted = false;
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
     };
   }, []);
 
@@ -116,7 +141,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error.message || "登录失败，请检查邮箱和密码" };
       }
 
-      // Sync profile to localStorage store
       if (data.user) {
         syncProfileToStore(data.user);
       }
@@ -155,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             created_at: new Date().toISOString(),
           });
         } catch (e) {
-          console.warn("Profile creation failed:", e);
+          logger.warn("Profile creation failed:", { message: e instanceof Error ? e.message : String(e) });
         }
         syncProfileToStore(data.user);
       }
@@ -170,8 +194,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch (e) {
-      console.error("Sign out error:", e);
+      logger.error("Sign out error:", { message: e instanceof Error ? e.message : String(e) });
     } finally {
+      // Clean up user-specific data
+      const currentUser = state.user;
+      if (currentUser) {
+        clearUserStore(currentUser.id);
+      }
+      try { localStorage.removeItem("aicopilot"); } catch {}
       setState({
         user: null,
         session: null,
@@ -179,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initialized: true,
       });
     }
-  }, []);
+  }, [state.user]);
 
   const resetPassword = useCallback(async function (email: string) {
     try {
@@ -218,15 +248,32 @@ export function useAuth(): AuthContextValue {
 
 function syncProfileToStore(user: User) {
   try {
-    const s = getStore();
+    const userId = user.id;
+    const s = getStore(userId);
+    // Migrate legacy store if needed
+    var legacyRaw = localStorage.getItem("aicopilot");
+    if (legacyRaw && !s.datasets.length) {
+      try {
+        var legacy = JSON.parse(legacyRaw);
+        if (legacy.datasets && legacy.datasets.length > 0) {
+          s.datasets = legacy.datasets.map(function (d: any) {
+            return Object.assign({}, d, { userId });
+          });
+          s.activeId = legacy.activeId || s.activeId;
+          s.columnConfig = legacy.columnConfig || null;
+          setStore(userId, s);
+          localStorage.removeItem("aicopilot");
+        }
+      } catch {}
+    }
     s.auth = {
       userId: user.id,
       email: user.email || "",
       fullName: (user.user_metadata as any)?.full_name || (user.user_metadata as any)?.name || "",
       avatarUrl: (user.user_metadata as any)?.avatar_url || "",
     };
-    setStore(s);
+    setStore(userId, s);
   } catch (e) {
-    console.warn("Failed to sync profile to store:", e);
+    logger.warn("Failed to sync profile to store:", { message: e instanceof Error ? e.message : String(e) });
   }
 }

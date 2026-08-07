@@ -7,6 +7,7 @@ import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
 import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { computeStats } from "@/lib/parser";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
@@ -33,6 +34,7 @@ import { RequireAuth } from "@/hooks/use-auth-guard";
 
 export default function DashboardPage() {
   const obs = useObservability();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -53,7 +55,7 @@ export default function DashboardPage() {
   async function loadData(dsId: string) {
     try {
       let id = dsId;
-      if (!id) { var saved = getStore(); id = saved.activeId || ""; }
+      if (!id) { var saved = getStore(user?.id || ""); id = saved.activeId || ""; }
       if (!id) { setLoading(false); return; }
       setDatasetId(id);
       var localData = getDatasetRows(id);
@@ -66,7 +68,7 @@ export default function DashboardPage() {
         data = await res.json();
       }
       if (!data || !data.columns) { setLoading(false); return; }
-      var storeData = getStore();
+      var storeData = getStore(user?.id || "");
       var selCols: string[] = data.columns || [];
       var filteredRows = (data.rows || []).map(function(r: any) {
         var o: Record<string, unknown> = {};
@@ -214,7 +216,7 @@ export default function DashboardPage() {
   }
 
   // Derived data
-  var storeData = getStore();
+  var storeData = getStore(user?.id || "");
   var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
   var currentPlatform = storeData.datasets.find(function(d) { return d.id === datasetId; })?.platform || "";
   var relations: DatasetRelation[] = [];
@@ -244,7 +246,7 @@ export default function DashboardPage() {
                 </h1>
                 {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
               </div>
-              <TableSelector onSelect={handleSelect} className="ml-auto" />
+              <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
             </div>
           </motion.div>
           <GenericOverview columns={datasetData.columns} rows={datasetData.rows} datasetName={datasetName} />
@@ -266,7 +268,7 @@ export default function DashboardPage() {
                 </h1>
                 {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
               </div>
-              <TableSelector onSelect={handleSelect} className="ml-auto" />
+              <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
             </div>
           </motion.div>
           <ProcurementPanel datasetData={datasetData} datasetName={datasetName} />

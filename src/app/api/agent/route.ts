@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问，请先登录"), { status: 401 });
     }
+    const userId = authResult.user!.id;
 
     // ⭐ 限流：Agent 分析接口 1 分钟 10 次
     const rateResult = applyRateLimit(request, { strategy: "agent" });
@@ -62,9 +63,9 @@ export async function POST(request: NextRequest) {
       const inlineDatasets: Record<string, { columns: string[]; rows: any[]; originalName?: string; platform?: string }> =
         parsed.inlineDatasets && typeof parsed.inlineDatasets === "object" ? parsed.inlineDatasets : {};
 
-    const ds = await getDataset(datasetId);
+    const ds = await getDataset(userId, datasetId);
     // Fall back to in-memory store, then to client-provided inline data
-    let fallbackDs: any = ds || getFromServerStore(datasetId);
+    let fallbackDs: any = ds || getFromServerStore(userId, datasetId);
     if (!fallbackDs && inlineDatasets[datasetId] && inlineDatasets[datasetId].rows?.length > 0) {
       const inl = inlineDatasets[datasetId];
       fallbackDs = { columns: inl.columns, rows: inl.rows, originalName: inl.originalName || "", original_name: inl.originalName || "", platform: inl.platform || "" };
@@ -126,10 +127,10 @@ export async function POST(request: NextRequest) {
     var crossCtx = "";
     var rels: DatasetRelation[] = [];
     try {
-      var allDs: any[] = await listDatasets();
+      var allDs: any[] = await listDatasets(userId);
       // ⭐ 回退：Supabase 不可用时从 server-store 获取数据集列表
       if (!allDs || allDs.length < 2) {
-        var serverStoreDs = listFromServerStore();
+        var serverStoreDs = listFromServerStore(userId);
         if (serverStoreDs.length > 0) {
           logger.info("listDatasets returned " + (allDs?.length || 0) + " datasets, falling back to server-store with " + serverStoreDs.length);
           // 合并两个来源（去重），优先使用 Supabase 数据（含 semanticRoles）
@@ -265,6 +266,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await executeDecisionPipeline(
         input || "请分析这些数据",
+        userId,
         datasetId,
         crossDatasetIds.length > 0 ? crossDatasetIds : undefined,
         Object.keys(inlineDatasets).length > 0 ? inlineDatasets : undefined,
@@ -290,7 +292,7 @@ export async function POST(request: NextRequest) {
 
         // 非阻塞持久化 AnalysisRun
         try {
-          await saveAnalysisRun({
+          await saveAnalysisRun(userId, {
             id: runId,
             datasetId,
             input: input || "请分析这些数据",
@@ -312,7 +314,7 @@ export async function POST(request: NextRequest) {
           const decisionId = "dec_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
           const extracted = extractDecisionSummary(chainSnapshot);
 
-          await saveDecision({
+          await saveDecision(userId, {
             id: decisionId,
             analysisRunId: runId,
             datasetId,
@@ -330,7 +332,7 @@ export async function POST(request: NextRequest) {
           for (let ai = 0; ai < Math.min(actions.length, 20); ai++) {
             const a = actions[ai];
             const taskId = "task_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8) + "_" + ai;
-            await saveActionTask({
+            await saveActionTask(userId, {
               id: taskId,
               decisionId,
               title: String(a.title || a.action || "未命名行动"),

@@ -7,7 +7,7 @@ import { TrendingUp, CheckCircle2, XCircle, PlayCircle, BarChart3, Clock, Refres
 import { GlassCard } from "@/components/ui/glass-card";
 import type { Decision, ActionTask, Execution, Outcome } from "@/lib/loop/types";
 import { fetchLoopHistory, updateDecisionStatus, updateActionTaskStatus } from "@/lib/loop/client";
-import { getStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 
 interface LoopReviewBoardProps {
   datasetId: string;
@@ -58,6 +58,7 @@ const STATUS_ICON: Record<string, React.ReactElement> = {
 };
 
 export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
+  const { user } = useAuth();
   const [rows, setRows] = useState<DecisionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchLoopHistory(datasetId);
+      const data = await fetchLoopHistory(datasetId, user?.id);
       const mapped: DecisionRow[] = (data.decisions || []).map(function(dd: any) {
         return {
           decision: dd.decision,
@@ -90,7 +91,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     if (!datasetId) return;
     setLoadingComparison(true);
     try {
-      const data = await fetchLoopHistory(datasetId);
+      const data = await fetchLoopHistory(datasetId, user?.id);
       const decisions = data.decisions || [];
       if (decisions.length >= 2) {
         const first = decisions[0];
