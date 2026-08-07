@@ -186,12 +186,14 @@ export default function AuthPage() {
 
   // If already logged in, redirect
   useEffect(function () {
+    console.log("[AuthPage] redirect check", { initialized, hasUser: !!user, loading });
     if (initialized && user && !loading) {
       var redirect = "/dashboard";
       if (typeof window !== "undefined") {
         var params = new URLSearchParams(window.location.search);
         redirect = params.get("redirect") || "/dashboard";
       }
+      console.log("[AuthPage] redirecting to", redirect);
       router.push(redirect);
     }
   }, [user, loading, initialized, router]);
@@ -225,13 +227,18 @@ export default function AuthPage() {
     setSuccess("");
     setNeedsConfirmation(false);
 
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      console.warn("[AuthPage] submit blocked", { email, passwordLen: password.length, emailError, passwordError, confirmError, submitting });
+      return;
+    }
 
     setSubmitting(true);
+    console.log("[AuthPage] submit start", { mode, email });
 
     try {
       if (mode === "login") {
         const result = await signIn(email, password);
+        console.log("[AuthPage] signIn result", result);
         if (result.error) {
           setError(result.error);
         }
@@ -243,6 +250,7 @@ export default function AuthPage() {
           return;
         }
         const result = await signUp(email, password, name);
+        console.log("[AuthPage] signUp result", result);
         if (result.error) {
           setError(result.error);
         } else {
@@ -252,6 +260,7 @@ export default function AuthPage() {
         }
       }
     } catch (e: any) {
+      console.error("[AuthPage] submit exception", e);
       setError(e.message || "操作失败，请稍后重试");
     } finally {
       setSubmitting(false);
@@ -260,6 +269,7 @@ export default function AuthPage() {
 
   // Loading state during auth init
   if (loading && !initialized) {
+    console.log("[AuthPage] showing loading state", { loading, initialized });
     return (
       <div className="min-h-screen flex items-center justify-center bg-mesh-gradient">
         <div className="flex flex-col items-center gap-4">
@@ -271,6 +281,8 @@ export default function AuthPage() {
       </div>
     );
   }
+
+  console.log("[AuthPage] rendering auth form", { loading, initialized, hasUser: !!user, mode });
 
   return (
     <div className="min-h-screen flex bg-mesh-gradient relative overflow-hidden">

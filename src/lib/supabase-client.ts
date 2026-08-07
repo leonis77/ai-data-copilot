@@ -13,6 +13,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("[Supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+} else {
+  console.log("[Supabase] client initialized", { url: supabaseUrl, hasKey: !!supabaseAnonKey });
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { supabase } from "@/lib/supabase-client";
 import type { User, Session } from "@supabase/supabase-js";
 import { getStore, setStore } from "@/lib/store";
+import { logger } from "@/lib/logger";
 
 // ═══ Auth Context ═══
 
@@ -35,42 +36,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(function () {
     let mounted = true;
-
-    // Get initial session
-    supabase.auth.getSession().then(function ({ data: { session } }) {
-      if (!mounted) return;
-      setState(function (prev) {
-        return {
-          user: session?.user ?? null,
-          session: session ?? null,
-          loading: false,
-          initialized: true,
-        };
-      });
-    }).catch(function () {
-      if (!mounted) return;
-      setState(function (prev) {
-        return {
-          user: null,
-          session: null,
-          loading: false,
-          initialized: true,
-        };
-      });
+    logger.info("[AuthProvider] init start", {
+      supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL || !!process.env.SUPABASE_URL,
+      supabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || !!process.env.SUPABASE_ANON_KEY,
     });
+
+    function withTimeout(promise: Promise<any>, ms: number, label: string): Promise<any> {
+      return Promise.race([
+        promise,
+        new Promise(function(_, reject) {
+          setTimeout(function() {
+            reject(new Error(label + " timed out after " + ms + "ms"));
+          }, ms);
+        }),
+      ]);
+    }
+
+    // Get initial session (10s timeout prevents permanent blank screen)
+    withTimeout(supabase.auth.getSession(), 10_000, "[AuthProvider] getSession")
+      .then(function ({ data: { session } }) {
+        if (!mounted) return;
+        logger.info("[AuthProvider] getSession resolved", { hasSession: !!session });
+        setState(function (prev) {
+          return {
+            user: session?.user ?? null,
+            session: session ?? null,
+            loading: false,
+            initialized: true,
+          };
+        });
+      })
+      .catch(function (err) {
+        logger.error("[AuthProvider] getSession failed", { message: err instanceof Error ? err.message : String(err) });
+        if (!mounted) return;
+        setState(function (prev) {
+          return {
+            user: null,
+            session: null,
+            loading: false,
+            initialized: true,
+          };
+        });
+      });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(function (event, session) {
-      if (!mounted) return;
-      setState(function (prev) {
-        return {
-          user: session?.user ?? null,
-          session: session ?? null,
-          loading: false,
-          initialized: true,
-        };
+    try {
+      var subResult = supabase.auth.onAuthStateChange(function (event, session) {
+        if (!mounted) return;
+        setState(function (prev) {
+          return {
+            user: session?.user ?? null,
+            session: session ?? null,
+            loading: false,
+            initialized: true,
+          };
+        });
       });
-    });
+      var subscription = subResult.data.subscription;
+    } catch (e) {
+      logger.error("[AuthProvider] onAuthStateChange subscription error", { message: e instanceof Error ? e.message : String(e) });
+    }
 
     return function () {
       mounted = false;
@@ -79,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async function (email: string, password: string) {
+    logger.info("[AuthProvider] signIn start", { email });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -86,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        logger.warn("[AuthProvider] signIn error", { message: error.message });
         return { error: error.message || "登录失败，请检查邮箱和密码" };
       }
 
@@ -94,8 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         syncProfileToStore(data.user);
       }
 
+      logger.info("[AuthProvider] signIn success", { userId: data.user?.id });
       return {};
     } catch (e: any) {
+      logger.error("[AuthProvider] signIn exception", { message: e?.message || String(e) });
       return { error: e.message || "登录失败，请稍后重试" };
     }
   }, []);
