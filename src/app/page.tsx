@@ -336,9 +336,9 @@ export default function HomePage() {
   if (hasData === null) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-[#0a0a0f] animate-spin" /></div>;
 
   return (
-    <RequireAuth>
+    <div>
       {hasData ? <Workbench userId={user?.id || ""} /> : <LandingPage />}
-    </RequireAuth>
+    </div>
   );
 }
 

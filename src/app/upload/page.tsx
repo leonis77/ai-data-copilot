@@ -17,6 +17,7 @@ import { addDataset, saveDatasetRows, getStore, setStore, removeDataset, getUser
 import { useAuth } from "@/lib/auth-context";
 import { RequireAuth } from "@/hooks/use-auth-guard";
 import { classifyByRoles } from "@/lib/classifier";
+import { authFetch } from "@/lib/auth-fetch";
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise(function(resolve, reject) {
@@ -116,7 +117,7 @@ export default function UploadPage() {
 
       const controller = new AbortController();
       const timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT);
-      const res = await fetch("/api/upload", {
+      const res = await authFetch("/api/upload", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, fileData: b64, sheetName: sheet || undefined }),
         signal: controller.signal,

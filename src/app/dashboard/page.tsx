@@ -31,6 +31,7 @@ import { getPlatformLabel } from "@/lib/platform/detect";
 import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
 import { RequireAuth } from "@/hooks/use-auth-guard";
+import { authFetch } from "@/lib/auth-fetch";
 
 export default function DashboardPage() {
   const obs = useObservability();
@@ -63,7 +64,7 @@ export default function DashboardPage() {
       if (localData && localData.rows.length > 0) {
         data = { columns: localData.columns, rows: localData.rows };
       } else {
-        var res = await fetch("/api/upload?id=" + id);
+        var res = await authFetch("/api/upload?id=" + id);
         if (!res.ok) { setLoading(false); return; }
         data = await res.json();
       }
@@ -103,7 +104,7 @@ export default function DashboardPage() {
       }
       try {
         var agentStart = Date.now();
-        var chainRes = await fetch("/api/agent", {
+        var chainRes = await authFetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
