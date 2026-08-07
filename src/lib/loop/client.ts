@@ -6,6 +6,8 @@
  * - 写入 Execution / Outcome
  */
 
+import { authFetch } from "@/lib/auth-fetch";
+
 export interface AnalysisRun {
   id: string;
   datasetId: string;
@@ -96,7 +98,7 @@ function ensureOk(res: Response): void {
 
 export async function fetchLoopHistory(datasetId: string, userId?: string): Promise<LoopHistory> {
   const url = "/api/loop?datasetId=" + encodeURIComponent(datasetId) + (userId ? "&userId=" + encodeURIComponent(userId) : "");
-  const res = await fetch(url);
+  const res = await authFetch(url);
   ensureOk(res);
   return await res.json();
 }
@@ -106,7 +108,7 @@ export async function startExecution(params: {
   actionTaskId: string;
   executedBy?: string;
 }): Promise<{ ok: boolean; executionId: string }> {
-  const res = await fetch("/api/loop", {
+  const res = await authFetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "start_execution", ...params }),
@@ -120,7 +122,7 @@ export async function completeExecution(params: {
   status?: "completed" | "failed" | "cancelled";
   result?: string;
 }): Promise<{ ok: boolean }> {
-  const res = await fetch("/api/loop", {
+  const res = await authFetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "complete_execution", ...params }),
@@ -139,7 +141,7 @@ export async function saveOutcome(params: {
   const improvement = params.afterValue - params.beforeValue;
   const improvementPercent =
     params.beforeValue !== 0 ? Math.round((improvement / Math.abs(params.beforeValue)) * 10000) / 100 : 0;
-  const res = await fetch("/api/loop", {
+  const res = await authFetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -162,7 +164,7 @@ export async function updateDecisionStatus(params: {
   status: Decision["status"];
   notes?: string;
 }): Promise<{ ok: boolean; decisionId: string; status: string }> {
-  const res = await fetch("/api/loop", {
+  const res = await authFetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -181,7 +183,7 @@ export async function updateActionTaskStatus(params: {
   status: ActionTask["status"];
   notes?: string;
 }): Promise<{ ok: boolean; taskId: string; status: string }> {
-  const res = await fetch("/api/loop", {
+  const res = await authFetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

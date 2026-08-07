@@ -9,7 +9,7 @@ interface MetricEvent {
   name: string;
   value?: number;
   tags?: Record<string, string | number | boolean>;
-  timestamp: number;
+  timestamp: string;
   sessionId: string;
 }
 
@@ -49,7 +49,7 @@ function ensureFlushTimer(): void {
 }
 
 export function trackMetric(type: MetricType, name: string, value?: number, tags?: Record<string, string | number | boolean>): void {
-  const event: MetricEvent = { type, name, value, tags, timestamp: Date.now(), sessionId };
+  const event: MetricEvent = { type, name, value, tags, timestamp: new Date(Date.now()).toISOString(), sessionId };
   buffer.push(event);
   if (buffer.length >= MAX_BUFFER) flush();
   ensureFlushTimer();
