@@ -29,6 +29,7 @@ import { fetchLoopHistory } from "@/lib/loop/client";
 import { getPlatformLabel } from "@/lib/platform/detect";
 import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
+import { RequireAuth } from "@/hooks/use-auth-guard";
 
 export default function DashboardPage() {
   const obs = useObservability();
@@ -196,9 +197,9 @@ export default function DashboardPage() {
             <div className="absolute inset-0 rounded-3xl bg-blue-50" />
             <BarChart3 className="w-10 h-10 text-brand relative z-10" />
           </motion.div>
-          <h2 className="text-title text-balance mb-4">上传数据开始分析</h2>
+          <h2 className="text-title text-balance mb-4">数据不足，无法生成诊断</h2>
           <p className="text-body mb-10 leading-relaxed">
-            拖拽上传 Excel 或 CSV 文件<br />AI 将自动诊断您的经营状况
+            请先上传销售数据，AI 才能为你生成经营诊断报告
           </p>
           <Link href="/upload">
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
@@ -283,10 +284,11 @@ export default function DashboardPage() {
   var opportunityDiagnoses = diagnoses.filter(function(d: any) { return d.level === "opportunity"; });
 
   return (
-    <div className="min-h-screen pt-16">
-      <div className="section-container py-8 md:py-12 relative">
-        {/* Ambient glow */}
-        <div className="ambient-glow" />
+    <RequireAuth>
+      <div className="min-h-screen pt-16">
+        <div className="section-container py-8 md:py-12 relative">
+          {/* Ambient glow */}
+          <div className="ambient-glow" />
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="page-header">
@@ -614,5 +616,6 @@ export default function DashboardPage() {
         {hasData && datasetId && <LoopReviewBoard datasetId={datasetId} />}
       </div>
     </div>
+    </RequireAuth>
   );
 }

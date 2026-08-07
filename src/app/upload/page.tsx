@@ -14,6 +14,7 @@ import type { SheetInfo } from "@/components/ui/sheet-picker";
 import { matchPlatformTemplate } from "@/lib/templates";
 import type { ColumnMeta } from "@/lib/templates/types";
 import { addDataset, saveDatasetRows } from "@/lib/store";
+import { RequireAuth } from "@/hooks/use-auth-guard";
 import { classifyByRoles } from "@/lib/classifier";
 
 async function fileToBase64(file: File): Promise<string> {
@@ -204,8 +205,9 @@ export default function UploadPage() {
 
   // Main upload view
   return (
-    <div className="min-h-screen py-12 pt-20">
-      <div className="section-container">
+    <RequireAuth>
+      <div className="min-h-screen py-12 pt-20">
+        <div className="section-container">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: "easeOut" }} className="text-center mb-12 relative">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white shadow-sm mb-6">
@@ -326,5 +328,6 @@ export default function UploadPage() {
         )}
       </div>
     </div>
+    </RequireAuth>
   );
 }

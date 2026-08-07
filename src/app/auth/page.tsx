@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
-  TrendingUp,
   BarChart3,
+  Globe,
   Brain,
   Eye,
   EyeOff,
@@ -17,12 +17,12 @@ import {
   ArrowRight,
   Shield,
   Zap,
-  Globe,
   CheckCircle2,
   AlertCircle,
   Loader2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { getStore } from "@/lib/store";
 
 // ═══ Animations ═══
 
@@ -121,9 +121,7 @@ function FormField({
               ? "border-red-300 focus:border-red-400 focus:ring-red-500/5"
               : "border-gray-200 hover:border-gray-300"
           )}
-          style={{
-            boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-          }}
+          style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
         />
         {isPassword && (
           <button
@@ -182,39 +180,30 @@ function PasswordStrengthBar({ password }: { password: string }) {
 
 export default function AuthPage() {
   const router = useRouter();
-  const { signIn, signUp, signOut, user, loading, initialized } = useAuth();
+  const { signIn, signUp, user, loading, initialized } = useAuth();
 
-  // If already logged in, redirect
+  // 已登录用户根据数据状态跳转：有数据 → 仪表盘，无数据 → 上传页
   useEffect(function () {
-    console.log("[AuthPage] redirect check", { initialized, hasUser: !!user, loading });
     if (initialized && user && !loading) {
-      var redirect = "/dashboard";
-      if (typeof window !== "undefined") {
-        var params = new URLSearchParams(window.location.search);
-        redirect = params.get("redirect") || "/dashboard";
-      }
-      console.log("[AuthPage] redirecting to", redirect);
-      router.push(redirect);
+      const store = getStore();
+      const redirect = store.activeId && store.datasets.length > 0
+        ? "/dashboard"
+        : "/upload";
+      router.replace(redirect);
     }
   }, [user, loading, initialized, router]);
 
-  // Tab: "login" | "register"
   const [mode, setMode] = useState<"login" | "register">("login");
-
-  // Form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  // UI state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
-  // Validation
   const emailError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "请输入有效的邮箱地址" : "";
   const passwordError = password.length > 0 && password.length < 8 ? "密码至少 8 位" : "";
   const confirmError = confirmPassword && password !== confirmPassword ? "两次输入的密码不一致" : "";
@@ -227,22 +216,18 @@ export default function AuthPage() {
     setSuccess("");
     setNeedsConfirmation(false);
 
-    if (!canSubmit) {
-      console.warn("[AuthPage] submit blocked", { email, passwordLen: password.length, emailError, passwordError, confirmError, submitting });
-      return;
-    }
+    if (!canSubmit) return;
 
     setSubmitting(true);
-    console.log("[AuthPage] submit start", { mode, email });
 
     try {
       if (mode === "login") {
         const result = await signIn(email, password);
-        console.log("[AuthPage] signIn result", result);
         if (result.error) {
           setError(result.error);
+          setSubmitting(false);
         }
-        // Success → AuthProvider will redirect
+        // 成功：AuthProvider 触发 onAuthStateChange → 自动跳转
       } else {
         if (password !== confirmPassword) {
           setError("两次输入的密码不一致");
@@ -250,26 +235,23 @@ export default function AuthPage() {
           return;
         }
         const result = await signUp(email, password, name);
-        console.log("[AuthPage] signUp result", result);
         if (result.error) {
           setError(result.error);
+          setSubmitting(false);
         } else {
-          // Check if email confirmation is needed
           setNeedsConfirmation(true);
           setSuccess("注册成功！请检查邮箱完成验证。");
+          setSubmitting(false);
         }
       }
     } catch (e: any) {
-      console.error("[AuthPage] submit exception", e);
       setError(e.message || "操作失败，请稍后重试");
-    } finally {
       setSubmitting(false);
     }
   }
 
-  // Loading state during auth init
+  // 认证初始化中
   if (loading && !initialized) {
-    console.log("[AuthPage] showing loading state", { loading, initialized });
     return (
       <div className="min-h-screen flex items-center justify-center bg-mesh-gradient">
         <div className="flex flex-col items-center gap-4">
@@ -282,24 +264,13 @@ export default function AuthPage() {
     );
   }
 
-  console.log("[AuthPage] rendering auth form", { loading, initialized, hasUser: !!user, mode });
-
   return (
     <div className="min-h-screen flex bg-mesh-gradient relative overflow-hidden">
       {/* ═══ Ambient Orbs ═══ */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="ambient-orb ambient-orb--blue"
-          style={{ width: 500, height: 500, top: "-10%", left: "-5%" }}
-        />
-        <div
-          className="ambient-orb ambient-orb--cyan"
-          style={{ width: 400, height: 400, bottom: "-8%", right: "-3%" }}
-        />
-        <div
-          className="ambient-orb ambient-orb--emerald"
-          style={{ width: 300, height: 300, top: "50%", left: "30%" }}
-        />
+        <div className="ambient-orb ambient-orb--blue" style={{ width: 500, height: 500, top: "-10%", left: "-5%" }} />
+        <div className="ambient-orb ambient-orb--cyan" style={{ width: 400, height: 400, bottom: "-8%", right: "-3%" }} />
+        <div className="ambient-orb ambient-orb--emerald" style={{ width: 300, height: 300, top: "50%", left: "30%" }} />
       </div>
 
       {/* ═══ Left Panel — Brand (desktop) ═══ */}
@@ -310,7 +281,6 @@ export default function AuthPage() {
         className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between relative z-10 p-12 xl:p-16"
       >
         <div>
-          {/* Logo */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -324,17 +294,8 @@ export default function AuthPage() {
           </motion.div>
         </div>
 
-        {/* Hero content */}
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="space-y-8"
-        >
-          <motion.h1
-            variants={fadeInUp}
-            className="text-4xl xl:text-5xl font-extrabold text-primary leading-tight tracking-tight"
-          >
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
+          <motion.h1 variants={fadeInUp} className="text-4xl xl:text-5xl font-extrabold text-primary leading-tight tracking-tight">
             用数据驱动
             <br />
             <span className="gradient-text">每一个采购决策</span>
@@ -344,17 +305,11 @@ export default function AuthPage() {
             上传销售数据与进货成本，AI 自动计算真实利润，告诉你下一步该采购什么。
           </motion.p>
 
-          {/* Features */}
           <motion.div variants={staggerContainer} className="space-y-4">
             {FEATURES.map(function (feature, i) {
               const Icon = feature.icon;
               return (
-                <motion.div
-                  key={i}
-                  variants={fadeInUp}
-                  className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 border border-white/80"
-                  style={{ backdropFilter: "blur(12px)" }}
-                >
+                <motion.div key={i} variants={fadeInUp} className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 border border-white/80" style={{ backdropFilter: "blur(12px)" }}>
                   <div className={"w-10 h-10 rounded-xl flex items-center justify-center shrink-0 " + (i === 0 ? "bg-blue-50" : i === 1 ? "bg-sky-50" : "bg-violet-50")}>
                     <Icon className={"w-5 h-5 " + feature.color} />
                   </div>
@@ -368,13 +323,7 @@ export default function AuthPage() {
           </motion.div>
         </motion.div>
 
-        {/* Footer */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.6 }}
-          className="text-xs text-faint"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1, duration: 0.6 }} className="text-xs text-faint">
           © 2026 · Powered by DeepSeek V4 · 跨平台电商利润优化引擎
         </motion.div>
       </motion.div>
@@ -387,303 +336,115 @@ export default function AuthPage() {
         className="flex-1 flex items-center justify-center relative z-10 p-6 sm:p-8"
       >
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="lg:hidden flex items-center gap-2.5 mb-8"
-          >
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:hidden flex items-center gap-2.5 mb-8">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand to-cyan-500 flex items-center justify-center shadow-glow">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="text-lg font-bold text-primary tracking-tight">ProcureWise</span>
           </motion.div>
 
-          {/* Auth Card */}
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="rounded-3xl border border-white/80 overflow-hidden"
-            style={{
-              backdropFilter: "blur(24px) saturate(1.2)",
-              background: "rgba(255, 255, 255, 0.85)",
-              boxShadow: "0 20px 40px -12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",
-            }}
+            style={{ backdropFilter: "blur(24px) saturate(1.2)", background: "rgba(255,255,255,0.85)", boxShadow: "0 20px 40px -12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)" }}
           >
-            {/* Card header with subtle gradient */}
-            <div
-              className="px-8 pt-8 pb-6"
-              style={{
-                background: "linear-gradient(180deg, rgba(37,99,235,0.03) 0%, transparent 100%)",
-              }}
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <h2 className="text-2xl font-bold text-primary tracking-tight">
-                  {mode === "login" ? "欢迎回来" : "创建账户"}
-                </h2>
-                <p className="text-sm text-tertiary mt-1.5">
-                  {mode === "login"
-                    ? "登录你的 ProcureWise 账户"
-                    : "免费注册，开始数据驱动的经营分析"}
-                </p>
+            <div className="px-8 pt-8 pb-6" style={{ background: "linear-gradient(180deg, rgba(37,99,235,0.03) 0%, transparent 100%)" }}>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <h2 className="text-2xl font-bold text-primary tracking-tight">{mode === "login" ? "欢迎回来" : "创建账户"}</h2>
+                <p className="text-sm text-tertiary mt-1.5">{mode === "login" ? "登录你的 ProcureWise 账户" : "免费注册，开始数据驱动的经营分析"}</p>
               </motion.div>
 
-              {/* Tab switcher */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="flex items-center gap-1 mt-6 p-1 bg-gray-50/80 rounded-xl border border-gray-100"
-              >
-                <button
-                  onClick={function () { setMode("login"); setError(""); setSuccess(""); setNeedsConfirmation(false); }}
-                  className={cn(
-                    "flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative",
-                    mode === "login"
-                      ? "text-primary bg-white shadow-sm"
-                      : "text-tertiary hover:text-secondary"
-                  )}
-                >
-                  {mode === "login" && (
-                    <motion.div
-                      layoutId="auth-tab-indicator"
-                      className="absolute inset-0 bg-white rounded-lg shadow-sm"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-                    />
-                  )}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="flex items-center gap-1 mt-6 p-1 bg-gray-50/80 rounded-xl border border-gray-100">
+                <button onClick={function () { setMode("login"); setError(""); setSuccess(""); setNeedsConfirmation(false); }} className={cn("flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative", mode === "login" ? "text-primary bg-white shadow-sm" : "text-tertiary hover:text-secondary")}>
+                  {mode === "login" && <motion.div layoutId="auth-tab-indicator" className="absolute inset-0 bg-white rounded-lg shadow-sm" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
                   <span className="relative z-10">登录</span>
                 </button>
-                <button
-                  onClick={function () { setMode("register"); setError(""); setSuccess(""); setNeedsConfirmation(false); }}
-                  className={cn(
-                    "flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative",
-                    mode === "register"
-                      ? "text-primary bg-white shadow-sm"
-                      : "text-tertiary hover:text-secondary"
-                  )}
-                >
-                  {mode === "register" && (
-                    <motion.div
-                      layoutId="auth-tab-indicator"
-                      className="absolute inset-0 bg-white rounded-lg shadow-sm"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-                    />
-                  )}
+                <button onClick={function () { setMode("register"); setError(""); setSuccess(""); setNeedsConfirmation(false); }} className={cn("flex-1 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative", mode === "register" ? "text-primary bg-white shadow-sm" : "text-tertiary hover:text-secondary")}>
+                  {mode === "register" && <motion.div layoutId="auth-tab-indicator" className="absolute inset-0 bg-white rounded-lg shadow-sm" transition={{ type: "spring", bounce: 0.2, duration: 0.5 }} />}
                   <span className="relative z-10">注册</span>
                 </button>
               </motion.div>
             </div>
 
-            {/* Form */}
             <div className="px-8 pb-8">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <AnimatePresence mode="wait">
                   {mode === "register" && (
-                    <motion.div
-                      key="name-field"
-                      initial={{ opacity: 0, height: 0, y: -8 }}
-                      animate={{ opacity: 1, height: "auto", y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -8 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <FormField
-                        label="姓名"
-                        icon={User}
-                        type="text"
-                        value={name}
-                        onChange={setName}
-                        placeholder="你的名字"
-                        autoComplete="name"
-                        testId="auth-name"
-                      />
+                    <motion.div key="name-field" initial={{ opacity: 0, height: 0, y: -8 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -8 }} transition={{ duration: 0.25 }}>
+                      <FormField label="姓名" icon={User} type="text" value={name} onChange={setName} placeholder="你的名字" autoComplete="name" testId="auth-name" />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                <FormField
-                  label="邮箱"
-                  icon={Mail}
-                  type="email"
-                  value={email}
-                  onChange={setEmail}
-                  placeholder="name@example.com"
-                  error={emailError}
-                  autoComplete="email"
-                  testId="auth-email"
-                />
+                <FormField label="邮箱" icon={Mail} type="email" value={email} onChange={setEmail} placeholder="name@example.com" error={emailError} autoComplete="email" testId="auth-email" />
 
                 <div className="space-y-1.5">
-                  <FormField
-                    label="密码"
-                    icon={Lock}
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={setPassword}
-                    placeholder={mode === "register" ? "至少 8 位字符" : "输入密码"}
-                    error={passwordError}
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    testId="auth-password"
-                  />
+                  <FormField label="密码" icon={Lock} type={showPassword ? "text" : "password"} value={password} onChange={setPassword} placeholder={mode === "register" ? "至少 8 位字符，含字母和数字" : "输入密码"} error={passwordError} autoComplete={mode === "login" ? "current-password" : "new-password"} testId="auth-password" />
                   {mode === "register" && <PasswordStrengthBar password={password} />}
                 </div>
 
                 <AnimatePresence mode="wait">
                   {mode === "register" && (
-                    <motion.div
-                      key="confirm-field"
-                      initial={{ opacity: 0, height: 0, y: -8 }}
-                      animate={{ opacity: 1, height: "auto", y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -8 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <FormField
-                        label="确认密码"
-                        icon={Lock}
-                        type="password"
-                        value={confirmPassword}
-                        onChange={setConfirmPassword}
-                        placeholder="再次输入密码"
-                        error={confirmError}
-                        autoComplete="new-password"
-                        testId="auth-confirm"
-                      />
+                    <motion.div key="confirm-field" initial={{ opacity: 0, height: 0, y: -8 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -8 }} transition={{ duration: 0.25 }}>
+                      <FormField label="确认密码" icon={Lock} type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="再次输入密码" error={confirmError} autoComplete="new-password" testId="auth-confirm" />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Error / Success messages */}
                 <AnimatePresence mode="wait">
                   {error && (
-                    <motion.div
-                      key="auth-error"
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-100"
-                    >
+                    <motion.div key="auth-error" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-100">
                       <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                       <p className="text-sm text-red-600 leading-relaxed">{error}</p>
                     </motion.div>
                   )}
                   {success && (
-                    <motion.div
-                      key="auth-success"
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="flex items-start gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100"
-                    >
+                    <motion.div key="auth-success" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="flex items-start gap-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-100">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                       <p className="text-sm text-emerald-700 leading-relaxed">{success}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Submit button */}
-                <motion.button
-                  type="submit"
-                  disabled={!canSubmit}
-                  whileHover={canSubmit ? { scale: 1.01 } : {}}
-                  whileTap={canSubmit ? { scale: 0.98 } : {}}
-                  className={cn(
-                    "w-full py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2",
-                    canSubmit
-                      ? "bg-gradient-to-r from-brand to-blue-500 text-white shadow-md hover:shadow-lg hover:from-brand-dark hover:to-blue-600"
-                      : "bg-gray-100 text-faint cursor-not-allowed"
-                  )}
-                  style={canSubmit ? { boxShadow: "0 4px 14px rgba(37,99,235,0.25)" } : {}}
-                  data-testid="auth-submit"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      {mode === "login" ? "登录" : "创建账户"}
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                <motion.button type="submit" disabled={!canSubmit} whileHover={canSubmit ? { scale: 1.01 } : {}} whileTap={canSubmit ? { scale: 0.98 } : {}} className={cn("w-full py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2", canSubmit ? "bg-gradient-to-r from-brand to-blue-500 text-white shadow-md hover:shadow-lg hover:from-brand-dark hover:to-blue-600" : "bg-gray-100 text-faint cursor-not-allowed")} style={canSubmit ? { boxShadow: "0 4px 14px rgba(37,99,235,0.25)" } : {}} data-testid="auth-submit">
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span>{mode === "login" ? "登录" : "创建账户"}</span><ArrowRight className="w-4 h-4" /></>}
                 </motion.button>
               </form>
 
-              {/* Divider */}
               <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-100" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-3 bg-white text-faint">或</span>
-                </div>
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100" /></div>
+                <div className="relative flex justify-center text-xs"><span className="px-3 bg-white text-faint">或</span></div>
               </div>
 
-              {/* Forgot password (login only) */}
               {mode === "login" && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center"
-                >
-                  <button
-                    type="button"
-                    onClick={function () {
-                      // TODO: implement forgot password flow
-                      setError("请联系管理员重置密码");
-                    }}
-                    className="text-xs text-brand hover:text-brand-dark transition-colors"
-                  >
-                    忘记密码？
-                  </button>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+                  <button type="button" onClick={function () { setError("请联系管理员重置密码"); }} className="text-xs text-brand hover:text-brand-dark transition-colors">忘记密码？</button>
                 </motion.div>
               )}
 
-              {/* Trust badges */}
-                <div className="flex items-center justify-center gap-4 mt-6 pt-5 border-t border-gray-50">
-                  <div className="flex items-center gap-1.5 text-faint">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span className="text-xs">数据加密</span>
-                  </div>
-                  <div className="w-1 h-1 rounded-full bg-gray-200" />
-                  <div className="flex items-center gap-1.5 text-faint">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span className="text-xs">安全连接</span>
-                  </div>
-                  <div className="w-1 h-1 rounded-full bg-gray-200" />
-                  <div className="flex items-center gap-1.5 text-faint">
-                    <Zap className="w-3.5 h-3.5" />
-                    <span className="text-xs">即时开通</span>
-                  </div>
-                </div>
+              <div className="flex items-center justify-center gap-4 mt-6 pt-5 border-t border-gray-50">
+                <div className="flex items-center gap-1.5 text-faint"><Shield className="w-3.5 h-3.5" /><span className="text-xs">数据加密</span></div>
+                <div className="w-1 h-1 rounded-full bg-gray-200" />
+                <div className="flex items-center gap-1.5 text-faint"><Lock className="w-3.5 h-3.5" /><span className="text-xs">安全连接</span></div>
+                <div className="w-1 h-1 rounded-full bg-gray-200" />
+                <div className="flex items-center gap-1.5 text-faint"><Zap className="w-3.5 h-3.5" /><span className="text-xs">即时开通</span></div>
+              </div>
             </div>
           </motion.div>
 
-          {/* Footer */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-center text-xs text-faint mt-6"
-          >
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-center text-xs text-faint mt-6">
             登录即表示你同意我们的{" "}
-            <Link href="#" className="text-brand hover:text-brand-dark transition-colors">
-              服务条款
-            </Link>{" "}
+            <Link href="#" className="text-brand hover:text-brand-dark transition-colors">服务条款</Link>{" "}
             和{" "}
-            <Link href="#" className="text-brand hover:text-brand-dark transition-colors">
-              隐私政策
-            </Link>
+            <Link href="#" className="text-brand hover:text-brand-dark transition-colors">隐私政策</Link>
           </motion.p>
         </div>
       </motion.div>
     </div>
   );
 }
-
-// ═══ Utility ═══
 
 function cn(...classes: (string | boolean | undefined | false)[]): string {
   return classes.filter(Boolean).join(" ");

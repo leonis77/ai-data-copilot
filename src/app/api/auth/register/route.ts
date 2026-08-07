@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { applyRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { ApiErrorCode, apiError } from "@/lib/errors";
+import { validateRegisterRequest } from "@/lib/schemas";
 
 // ═══ POST /api/auth/register ═══
 // 创建 Supabase Auth 用户（需要 Supabase Auth 配置）
@@ -14,20 +15,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json().catch(function () { return null; });
-    if (!body || typeof body !== "object") {
+    const raw = await request.json().catch(function () { return null; });
+    if (!raw || typeof raw !== "object") {
       return NextResponse.json(apiError(ApiErrorCode.INVALID_BODY, "请求体必须是 JSON"), { status: 400 });
     }
 
-    const email = String(body.email || "").trim();
-    const password = String(body.password || "").trim();
-
-    if (!email || !password) {
-      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, "email 和 password 不能为空"), { status: 400 });
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, "密码至少 8 位"), { status: 400 });
+    let body: { email: string; password: string; name?: string };
+    try {
+      body = validateRegisterRequest(raw);
+    } catch (e: any) {
+      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, e?.message || "参数校验失败"), { status: 400 });
     }
 
     // 使用 Supabase Admin API 创建用户（需要 service_role key）
@@ -44,9 +41,10 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data, error } = await adminClient.auth.admin.createUser({
-      email,
-      password,
+      email: body.email,
+      password: body.password,
       email_confirm: true, // 自动确认，演示用
+      user_metadata: body.name ? { full_name: body.name } : {},
     });
 
     if (error) {
@@ -57,7 +55,7 @@ export async function POST(request: NextRequest) {
     try {
       await adminClient.from("profiles").insert({
         id: data.user.id,
-        email,
+        email: body.email,
         role: "user",
         created_at: new Date().toISOString(),
       });
@@ -71,8 +69,11 @@ export async function POST(request: NextRequest) {
       user: { id: data.user.id, email: data.user.email },
     });
   } catch (error) {
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, error.message), { status: 400 });
+    }
     return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL, "注册失败", { details: String(error) }),
+      apiError(ApiErrorCode.INTERNAL, "注册失败", { details: error instanceof Error ? error.message : String(error) }),
       { status: 500 }
     );
   }

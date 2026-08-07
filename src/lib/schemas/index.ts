@@ -5,6 +5,10 @@
  * 新增 schema 时请在此 re-export，避免散落在业务代码里。
  */
 
+import { validateLoginRequest, validateRegisterRequest, type LoginRequestBody, type RegisterRequestBody } from "./auth";
+
+export { validateLoginRequest, validateRegisterRequest, type LoginRequestBody, type RegisterRequestBody };
+
 export { validateUploadRequest, type UploadRequestBody, type UploadSuccess, type UploadError } from "./upload";
 export {
   validateAgentRequest,

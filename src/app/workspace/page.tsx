@@ -10,6 +10,7 @@ import { CategoryBreakdown } from "@/components/workspace/category-breakdown";
 import { RegionMap } from "@/components/workspace/region-map";
 import { AnomalyDetection } from "@/components/workspace/anomaly-detection";
 import { getStore, getDatasetRows } from "@/lib/store";
+import { RequireAuth } from "@/hooks/use-auth-guard";
 import { t } from "@/lib/i18n";
 
 const TABS = [
@@ -86,8 +87,9 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen py-12 pt-20">
-      <div className="section-container">
+    <RequireAuth>
+      <div className="min-h-screen py-12 pt-20">
+        <div className="section-container">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.7, ease: "easeOut"}} className="page-header">
           <div className="flex items-center gap-3 mb-2">
             <div className="icon-box bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm"><BarChart3 className="w-5 h-5 text-white" /></div>
@@ -118,5 +120,6 @@ export default function WorkspacePage() {
         </div>
       </div>
     </div>
+    </RequireAuth>
   );
 }
