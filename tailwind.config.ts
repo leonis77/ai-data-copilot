@@ -4,9 +4,9 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
-      /* ═══════════════════════════════════════════
+      /* ═══════════════════════════════════════════════
          DESIGN TOKENS — 极简素雅色板
-         ═══════════════════════════════════════════ */
+         ═══════════════════════════════════════════════ */
 
       colors: {
         /* Background layers — 温暖白 */
@@ -17,6 +17,11 @@ const config: Config = {
 
         /* Brand — 克制冷蓝 */
         primary: {
+          DEFAULT: "#2563EB",
+          light: "#3B82F6",
+          dark: "#1D4ED8",
+        },
+        brand: {
           DEFAULT: "#2563EB",
           light: "#3B82F6",
           dark: "#1D4ED8",
