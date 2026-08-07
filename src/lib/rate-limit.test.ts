@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
+import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS, resetRateLimitStore } from "@/lib/rate-limit";
 
 describe("checkRateLimit", () => {
   const config = { windowMs: 60_000, maxRequests: 3 };
@@ -113,5 +113,21 @@ describe("getRateLimitHeaders", () => {
     };
     const headers = getRateLimitHeaders(result);
     expect(headers["Retry-After"]).toBeTruthy();
+  });
+});
+
+describe("resetRateLimitStore", () => {
+  it("清空后同一 IP 应重新获得配额", () => {
+    const ip = "10.0.0.1";
+    const cfg = RATE_LIMITS.auth;
+
+    checkRateLimit(ip, cfg);
+    checkRateLimit(ip, cfg);
+    expect(checkRateLimit(ip, cfg).allowed).toBe(true);
+
+    resetRateLimitStore();
+    const afterReset = checkRateLimit(ip, cfg);
+    expect(afterReset.allowed).toBe(true);
+    expect(afterReset.remaining).toBe(cfg.maxRequests - 1);
   });
 });

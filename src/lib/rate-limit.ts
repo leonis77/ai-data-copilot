@@ -57,6 +57,11 @@ function cleanup(): void {
 // 每 5 分钟清理一次
 setInterval(cleanup, 5 * 60_000);
 
+/** 重置限流器状态（仅测试用） */
+export function resetRateLimitStore(): void {
+  store.clear();
+}
+
 // ═══════════════════════════════════════════════
 // Core
 // ═══════════════════════════════════════════════
