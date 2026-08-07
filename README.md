@@ -365,9 +365,10 @@ npm run test:coverage
 
 ### 数据隔离
 
-- **客户端**：localStorage 按 `aicopilot_{userId}` 分片存储，登出时清理当前用户数据
-- **服务端**：所有数据库写入携带 `user_id`，Supabase RLS 策略确保用户仅访问自身数据
-- **迁移脚本**：`supabase/migrations/20260807_user_isolation.sql` 添加 RLS 策略
+- **应用层**：localStorage 按 `aicopilot_{userId}` 分片存储，登出时清理当前用户数据
+- **服务端**：所有数据库写入携带 `user_id`，当前依赖应用层逻辑保证用户仅访问自身数据
+- **注意**：本项目目前未启用 Supabase RLS（Row Level Security），数据隔离由应用层代码保证。正式商用前建议开启 RLS。
+- **迁移脚本**：`supabase/migrations/20260807_user_isolation.sql` 已准备就绪，开启 RLS 后可直接执行
 
 ### 注入防护
 

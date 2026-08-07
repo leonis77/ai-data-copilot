@@ -1,5 +1,8 @@
--- RAG 知识库表 + 用户基准表（含 RLS）
+-- RAG 知识库表 + 用户基准表
 -- 在 Supabase SQL Editor 中执行
+--
+-- 注意：当前为个人项目，未启用 RLS。知识库为共享数据，用户基准表由应用层保证隔离。
+--       正式商用前建议评估是否需要对 user_benchmarks 启用 RLS。
 
 -- 1. 行业知识库（共享数据，所有人可读，仅服务端可写）
 CREATE TABLE IF NOT EXISTS knowledge_base (

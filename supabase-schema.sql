@@ -2,6 +2,10 @@
 -- ProcureWise Supabase Schema v3 (with User Isolation)
 -- 在 Supabase SQL Editor 中执行全部内容
 -- https://supabase.com/dashboard → 选择项目 → SQL Editor
+--
+-- 注意：当前项目为个人项目，未启用 RLS。user_id 字段由应用层保证正确性。
+--       正式商用前，建议执行下方的 RLS 策略部分，或运行：
+--       supabase/migrations/20260807_user_isolation.sql
 -- ============================================================
 
 -- 1. 创建数据表（含 user_id）
