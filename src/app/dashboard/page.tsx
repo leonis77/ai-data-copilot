@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { computeStats } from "@/lib/parser";
 import { ProcurementPanel } from "@/components/procurement";
@@ -103,31 +103,43 @@ export default function DashboardPage() {
         }
       }
       // Agent analysis and loop history are independent — run in parallel
-      var results = await Promise.allSettled([
-        (async function () {
+      // 优先使用分析缓存，避免刷新页面时重复调用 /api/agent
+      var cachedAnalysis = getAnalysisCache(user?.id || "", id);
+      var agentPromise = (async function (): Promise<void> {
+        var chainData: any;
+        if (cachedAnalysis) {
+          chainData = cachedAnalysis.data;
+          obs.trackApiCall("/api/agent", 0, true, { datasetId: id, type: chainData?.type, cached: true });
+        } else {
           var agentStart = Date.now();
           var chainRes = await authFetch("/api/agent", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
           });
-          var chainData = await chainRes.json().catch(function() { return null; });
+          chainData = await chainRes.json().catch(function() { return null; });
           var agentDuration = Date.now() - agentStart;
           obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
-          if (chainRes.ok && chainData?.type === "decision_chain") {
-            setDecisionChain(chainData as DecisionChainResponse);
-            setInsufficientData(null);
-            setPipelineError("");
-          } else if (chainRes.ok && chainData?.type === "insufficient_data") {
-            setDecisionChain(null);
-            setInsufficientData(chainData as InsufficientDataResponse);
-            setPipelineError("");
-          } else {
-            var apiErr = chainData ? parseApiError(chainData) : null;
-            setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
+          if (chainRes.ok && chainData) {
+            setAnalysisCache(user?.id || "", id, chainData);
           }
-        })(),
-        (async function () {
+        }
+        if (chainData?.type === "decision_chain") {
+          setDecisionChain(chainData as DecisionChainResponse);
+          setInsufficientData(null);
+          setPipelineError("");
+        } else if (chainData?.type === "insufficient_data") {
+          setDecisionChain(null);
+          setInsufficientData(chainData as InsufficientDataResponse);
+          setPipelineError("");
+        } else {
+          var apiErr = chainData ? parseApiError(chainData) : null;
+          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
+        }
+      })();
+      // Loop history 与 agent 并行请求
+      (async function () {
+        try {
           var loopData = await fetchLoopHistory(id);
           var execMap: Record<string, Execution[]> = {};
           var outcomeMap: Record<string, Outcome[]> = {};
@@ -140,14 +152,10 @@ export default function DashboardPage() {
           }
           setLoopExecutions(execMap);
           setLoopOutcomes(outcomeMap);
-        })(),
-      ]);
-      if (results[0].status === "rejected") {
-        logger.warn("DecisionChain fetch failed", { message: results[0].reason instanceof Error ? results[0].reason.message : String(results[0].reason) });
-      }
-      if (results[1].status === "rejected") {
-        logger.warn("Loop history fetch failed", { message: results[1].reason instanceof Error ? results[1].reason.message : String(results[1].reason) });
-      }
+        } catch (e) {
+          logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
+        }
+      })();
     } catch(e) { setLoading(false); }
   }
 

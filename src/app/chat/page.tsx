@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbulb } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { logger } from "@/lib/logger";
 import ReactMarkdown from "react-markdown";
@@ -126,6 +126,10 @@ export default function ChatPage() {
         var apiErr = data ? parseApiError(data) : null;
         var errorMessage = apiErr ? apiErr.message : "AI 服务暂时不可用，请稍后重试。";
         throw new Error(errorMessage);
+      }
+      // 缓存分析结果，避免刷新页面后重新分析
+      if (dsId) {
+        setAnalysisCache(user?.id || "", dsId, data);
       }
       var responseData: AgentApiResponse = data;
       var isDecisionChain = responseData.type === "decision_chain";

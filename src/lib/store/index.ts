@@ -3,6 +3,7 @@ import type { SemanticProfile } from "@/lib/semantic/types";
 
 const MAIN_KEY = "aicopilot";
 const MAX_STORE_SIZE = 4 * 1024 * 1024; // 4MB warning threshold
+const ANALYSIS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 分钟
 
 // ═══ M3: Shared frontend dataset contract ═══
 
@@ -35,6 +36,14 @@ export interface InlineDatasetPayload {
   platform?: string;
 }
 
+// ═══ Analysis Cache ═══
+
+export interface AnalysisCacheEntry {
+  datasetId: string;
+  cachedAt: number;
+  data: unknown;
+}
+
 export interface AppStore {
   activeId: string;
   datasets: LocalDatasetMeta[];
@@ -45,6 +54,7 @@ export interface AppStore {
     fullName: string;
     avatarUrl: string;
   };
+  analysisCache?: Record<string, AnalysisCacheEntry>;
 }
 
 /** 生成用户隔离的 localStorage key */
@@ -147,6 +157,8 @@ export function addDataset(
     s.activeId = id;
     s.columnConfig = null;
     setStore(userId, s);
+    // 新上传的数据集，清除旧的分析缓存
+    clearAnalysisCache(userId, id);
     return s;
   } catch (e) {
     logger.error("addDataset failed", { message: e instanceof Error ? e.message : String(e) });
@@ -161,6 +173,7 @@ export function removeDataset(userId: string, id: string): AppStore {
     if (s.activeId === id) s.activeId = s.datasets.length > 0 ? s.datasets[0].id : "";
     setStore(userId, s);
     removeDatasetRows(id);
+    clearAnalysisCache(userId, id);
     return s;
   } catch (e) {
     logger.error("removeDataset failed", { message: e instanceof Error ? e.message : String(e) });
@@ -210,27 +223,81 @@ export function removeDatasetRows(id: string): void {
   } catch {}
 }
 
+// ═══ Analysis Cache ═══
+
+export function getAnalysisCache(userId: string, datasetId: string): AnalysisCacheEntry | null {
+  try {
+    const s = getStore(userId);
+    if (!s.analysisCache) return null;
+    const entry = s.analysisCache[datasetId];
+    if (!entry) return null;
+    if (Date.now() - entry.cachedAt > ANALYSIS_CACHE_TTL_MS) {
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+export function setAnalysisCache(userId: string, datasetId: string, data: unknown): void {
+  try {
+    const s = getStore(userId);
+    if (!s.analysisCache) s.analysisCache = {};
+    s.analysisCache[datasetId] = {
+      datasetId,
+      cachedAt: Date.now(),
+      data,
+    };
+    var keys = Object.keys(s.analysisCache);
+    if (keys.length > 5) {
+      var oldestKey = keys.sort(function (a, b) {
+        return (s.analysisCache![a]?.cachedAt || 0) - (s.analysisCache![b]?.cachedAt || 0);
+      })[0];
+      delete s.analysisCache[oldestKey];
+    }
+    setStore(userId, { analysisCache: s.analysisCache });
+  } catch (e) {
+    logger.warn("setAnalysisCache failed", { message: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+export function clearAnalysisCache(userId: string, datasetId?: string): void {
+  try {
+    const s = getStore(userId);
+    if (!s.analysisCache) return;
+    if (datasetId) {
+      delete s.analysisCache[datasetId];
+    } else {
+      s.analysisCache = {};
+    }
+    setStore(userId, { analysisCache: s.analysisCache });
+  } catch (e) {
+    logger.warn("clearAnalysisCache failed", { message: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 /** 清理指定用户的所有本地数据（登出时调用） */
 export function clearUserStore(userId: string): void {
   try {
     const key = getUserKey(userId);
-    // 先读取该用户的 datasets 列表，只清理属于该用户的行数据
+    // 先读取该用户的 datasets 列表，记录要清理的 data keys 索引
     const s = getStore(userId);
     const datasetIds = new Set((s.datasets || []).map(function (d) { return d.id; }));
-    localStorage.removeItem(key);
-    // 只清理该用户的 data keys（通过 datasetId 集合过滤）
-    const keysToRemove: string[] = [];
+    // 收集要清理的 data keys（必须在 removeItem(key) 之前，因为之后 datasets 列表就丢失了）
+    var keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && k.startsWith(MAIN_KEY + "_data_")) {
-        // 检查该 data key 是否属于当前用户的某个 dataset
         const dsId = k.slice((MAIN_KEY + "_data_").length);
         if (datasetIds.has(dsId)) {
           keysToRemove.push(k);
         }
       }
     }
+    // 先清理 data keys，再清理主 store key
     keysToRemove.forEach(function (k) { localStorage.removeItem(k); });
+    localStorage.removeItem(key);
   } catch (e) {
     logger.error("clearUserStore failed", { message: e instanceof Error ? e.message : String(e) });
   }

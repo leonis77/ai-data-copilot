@@ -323,17 +323,23 @@ function PlatformBadge({ platform, index }: { platform: typeof PLATFORMS[0]; ind
 // ═══════════════════════════════════════════════
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, loading, initialized } = useAuth();
   var [hasData, setHasData] = useState<boolean | null>(null);
 
+  // 认证初始化完成前不判断 hasData，避免 user=null 时误判为无数据
+  var initializing = !initialized || loading;
+
   useEffect(function () {
+    if (initializing) return;
     try {
       var s = getStore(user?.id || "");
       setHasData(s.activeId !== "" && s.datasets.length > 0);
     } catch (e) { setHasData(false); }
-  }, [user?.id]);
+  }, [initializing, user?.id]);
 
-  if (hasData === null) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-[#0a0a0f] animate-spin" /></div>;
+  if (hasData === null || initializing) {
+    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-[#0a0a0f] animate-spin" /></div>;
+  }
 
   return (
     <div>
