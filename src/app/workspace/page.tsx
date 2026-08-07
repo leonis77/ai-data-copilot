@@ -11,7 +11,9 @@ import { RegionMap } from "@/components/workspace/region-map";
 import { AnomalyDetection } from "@/components/workspace/anomaly-detection";
 import { getStore, getDatasetRows } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import { authFetch } from "@/lib/auth-fetch";
 import { RequireAuth } from "@/hooks/use-auth-guard";
+import { useObservability } from "@/hooks/use-observability";
 import { t } from "@/lib/i18n";
 
 const TABS = [
@@ -52,7 +54,7 @@ export default function WorkspacePage() {
       setLoading(false);
       return;
     }
-    fetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
+    authFetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
   }, [user?.id]);
 
   if (loading) return <div className="min-h-screen py-12 pt-20"><div className="section-container"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
