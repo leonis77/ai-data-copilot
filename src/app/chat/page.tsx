@@ -58,7 +58,7 @@ export default function ChatPage() {
   useEffect(function() { if (hasData) obs.trackPageView("chat", { datasetId: chatDsId || "none" }); }, [hasData, chatDsId]);
 
   var autoSent = useRef(false);
-  useEffect(function() { checkData(); }, []);
+  useEffect(function() { checkData(); }, [user?.id]);
   useEffect(function() { if (sr.current) sr.current.scrollTop = sr.current.scrollHeight; }, [msgs]);
 
   useEffect(function() {

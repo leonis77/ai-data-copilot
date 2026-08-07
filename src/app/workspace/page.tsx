@@ -53,7 +53,7 @@ export default function WorkspacePage() {
       return;
     }
     fetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   if (loading) return <div className="min-h-screen py-12 pt-20"><div className="section-container"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
 

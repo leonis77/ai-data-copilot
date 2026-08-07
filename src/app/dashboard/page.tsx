@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
   const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
 
-  useEffect(function() { loadData(""); }, []);
+  useEffect(function() { loadData(""); }, [user?.id]);
   useEffect(function() { if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" }); }, [hasData]);
 
   function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); setLoopExecutions({}); setLoopOutcomes({}); loadData(newId); }

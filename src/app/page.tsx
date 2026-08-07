@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { getStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import { RequireAuth } from "@/hooks/use-auth-guard";
 
 // ═══════════════════════════════════════════════
 // 动画工具
@@ -322,32 +323,37 @@ function PlatformBadge({ platform, index }: { platform: typeof PLATFORMS[0]; ind
 // ═══════════════════════════════════════════════
 
 export default function HomePage() {
+  const { user } = useAuth();
   var [hasData, setHasData] = useState<boolean | null>(null);
 
   useEffect(function () {
     try {
-      var s = getStore("");
+      var s = getStore(user?.id || "");
       setHasData(s.activeId !== "" && s.datasets.length > 0);
     } catch (e) { setHasData(false); }
-  }, []);
+  }, [user?.id]);
 
   if (hasData === null) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-[#0a0a0f] animate-spin" /></div>;
 
-  return hasData ? <Workbench /> : <LandingPage />;
+  return (
+    <RequireAuth>
+      {hasData ? <Workbench userId={user?.id || ""} /> : <LandingPage />}
+    </RequireAuth>
+  );
 }
 
-function Workbench() {
+function Workbench({ userId }: { userId: string }) {
   var [data, setData] = useState<any>(null);
   var [loading, setLoading] = useState(true);
 
   useEffect(function() {
-    var s = getStore("");
+    var s = getStore(userId);
     if (s.activeId && s.datasets.length > 0) {
       var item = s.datasets.find(function(d: any) { return d.id === s.activeId; });
       setData({ name: item?.originalName, profile: item?.profile || "unknown", rowCount: item?.rowCount, datasets: s.datasets });
     }
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-[#0a0a0f] animate-spin" /></div>;
   if (!data) return null;
