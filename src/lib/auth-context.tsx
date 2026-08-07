@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase-client";
 import type { User, Session } from "@supabase/supabase-js";
 import { getStore, setStore, clearUserStore, getUserKey } from "@/lib/store";
 import { logger } from "@/lib/logger";
+import { invalidateAuthTokenCache } from "@/lib/auth-fetch";
 
 // ═══ Auth Context ═══
 
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (event === "SIGNED_OUT") {
           // Clean up user-specific localStorage on sign out
+          invalidateAuthTokenCache();
           if (currentUser) {
             clearUserStore(currentUser.id);
           }
@@ -191,13 +193,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async function () {
+    // Capture user from ref to avoid dependency on state.user
+    const currentUser = userRef.current;
     try {
       await supabase.auth.signOut();
     } catch (e) {
       logger.error("Sign out error:", { message: e instanceof Error ? e.message : String(e) });
     } finally {
-      // Clean up user-specific data
-      const currentUser = state.user;
+      // Immediately invalidate cached auth token
+      invalidateAuthTokenCache();
       if (currentUser) {
         clearUserStore(currentUser.id);
       }
@@ -209,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initialized: true,
       });
     }
-  }, [state.user]);
+  }, []);
 
   const resetPassword = useCallback(async function (email: string) {
     try {

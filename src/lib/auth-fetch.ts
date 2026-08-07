@@ -8,17 +8,37 @@
 
 import { supabase } from "@/lib/supabase-client";
 
+// 内存缓存：避免每次调用都 await getSession()
+var cachedToken: string | null = null;
+var cachedAt = 0;
+const TOKEN_TTL_MS = 30_000; // 30 秒缓存
+
+async function getCachedToken(): Promise<string | null> {
+  var now = Date.now();
+  if (cachedToken && now - cachedAt < TOKEN_TTL_MS) {
+    return cachedToken;
+  }
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    cachedToken = session?.access_token ?? null;
+    cachedAt = now;
+    return cachedToken;
+  } catch {
+    return null;
+  }
+}
+
+function invalidateTokenCache(): void {
+  cachedToken = null;
+  cachedAt = 0;
+}
+
 /**
  * 获取当前有效的 access token。
  * 如果 session 过期，尝试静默刷新。
  */
 export async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ?? null;
-  } catch {
-    return null;
-  }
+  return getCachedToken();
 }
 
 /**
@@ -30,7 +50,7 @@ export async function authFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
 ): Promise<Response> {
-  var token = await getAuthToken();
+  var token = await getCachedToken();
 
   var headers = new Headers(init.headers);
   if (token) {
@@ -47,10 +67,11 @@ export async function authFetch(
 
   // 401 → try refresh and retry once
   if (response.status === 401) {
+    invalidateTokenCache();
     try {
       const { error } = await supabase.auth.refreshSession();
       if (!error) {
-        token = (await getAuthToken());
+        token = await getCachedToken();
         if (token) {
           headers.set("Authorization", "Bearer " + token);
           response = await fetch(input, {
@@ -65,6 +86,13 @@ export async function authFetch(
   }
 
   return response;
+}
+
+/**
+ * 主动使 token 缓存失效（如登出时调用）。
+ */
+export function invalidateAuthTokenCache(): void {
+  invalidateTokenCache();
 }
 
 /**

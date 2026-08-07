@@ -102,48 +102,51 @@ export default function DashboardPage() {
           if (relMeta) inlineDatasets[relatedIds[ri]] = buildInlineDataset(relMeta, relRows.rows, 200);
         }
       }
-      try {
-        var agentStart = Date.now();
-        var chainRes = await authFetch("/api/agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
-        });
-        var chainData = await chainRes.json().catch(function() { return null; });
-        var agentDuration = Date.now() - agentStart;
-        obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
-        if (chainRes.ok && chainData?.type === "decision_chain") {
-          setDecisionChain(chainData as DecisionChainResponse);
-          setInsufficientData(null);
-          setPipelineError("");
-        } else if (chainRes.ok && chainData?.type === "insufficient_data") {
-          setDecisionChain(null);
-          setInsufficientData(chainData as InsufficientDataResponse);
-          setPipelineError("");
-        } else {
-          var apiErr = chainData ? parseApiError(chainData) : null;
-          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
-        }
-      } catch(e) {
-        setPipelineError(e instanceof Error ? e.message : "Pipeline 执行失败，请稍后重试。");
-        logger.warn("DecisionChain fetch failed", { message: e instanceof Error ? e.message : String(e) });
-      }
-
-      try {
-        var loopData = await fetchLoopHistory(id);
-        var execMap: Record<string, Execution[]> = {};
-        var outcomeMap: Record<string, Outcome[]> = {};
-        for (const dd of loopData.decisions) {
-          const actionTasks = dd.actionTasks || [];
-          for (const t of actionTasks) {
-            if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-            if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+      // Agent analysis and loop history are independent — run in parallel
+      var results = await Promise.allSettled([
+        (async function () {
+          var agentStart = Date.now();
+          var chainRes = await authFetch("/api/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
+          });
+          var chainData = await chainRes.json().catch(function() { return null; });
+          var agentDuration = Date.now() - agentStart;
+          obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
+          if (chainRes.ok && chainData?.type === "decision_chain") {
+            setDecisionChain(chainData as DecisionChainResponse);
+            setInsufficientData(null);
+            setPipelineError("");
+          } else if (chainRes.ok && chainData?.type === "insufficient_data") {
+            setDecisionChain(null);
+            setInsufficientData(chainData as InsufficientDataResponse);
+            setPipelineError("");
+          } else {
+            var apiErr = chainData ? parseApiError(chainData) : null;
+            setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
           }
-        }
-        setLoopExecutions(execMap);
-        setLoopOutcomes(outcomeMap);
-      } catch (e) {
-        logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
+        })(),
+        (async function () {
+          var loopData = await fetchLoopHistory(id);
+          var execMap: Record<string, Execution[]> = {};
+          var outcomeMap: Record<string, Outcome[]> = {};
+          for (const dd of loopData.decisions) {
+            const actionTasks = dd.actionTasks || [];
+            for (const t of actionTasks) {
+              if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+              if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
+            }
+          }
+          setLoopExecutions(execMap);
+          setLoopOutcomes(outcomeMap);
+        })(),
+      ]);
+      if (results[0].status === "rejected") {
+        logger.warn("DecisionChain fetch failed", { message: results[0].reason instanceof Error ? results[0].reason.message : String(results[0].reason) });
+      }
+      if (results[1].status === "rejected") {
+        logger.warn("Loop history fetch failed", { message: results[1].reason instanceof Error ? results[1].reason.message : String(results[1].reason) });
       }
     } catch(e) { setLoading(false); }
   }

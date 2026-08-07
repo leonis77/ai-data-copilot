@@ -111,9 +111,13 @@ export function Navbar() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={async function () {
-                    await signOut();
-                    router.push("/");
+                  onClick={function () {
+                    // Fire signOut in background, navigate immediately
+                    signOut().then(function () {
+                      router.push("/");
+                    }).catch(function () {
+                      router.push("/");
+                    });
                   }}
                   className="p-2 rounded-lg text-faint hover:text-red-500 hover:bg-red-50 transition-all"
                   title="退出登录"

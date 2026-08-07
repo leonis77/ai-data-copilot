@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export function AnimatePresence({
   children,
-  mode = "wait",
+  mode = "sync",
 }: {
   children: React.ReactNode;
   mode?: "wait" | "sync" | "popLayout";
