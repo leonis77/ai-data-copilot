@@ -296,7 +296,7 @@ export default function ChatPage() {
                                     }
                                     setLoopExecutions(function(p) { return Object.assign({}, p, execMap); });
                                     setLoopOutcomes(function(p) { return Object.assign({}, p, outcomeMap); });
-                                  });
+                                  }).catch(function() {});
                                 }}
                                 compact
                               />

@@ -47,6 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           initialized: true,
         };
       });
+    }).catch(function () {
+      if (!mounted) return;
+      setState(function (prev) {
+        return {
+          user: null,
+          session: null,
+          loading: false,
+          initialized: true,
+        };
+      });
     });
 
     // Listen for auth changes

@@ -455,7 +455,7 @@ export default function DashboardPage() {
                               }
                               setLoopExecutions(execMap);
                               setLoopOutcomes(outcomeMap);
-                            });
+                            }).catch(function() {});
                           }}
                         />
                       )}
