@@ -127,9 +127,9 @@ export default function ChatPage() {
         var errorMessage = apiErr ? apiErr.message : "AI 服务暂时不可用，请稍后重试。";
         throw new Error(errorMessage);
       }
-      // 缓存分析结果，避免刷新页面后重新分析
+      // 缓存分析结果（chat context），避免与 dashboard 缓存互相覆盖
       if (dsId) {
-        setAnalysisCache(user?.id || "", dsId, data);
+        setAnalysisCache(user?.id || "", dsId, data, "chat");
       }
       var responseData: AgentApiResponse = data;
       var isDecisionChain = responseData.type === "decision_chain";

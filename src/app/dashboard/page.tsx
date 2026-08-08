@@ -104,7 +104,7 @@ export default function DashboardPage() {
       }
       // Agent analysis and loop history are independent — run in parallel
       // 优先使用分析缓存，避免刷新页面时重复调用 /api/agent
-      var cachedAnalysis = getAnalysisCache(user?.id || "", id);
+      var cachedAnalysis = getAnalysisCache(user?.id || "", id, "dashboard");
       var agentPromise = (async function (): Promise<void> {
         var chainData: any;
         if (cachedAnalysis) {
@@ -121,7 +121,7 @@ export default function DashboardPage() {
           var agentDuration = Date.now() - agentStart;
           obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
           if (chainRes.ok && chainData) {
-            setAnalysisCache(user?.id || "", id, chainData);
+            setAnalysisCache(user?.id || "", id, chainData, "dashboard");
           }
         }
         if (chainData?.type === "decision_chain") {

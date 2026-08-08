@@ -225,11 +225,12 @@ export function removeDatasetRows(id: string): void {
 
 // ═══ Analysis Cache ═══
 
-export function getAnalysisCache(userId: string, datasetId: string): AnalysisCacheEntry | null {
+export function getAnalysisCache(userId: string, datasetId: string, context: string = "dashboard"): AnalysisCacheEntry | null {
   try {
     const s = getStore(userId);
     if (!s.analysisCache) return null;
-    const entry = s.analysisCache[datasetId];
+    const key = datasetId + ":" + context;
+    const entry = s.analysisCache[key];
     if (!entry) return null;
     if (Date.now() - entry.cachedAt > ANALYSIS_CACHE_TTL_MS) {
       return null;
@@ -240,11 +241,12 @@ export function getAnalysisCache(userId: string, datasetId: string): AnalysisCac
   }
 }
 
-export function setAnalysisCache(userId: string, datasetId: string, data: unknown): void {
+export function setAnalysisCache(userId: string, datasetId: string, data: unknown, context: string = "dashboard"): void {
   try {
     const s = getStore(userId);
     if (!s.analysisCache) s.analysisCache = {};
-    s.analysisCache[datasetId] = {
+    const key = datasetId + ":" + context;
+    s.analysisCache[key] = {
       datasetId,
       cachedAt: Date.now(),
       data,
@@ -262,12 +264,21 @@ export function setAnalysisCache(userId: string, datasetId: string, data: unknow
   }
 }
 
-export function clearAnalysisCache(userId: string, datasetId?: string): void {
+export function clearAnalysisCache(userId: string, datasetId?: string, context?: string): void {
   try {
     const s = getStore(userId);
     if (!s.analysisCache) return;
     if (datasetId) {
-      delete s.analysisCache[datasetId];
+      if (context) {
+        delete s.analysisCache[datasetId + ":" + context];
+      } else {
+        // 清除该数据集所有 context 的缓存
+        var prefix = datasetId + ":";
+        var cache = s.analysisCache;
+        Object.keys(cache).forEach(function(k) {
+          if (k.startsWith(prefix)) delete cache[k];
+        });
+      }
     } else {
       s.analysisCache = {};
     }
