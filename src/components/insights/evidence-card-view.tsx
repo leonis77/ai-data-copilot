@@ -96,7 +96,7 @@ function CostRow({ label, amount, total, showWarning }: { label: string; amount:
   return (
     <div className="flex items-center gap-2.5 py-1.5 border-b border-gray-50 last:border-0">
       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-      <span className="text-xs text-secondary flex-1 min-w-0 truncate">{label}</span>
+      <span className="text-xs text-secondary flex-1 min-w-0">{label}</span>
       <span className="text-xs text-primary font-mono w-16 text-right">¥{amount.toFixed(2)}</span>
       <div className="w-16">
         <MiniBar value={pct} max={100} color={color} height={4} />
@@ -104,6 +104,18 @@ function CostRow({ label, amount, total, showWarning }: { label: string; amount:
       <span className="text-xs text-faint font-mono w-10 text-right">{pct.toFixed(1)}%</span>
       {showWarning && <span className="text-red-500 text-xs" title="占比异常">⚠️</span>}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Long-text tooltip wrapper
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function LongText({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={className} title={text}>
+      {text}
+    </span>
   );
 }
 
@@ -219,42 +231,45 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
   var riskLevel = card.verdict === "buy_more" || card.verdict === "hold" ? "low" : card.verdict === "reduce" ? "medium" : "high";
   var riskConfig = RISK_CONFIG[riskLevel] || RISK_CONFIG.medium;
 
+  // Long text detection
+  var hasLongVerdictReason = card.verdictReason && card.verdictReason.length > 80;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+      className="relative rounded-2xl border border-gray-100 bg-white shadow-sm flex flex-col"
     >
       {/* ═══ HEADER ═══ */}
       <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-caption px-2 py-0.5 rounded-lg bg-gray-50 text-tertiary font-mono border border-gray-200">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className="text-caption px-2 py-0.5 rounded-lg bg-gray-50 text-tertiary font-mono border border-gray-200 shrink-0">
             #{String(card.cardIndex + 1).padStart(2, "0")}
           </span>
-          <h3 className="text-heading font-semibold text-primary">{card.productName}</h3>
-          <span className="text-xs text-faint px-1.5 py-0.5 rounded bg-gray-50 border border-gray-100">{card.platform}</span>
+          <LongText text={card.productName} className="text-heading font-semibold text-primary truncate max-w-[180px] sm:max-w-none" />
+          <span className="text-xs text-faint px-1.5 py-0.5 rounded bg-gray-50 border border-gray-100 shrink-0">{card.platform}</span>
           {card.purchaseCostEstimated && (
-            <span className="text-caption px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
+            <span className="text-caption px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 shrink-0" title="进货成本为估算值（按售价55%倒推），实际利润可能有偏差。建议补充进价数据。">
               ⚠️ 成本估算
             </span>
           )}
           {card.costBreakdown?.adCostEstimated && (
-            <span className="text-caption px-1.5 py-0.5 rounded bg-orange-50 text-orange-500 border border-orange-200" title="广告费未提供，按¥0计算。实际广告费通常占售价5%-20%，当前利润可能被高估。">
+            <span className="text-caption px-1.5 py-0.5 rounded bg-orange-50 text-orange-500 border border-orange-200 shrink-0" title="广告费未提供，按¥0计算。实际广告费通常占售价5%-20%，当前利润可能被高估。">
               ⚠️ 广告费缺失
             </span>
           )}
         </div>
-        <div className={"inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border " + v.bg + " " + v.text + " " + v.border + " " + v.glow}>
+        <div className={"inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border " + v.bg + " " + v.text + " " + v.border + " " + v.glow + " shrink-0"}>
           <span>{v.icon}</span>
           <span>{v.label}</span>
           <span className="text-faint ml-0.5 font-mono">{Math.round(card.verdictConfidence * 100)}%</span>
         </div>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-5 space-y-5 flex-1">
         {/* ═══ CORE METRICS ROW ═══ */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {[
             { label: "售价", value: "¥" + card.sellPrice.toFixed(2), accent: false },
             { label: "月收入", value: "¥" + monthlyRevenue.toLocaleString(), accent: false },
@@ -264,9 +279,9 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
             { label: "ROI", value: <CircularGauge value={Math.min(card.profit.roi, 100)} max={100} size={52} strokeWidth={3} color={card.profit.roi >= 50 ? "#6366F1" : "#F59E0B"} />, accent: false, isGauge: true },
           ].map(function(metric, i) {
             return (
-              <div key={i} className="rounded-xl p-1.5 sm:p-2 bg-gray-50/80 border border-gray-100 text-center min-w-0">
-                <div className="text-[10px] sm:text-[11px] text-faint uppercase tracking-wider mb-1 truncate">{metric.label}</div>
-                <div className={"text-[11px] sm:text-xs font-medium " + (metric.accent && typeof metric.value === "string" && metric.value.startsWith("+") ? "text-emerald-500" : metric.accent && typeof metric.value === "string" ? "text-red-500" : "text-primary") + (metric.isGauge ? " flex justify-center" : " font-mono truncate")}>
+              <div key={i} className="rounded-xl p-2 sm:p-2.5 bg-gray-50/80 border border-gray-100 text-center min-w-0">
+                <div className="text-[10px] sm:text-[11px] text-faint uppercase tracking-wider mb-1">{metric.label}</div>
+                <div className={"text-xs sm:text-sm font-medium " + (metric.accent && typeof metric.value === "string" && metric.value.startsWith("+") ? "text-emerald-500" : metric.accent && typeof metric.value === "string" ? "text-red-500" : "text-primary") + (metric.isGauge ? " flex justify-center" : " font-mono break-all")}>
                   {metric.value}
                 </div>
               </div>
@@ -342,11 +357,11 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
               {card.costAttribution.slice(0, 8).map(function(attr, i) {
                 var hasWarning = attr.benchmarkDeviation && attr.benchmarkDeviation.includes("⚠️");
                 return (
-                  <div key={i} className="flex items-center gap-1.5 text-caption min-w-0">
+                  <div key={i} className="flex items-center gap-1.5 text-caption min-w-0" title={attr.item + ": " + attr.percentage.toFixed(1) + "%" + (attr.benchmarkDeviation ? " | " + attr.benchmarkDeviation : "")}>
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COST_COLORS[attr.item] || "#6366F1" }} />
                     <span className="text-secondary truncate">{attr.item}</span>
                     <span className="text-primary font-mono font-medium shrink-0">{attr.percentage.toFixed(1)}%</span>
-                    {hasWarning && <span className="text-red-500 shrink-0" title={attr.benchmarkDeviation}>⚠️</span>}
+                    {hasWarning && <span className="text-red-500 shrink-0">⚠️</span>}
                   </div>
                 );
               })}
@@ -371,7 +386,7 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
                   {riskConfig.label}
                 </span>
               </div>
-              <p className="text-sm text-secondary leading-relaxed">{card.verdictReason}</p>
+              <p className="text-sm text-secondary leading-relaxed whitespace-pre-wrap break-words" title={card.verdictReason}>{card.verdictReason}</p>
             </div>
           </div>
         </div>
@@ -379,7 +394,7 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
         {/* ═══ INDUSTRY BENCHMARK ═══ */}
         {card.industryBenchmark && (
           <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.02] p-4">
-            <div className="text-caption text-blue-400/70 mb-3 font-medium uppercase tracking-wider truncate">{card.industryBenchmark.title}</div>
+            <div className="text-caption text-blue-400/70 mb-3 font-medium uppercase tracking-wider" title={card.industryBenchmark.title}>{card.industryBenchmark.title}</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {card.industryBenchmark.metrics.map(function(m, i) {
                 var statusColor = m.status === "better" ? "text-emerald-500" : m.status === "worse" ? "text-red-500" : "text-faint";
@@ -389,11 +404,11 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
                   : m.benchmarkValue + "%";
                 return (
                   <div key={i} className="rounded-lg p-2 bg-white border border-gray-100 min-w-0">
-                    <div className="text-[10px] sm:text-caption text-faint mb-1 truncate">{m.name}</div>
+                    <div className="text-[10px] sm:text-caption text-faint mb-1" title={m.name}>{m.name}</div>
                     <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-xs sm:text-sm font-mono font-medium text-primary truncate">{m.userValue}%</span>
+                      <span className="text-xs sm:text-sm font-mono font-medium text-primary">{m.userValue}%</span>
                       <span className="text-[10px] sm:text-caption text-faint">vs</span>
-                      <span className="text-[10px] sm:text-caption font-mono text-tertiary truncate">{benchmarkDisplay}</span>
+                      <span className="text-[10px] sm:text-caption font-mono text-tertiary">{benchmarkDisplay}</span>
                       <span className={"text-xs sm:text-sm font-mono font-bold " + statusColor}>{statusIcon}</span>
                     </div>
                   </div>
