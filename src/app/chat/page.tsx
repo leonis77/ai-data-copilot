@@ -199,37 +199,37 @@ export default function ChatPage() {
 
   return (
     <RequireAuth>
-      <div className="min-h-screen py-8 pt-16">
-        <div className="section-container">
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="icon-box bg-brand shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
-            <div>
-              <h1 className="text-title text-primary">AI 分析助手</h1>
-              <p className="text-caption">{"问数据 · 出报告 · 深解读 · 找爆款"}</p>
-            </div>
-            {hasData && <TableSelector userId={user?.id} className="ml-auto" />}
-          </div>
-        </motion.div>
+      <div className="min-h-screen pt-16">
+        <div className="section-container py-10">
         {!hasData ? (
-          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="text-center py-12">
+          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <motion.div
               animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center mb-5 relative">
-              <div className="absolute inset-0 rounded-2xl bg-blue-500/5" />
-              <Sparkles className="w-8 h-8 text-brand relative z-10" />
+              className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
+              <Sparkles className="w-7 h-7 text-brand" />
             </motion.div>
             <h2 className="text-title mb-2 text-primary">请先上传数据</h2>
             <p className="text-body mb-6 leading-relaxed">AI 助手需要经营数据才能为你提供分析</p>
             <Link href="/upload">
-              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-base px-6 py-3 rounded-xl flex items-center gap-2">
+              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-base px-6 py-3 rounded-xl inline-flex items-center gap-2">
                 <Upload className="w-4 h-4" />{"上传数据"}
                 <ArrowRight className="w-4 h-4" />
               </motion.button>
             </Link>
           </motion.div>
         ) : (
+          <>
+          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="icon-box bg-brand shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
+              <div>
+                <h1 className="text-title text-primary">AI 分析助手</h1>
+                <p className="text-caption">{"问数据 · 出报告 · 深解读 · 找爆款"}</p>
+              </div>
+              {hasData && <TableSelector userId={user?.id} className="ml-auto" />}
+            </div>
+          </motion.div>
           <div className="flex flex-col h-[calc(100dvh-12rem)] rounded-2xl overflow-hidden border border-gray-200 shadow-sm card">
             <div ref={sr} className="flex-1 overflow-y-auto space-y-4 p-4">
               {msgs.map(function(m,i) {
@@ -356,6 +356,7 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>
