@@ -63,7 +63,7 @@ function CircularGauge({ value, max = 1, size = 72, strokeWidth = 5, label, unit
   var displayMax = unit === "%" ? Math.round(max) : Math.round(max);
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size, overflow: "hidden" }}>
+    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size, overflow: "visible" }}>
       <svg width={size} height={size} className="transform -rotate-90" style={{ overflow: "visible" }}>
         {/* Background circle */}
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E5E7EB" strokeWidth={strokeWidth} />
@@ -254,19 +254,19 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
 
       <div className="p-5 space-y-5">
         {/* ═══ CORE METRICS ROW ═══ */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
             { label: "售价", value: "¥" + card.sellPrice.toFixed(2), accent: false },
             { label: "月收入", value: "¥" + monthlyRevenue.toLocaleString(), accent: false },
             { label: "单品利润", value: (card.profit.netPerItem >= 0 ? "+" : "−") + "¥" + Math.abs(card.profit.netPerItem).toFixed(2), accent: card.profit.netPerItem >= 0 },
-            { label: "利润率", value: <CircularGauge value={card.profit.margin} max={100} size={56} strokeWidth={3} color={card.profit.margin >= 0 ? "#10B981" : "#EF4444"} />, accent: false, isGauge: true },
+            { label: "利润率", value: <CircularGauge value={card.profit.margin} max={100} size={52} strokeWidth={3} color={card.profit.margin >= 0 ? "#10B981" : "#EF4444"} />, accent: false, isGauge: true },
             { label: "月利润", value: (card.profit.netMonthly >= 0 ? "+" : "−") + "¥" + Math.abs(Math.round(card.profit.netMonthly)).toLocaleString(), accent: card.profit.netMonthly >= 0 },
-            { label: "ROI", value: <CircularGauge value={Math.min(card.profit.roi, 100)} max={100} size={56} strokeWidth={3} color={card.profit.roi >= 50 ? "#6366F1" : "#F59E0B"} />, accent: false, isGauge: true },
+            { label: "ROI", value: <CircularGauge value={Math.min(card.profit.roi, 100)} max={100} size={52} strokeWidth={3} color={card.profit.roi >= 50 ? "#6366F1" : "#F59E0B"} />, accent: false, isGauge: true },
           ].map(function(metric, i) {
             return (
-              <div key={i} className="rounded-xl p-2 bg-gray-50/80 border border-gray-100 text-center overflow-hidden">
-                <div className="text-[10px] text-faint uppercase tracking-wider mb-1">{metric.label}</div>
-                <div className={"text-xs font-medium " + (metric.accent && typeof metric.value === "string" && metric.value.startsWith("+") ? "text-emerald-500" : metric.accent && typeof metric.value === "string" ? "text-red-500" : "text-primary") + (metric.isGauge ? " flex justify-center" : " font-mono")}>
+              <div key={i} className="rounded-xl p-1.5 sm:p-2 bg-gray-50/80 border border-gray-100 text-center min-w-0">
+                <div className="text-[10px] sm:text-[11px] text-faint uppercase tracking-wider mb-1 truncate">{metric.label}</div>
+                <div className={"text-[11px] sm:text-xs font-medium " + (metric.accent && typeof metric.value === "string" && metric.value.startsWith("+") ? "text-emerald-500" : metric.accent && typeof metric.value === "string" ? "text-red-500" : "text-primary") + (metric.isGauge ? " flex justify-center" : " font-mono truncate")}>
                   {metric.value}
                 </div>
               </div>
@@ -338,15 +338,15 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
               />
             </div>
             {/* Legend with deviation warnings */}
-            <div className="flex flex-wrap gap-x-3 gap-y-1.5 pl-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 pl-1">
               {card.costAttribution.slice(0, 8).map(function(attr, i) {
                 var hasWarning = attr.benchmarkDeviation && attr.benchmarkDeviation.includes("⚠️");
                 return (
-                  <div key={i} className="flex items-center gap-1.5 text-caption">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COST_COLORS[attr.item] || "#6366F1" }} />
-                    <span className="text-secondary">{attr.item}</span>
-                    <span className="text-primary font-mono font-medium">{attr.percentage.toFixed(1)}%</span>
-                    {hasWarning && <span className="text-red-500" title={attr.benchmarkDeviation}>⚠️</span>}
+                  <div key={i} className="flex items-center gap-1.5 text-caption min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COST_COLORS[attr.item] || "#6366F1" }} />
+                    <span className="text-secondary truncate">{attr.item}</span>
+                    <span className="text-primary font-mono font-medium shrink-0">{attr.percentage.toFixed(1)}%</span>
+                    {hasWarning && <span className="text-red-500 shrink-0" title={attr.benchmarkDeviation}>⚠️</span>}
                   </div>
                 );
               })}
@@ -379,8 +379,8 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
         {/* ═══ INDUSTRY BENCHMARK ═══ */}
         {card.industryBenchmark && (
           <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.02] p-4">
-            <div className="text-caption text-blue-400/70 mb-3 font-medium uppercase tracking-wider">{card.industryBenchmark.title}</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="text-caption text-blue-400/70 mb-3 font-medium uppercase tracking-wider truncate">{card.industryBenchmark.title}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {card.industryBenchmark.metrics.map(function(m, i) {
                 var statusColor = m.status === "better" ? "text-emerald-500" : m.status === "worse" ? "text-red-500" : "text-faint";
                 var statusIcon = m.status === "better" ? "↑" : m.status === "worse" ? "↓" : "−";
@@ -388,13 +388,13 @@ export function EvidenceCardView({ card, defaultExpanded = true, onAction }: Evi
                   ? m.benchmarkValue[0] + "%–" + m.benchmarkValue[1] + "%"
                   : m.benchmarkValue + "%";
                 return (
-                  <div key={i} className="rounded-lg p-2.5 bg-white border border-gray-100">
-                    <div className="text-caption text-faint mb-1">{m.name}</div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-mono font-medium text-primary">{m.userValue}%</span>
-                      <span className="text-caption text-faint">vs</span>
-                      <span className="text-caption font-mono text-tertiary">{benchmarkDisplay}</span>
-                      <span className={"font-mono font-bold " + statusColor}>{statusIcon}</span>
+                  <div key={i} className="rounded-lg p-2 bg-white border border-gray-100 min-w-0">
+                    <div className="text-[10px] sm:text-caption text-faint mb-1 truncate">{m.name}</div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-xs sm:text-sm font-mono font-medium text-primary truncate">{m.userValue}%</span>
+                      <span className="text-[10px] sm:text-caption text-faint">vs</span>
+                      <span className="text-[10px] sm:text-caption font-mono text-tertiary truncate">{benchmarkDisplay}</span>
+                      <span className={"text-xs sm:text-sm font-mono font-bold " + statusColor}>{statusIcon}</span>
                     </div>
                   </div>
                 );

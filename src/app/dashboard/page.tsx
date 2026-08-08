@@ -313,7 +313,7 @@ export default function DashboardPage() {
               </h1>
               {datasetName && <p className="text-caption mt-1.5 truncate max-w-[200px] md:max-w-none">{datasetName}</p>}
             </div>
-            <TableSelector onSelect={handleSelect} className="ml-auto" />
+            <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
           </div>
           {relations.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mt-4 p-4 rounded-xl border border-blue-100 bg-blue-50/50 flex items-center gap-3 hover-lift">

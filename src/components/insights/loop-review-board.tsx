@@ -158,7 +158,34 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
   }, [datasetId]);
 
   if (rows.length === 0 && !loading) {
-    return null;
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="mt-8 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-brand" />
+            <h2 className="text-heading">执行复盘看板</h2>
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50"
+          >
+            <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} />
+            刷新
+          </button>
+        </div>
+        <div className="p-8 rounded-2xl border border-gray-100 text-center card">
+          <div className="icon-box bg-blue-50 mx-auto mb-3"><BarChart3 className="w-5 h-5 text-brand" /></div>
+          <p className="text-body">尚无执行复盘数据</p>
+          <p className="text-caption mt-2">完成 AI 经营分析并批准决策后，执行与验证数据将在此展示</p>
+        </div>
+      </motion.div>
+    );
   }
 
   // Aggregates
