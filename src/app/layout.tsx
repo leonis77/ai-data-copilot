@@ -52,7 +52,7 @@ export default function RootLayout({
       <body className="min-h-screen text-primary antialiased touch-manipulation">
         <AuthProvider>
           <Navbar />
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync">
             <PageTransition>
               <main className="pt-16 relative z-10">{children}</main>
             </PageTransition>

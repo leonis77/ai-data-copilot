@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
@@ -48,12 +48,27 @@ export default function DashboardPage() {
   const [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
   const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
 
+  // Track the latest loadData request id so stale async callbacks
+  // do not overwrite newer state after rapid dataset switches.
+  var requestIdRef = useRef(0);
+
   useEffect(function() { loadData(""); }, [user?.id]);
   useEffect(function() { if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" }); }, [hasData]);
 
-  function handleSelect(newId: string) { setLoading(true); setDecisionChain(null); setInsufficientData(null); setPipelineError(""); setLoopExecutions({}); setLoopOutcomes({}); loadData(newId); }
+  function handleSelect(newId: string) {
+    setLoading(true);
+    setDecisionChain(null);
+    setInsufficientData(null);
+    setPipelineError("");
+    setLoopExecutions({});
+    setLoopOutcomes({});
+    loadData(newId);
+  }
 
   async function loadData(dsId: string) {
+    // Bump request id and capture the current one so async branches
+    // can verify they are still the latest request before setting state.
+    var currentRequestId = ++requestIdRef.current;
     try {
       let id = dsId;
       if (!id) { var saved = getStore(user?.id || ""); id = saved.activeId || ""; }
@@ -69,6 +84,7 @@ export default function DashboardPage() {
         data = await res.json();
       }
       if (!data || !data.columns) { setLoading(false); return; }
+      if (currentRequestId !== requestIdRef.current) return;
       var storeData = getStore(user?.id || "");
       var selCols: string[] = data.columns || [];
       var filteredRows = (data.rows || []).map(function(r: any) {
@@ -82,6 +98,7 @@ export default function DashboardPage() {
       setHasData(true);
       setDatasetName(data.original_name || storeData.datasets.find(function(d) { return d.id === id; })?.originalName || "");
       setLoading(false);
+      if (currentRequestId !== requestIdRef.current) return;
       var relatedIds: string[] = [];
       if (storeData.datasets.length > 1) {
         for (var i = 0; i < storeData.datasets.length; i++) {
@@ -105,7 +122,7 @@ export default function DashboardPage() {
       // Agent analysis and loop history are independent — run in parallel
       // 优先使用分析缓存，避免刷新页面时重复调用 /api/agent
       var cachedAnalysis = getAnalysisCache(user?.id || "", id, "dashboard");
-      var agentPromise = (async function (): Promise<void> {
+      (async function (): Promise<void> {
         var chainData: any;
         if (cachedAnalysis) {
           chainData = cachedAnalysis.data;
@@ -117,6 +134,7 @@ export default function DashboardPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
           });
+          if (currentRequestId !== requestIdRef.current) return;
           chainData = await chainRes.json().catch(function() { return null; });
           var agentDuration = Date.now() - agentStart;
           obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
@@ -124,6 +142,7 @@ export default function DashboardPage() {
             setAnalysisCache(user?.id || "", id, chainData, "dashboard");
           }
         }
+        if (currentRequestId !== requestIdRef.current) return;
         if (chainData?.type === "decision_chain") {
           setDecisionChain(chainData as DecisionChainResponse);
           setInsufficientData(null);
@@ -140,7 +159,9 @@ export default function DashboardPage() {
       // Loop history 与 agent 并行请求
       (async function () {
         try {
+          if (currentRequestId !== requestIdRef.current) return;
           var loopData = await fetchLoopHistory(id);
+          if (currentRequestId !== requestIdRef.current) return;
           var execMap: Record<string, Execution[]> = {};
           var outcomeMap: Record<string, Outcome[]> = {};
           for (const dd of loopData.decisions) {
@@ -153,10 +174,14 @@ export default function DashboardPage() {
           setLoopExecutions(execMap);
           setLoopOutcomes(outcomeMap);
         } catch (e) {
+          if (currentRequestId !== requestIdRef.current) return;
           logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
         }
       })();
-    } catch(e) { setLoading(false); }
+    } catch(e) {
+      if (currentRequestId !== requestIdRef.current) return;
+      setLoading(false);
+    }
   }
 
   // Loading state

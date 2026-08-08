@@ -45,6 +45,8 @@ export default function WorkspacePage() {
   const [dateRange, setDateRange] = useState(30);
 
   useEffect(() => {
+    var controller: AbortController | undefined;
+    setLoading(true);
     const s = getStore(user?.id || "");
     if (!s.activeId) { setLoading(false); return; }
     setHasData(true);
@@ -54,7 +56,13 @@ export default function WorkspacePage() {
       setLoading(false);
       return;
     }
-    authFetch("/api/upload?id=" + s.activeId).then(r => r.json()).then(d => { setData(d); }).catch(() => {}).finally(() => setLoading(false));
+    controller = new AbortController();
+    authFetch("/api/upload?id=" + s.activeId, { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => { setData(d); })
+      .catch(function(e) { if (e.name !== "AbortError") { /* ignore */ } })
+      .finally(() => setLoading(false));
+    return function() { if (controller) controller.abort(); };
   }, [user?.id]);
 
   if (loading) return <div className="min-h-screen py-12 pt-20"><div className="section-container"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
