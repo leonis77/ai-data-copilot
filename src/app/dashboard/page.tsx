@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3, AlertCircle } from "lucide-react";
@@ -59,12 +59,13 @@ export default function DashboardPage() {
   const [agentLoading, setAgentLoading] = useState(false);
 
   // Loop history data (single source of truth for ExecutionTracker + LoopReviewBoard)
-  const { data: loopData, loading: loopLoading, error: loopError, refetch: refetchLoop } = useDataFetch(
+  const { data: loopData, loading: loopLoading, error: loopError, refetch: refetchLoopRaw } = useDataFetch(
     ["loop", user?.id, datasetId].join(":"),
     (signal: AbortSignal) => fetchLoopHistory(datasetId, user?.id || undefined, signal),
     [user?.id, datasetId],
     { enabled: !!user?.id && !!datasetId }
   );
+  const refetchLoop = useCallback(function() { void refetchLoopRaw(); }, [refetchLoopRaw]);
 
   // Derived loop maps (no setState needed — derived from loopData)
   var loopExecutions: Record<string, Execution[]> = {};

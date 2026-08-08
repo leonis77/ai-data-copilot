@@ -334,8 +334,11 @@ export default function LoopReviewBoard({ datasetId, loopData, loading, error, o
     });
   }, [loopData]);
 
+  var onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
   useEffect(function() {
-    if (onRefresh) void onRefresh();
+    void onRefreshRef.current();
   }, [datasetId]);
 
   async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
