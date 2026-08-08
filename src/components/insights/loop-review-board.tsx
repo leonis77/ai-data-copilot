@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { Decision, ActionTask, Execution, Outcome } from "@/lib/loop/types";
+import type { LoopHistory } from "@/lib/loop/client";
 import { fetchLoopHistory, updateDecisionStatus, updateActionTaskStatus, startExecution, completeExecution, saveOutcome } from "@/lib/loop/client";
 import { useAuth } from "@/lib/auth-context";
 
@@ -29,6 +30,10 @@ import { useAuth } from "@/lib/auth-context";
 
 interface LoopReviewBoardProps {
   datasetId: string;
+  loopData: LoopHistory | null;
+  loading: boolean;
+  error: Error | null;
+  onRefresh: () => void;
 }
 
 interface DecisionRow {
@@ -308,11 +313,8 @@ function InlineTaskItem({ task, executions, outcomes, onRefresh }: {
 // Main Component
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
+export default function LoopReviewBoard({ datasetId, loopData, loading, error, onRefresh }: LoopReviewBoardProps) {
   const { user } = useAuth();
-  const [rows, setRows] = useState<DecisionRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<TabType>("all");
   const [filter, setFilter] = useState("all");
@@ -320,41 +322,29 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
 
   var loadingRef = useRef(false);
 
-  async function load() {
-    if (!datasetId || loadingRef.current) return;
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchLoopHistory(datasetId, user?.id);
-      const mapped: DecisionRow[] = (data.decisions || []).map(function(dd: any) {
-        return {
-          decision: dd.decision,
-          actionTasks: dd.actionTasks || [],
-          executions: dd.executions || {},
-          outcomes: dd.outcomes || {},
-        };
-      });
-      setRows(mapped);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "加载复盘数据失败");
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-    }
-  }
+  var rows: DecisionRow[] = useMemo(function() {
+    if (!loopData || !loopData.decisions) return [];
+    return loopData.decisions.map(function(dd: any) {
+      return {
+        decision: dd.decision,
+        actionTasks: dd.actionTasks || [],
+        executions: dd.executions || {},
+        outcomes: dd.outcomes || {},
+      };
+    });
+  }, [loopData]);
 
   useEffect(function() {
-    void load();
+    if (onRefresh) void onRefresh();
   }, [datasetId]);
 
   async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
     setUpdating(function(prev) { var next = Object.assign({}, prev); next[decisionId] = true; return next; });
     try {
       await updateDecisionStatus({ decisionId, status });
-      await load();
+      await onRefresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "更新决策状态失败");
+      console.error("更新决策状态失败:", e);
     } finally {
       setUpdating(function(prev) { var next = Object.assign({}, prev); next[decisionId] = false; return next; });
     }
@@ -363,9 +353,9 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
   async function handleTaskStatusChange(taskId: string, status: ActionTask["status"]) {
     try {
       await updateActionTaskStatus({ taskId, status });
-      await load();
+      await onRefresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "更新任务状态失败");
+      console.error("更新任务状态失败:", e);
     }
   }
 
@@ -392,8 +382,8 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
       for (const t of row.actionTasks) {
         const exes = row.executions[t.id] || [];
         if (exes.length > 0) executedTasks++;
-        if (exes.some(function(e) { return e.status === "completed"; })) completedTasks++;
-        if (exes.some(function(e) { return e.status === "failed"; })) failedTasks++;
+        if (exes.some(function(e: Execution) { return e.status === "completed"; })) completedTasks++;
+        if (exes.some(function(e: Execution) { return e.status === "failed"; })) failedTasks++;
         const outs = row.outcomes[t.id] || [];
         totalOutcomes += outs.length;
         for (const o of outs) {
@@ -426,17 +416,17 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
 
     // Tab filter
     if (tab === "pending") {
-      filtered = rows.filter(function(r) { return r.decision.status === "pending"; });
+      filtered = rows.filter(function(r: DecisionRow) { return r.decision.status === "pending"; });
     } else if (tab === "executing") {
-      filtered = rows.filter(function(r) {
-        return r.actionTasks.some(function(t) {
+      filtered = rows.filter(function(r: DecisionRow) {
+        return r.actionTasks.some(function(t: ActionTask) {
           var exes = r.executions[t.id] || [];
-          return exes.some(function(e) { return e.status === "running"; });
+          return exes.some(function(e: Execution) { return e.status === "running"; });
         });
       });
     } else if (tab === "verified") {
-      filtered = rows.filter(function(r) {
-        return r.actionTasks.some(function(t) {
+      filtered = rows.filter(function(r: DecisionRow) {
+        return r.actionTasks.some(function(t: ActionTask) {
           var outs = r.outcomes[t.id] || [];
           return outs.length > 0;
         });
@@ -445,12 +435,12 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
 
     // Verdict filter
     if (filter !== "all") {
-      filtered = filtered.filter(function(r) { return r.decision.verdict === filter; });
+      filtered = filtered.filter(function(r: DecisionRow) { return r.decision.verdict === filter; });
     }
 
     // Sort
     var sorted = filtered.slice();
-    sorted.sort(function(a, b) {
+    sorted.sort(function(a: DecisionRow, b: DecisionRow) {
       if (sortBy === "newest") return new Date(b.decision.createdAt).getTime() - new Date(a.decision.createdAt).getTime();
       if (sortBy === "oldest") return new Date(a.decision.createdAt).getTime() - new Date(b.decision.createdAt).getTime();
       if (sortBy === "profit_desc") return (b.decision.expectedProfitImpact || 0) - (a.decision.expectedProfitImpact || 0);
@@ -461,15 +451,15 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     return sorted;
   }, [rows, tab, filter, sortBy]);
 
-  var pendingCount = rows.filter(function(r) { return r.decision.status === "pending"; }).length;
-  var executingCount = rows.filter(function(r) {
-    return r.actionTasks.some(function(t) {
+  var pendingCount = rows.filter(function(r: DecisionRow) { return r.decision.status === "pending"; }).length;
+  var executingCount = rows.filter(function(r: DecisionRow) {
+    return r.actionTasks.some(function(t: ActionTask) {
       var exes = r.executions[t.id] || [];
-      return exes.some(function(e) { return e.status === "running"; });
+      return exes.some(function(e: Execution) { return e.status === "running"; });
     });
   }).length;
-  var verifiedCount = rows.filter(function(r) {
-    return r.actionTasks.some(function(t) { return (r.outcomes[t.id] || []).length > 0; });
+  var verifiedCount = rows.filter(function(r: DecisionRow) {
+    return r.actionTasks.some(function(t: ActionTask) { return (r.outcomes[t.id] || []).length > 0; });
   }).length;
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -484,7 +474,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
             <BarChart3 className="w-4 h-4 text-brand" />
             <h2 className="text-heading">执行复盘看板</h2>
           </div>
-          <button onClick={load} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
+          <button onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
             <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} /> 刷新
           </button>
         </div>
@@ -542,13 +532,13 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
           <h2 className="text-heading">执行复盘看板</h2>
           <span className="text-caption text-faint">{aggregates.totalDecisions} 次决策 · {aggregates.totalActionTasks} 个行动</span>
         </div>
-        <button onClick={load} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
+        <button onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
           <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} /> 刷新
         </button>
       </div>
 
       {error && (
-        <div className="text-body text-red-500 bg-red-50 rounded-lg px-4 py-2 border border-red-100">{error}</div>
+        <div className="text-body text-red-500 bg-red-50 rounded-lg px-4 py-2 border border-red-100">{error instanceof Error ? error.message : String(error)}</div>
       )}
 
       {/* ═══ KPI CARDS ═══ */}
@@ -721,7 +711,7 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
                         task={item.task}
                         executions={item.allOutcomes.length > 0 ? (row.executions[item.task.id] || []) : []}
                         outcomes={item.allOutcomes}
-                        onRefresh={load}
+                        onRefresh={onRefresh}
                       />
                     );
                   })}

@@ -56,9 +56,27 @@ export default function DashboardPage() {
   const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
   const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
   const [pipelineError, setPipelineError] = useState("");
-  const [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
-  const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
   const [agentLoading, setAgentLoading] = useState(false);
+
+  // Loop history data (single source of truth for ExecutionTracker + LoopReviewBoard)
+  const { data: loopData, loading: loopLoading, error: loopError, refetch: refetchLoop } = useDataFetch(
+    ["loop", user?.id, datasetId].join(":"),
+    (signal: AbortSignal) => fetchLoopHistory(datasetId, user?.id || undefined, signal),
+    [user?.id, datasetId],
+    { enabled: !!user?.id && !!datasetId }
+  );
+
+  // Derived loop maps (no setState needed — derived from loopData)
+  var loopExecutions: Record<string, Execution[]> = {};
+  var loopOutcomes: Record<string, Outcome[]> = {};
+  if (loopData?.decisions) {
+    for (const dd of loopData.decisions) {
+      for (const t of (dd.actionTasks || [])) {
+        if (dd.executions && dd.executions[t.id]) loopExecutions[t.id] = dd.executions[t.id];
+        if (dd.outcomes && dd.outcomes[t.id]) loopOutcomes[t.id] = dd.outcomes[t.id];
+      }
+    }
+  }
 
   // Compute stats when rawData changes
   useEffect(function () {
@@ -145,34 +163,7 @@ export default function DashboardPage() {
     return function () { cancelled = true; };
   }, [rawData, user?.id, datasetId, obs]);
 
-  // Fetch loop history when dataset changes
-  useEffect(function () {
-    if (!datasetId) return;
-    var cancelled = false;
 
-    (async function (): Promise<void> {
-      try {
-        var loopData = await fetchLoopHistory(datasetId);
-        if (cancelled) return;
-        var execMap: Record<string, Execution[]> = {};
-        var outcomeMap: Record<string, Outcome[]> = {};
-        for (const dd of (loopData as any).decisions) {
-          const actionTasks = dd.actionTasks || [];
-          for (const t of actionTasks) {
-            if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-            if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
-          }
-        }
-        setLoopExecutions(execMap);
-        setLoopOutcomes(outcomeMap);
-      } catch (e) {
-        if (cancelled) return;
-        logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
-      }
-    })();
-
-    return function () { cancelled = true; };
-  }, [datasetId]);
 
   // Track page view
   useEffect(function () {
@@ -445,20 +436,7 @@ export default function DashboardPage() {
                           expectedProfitImpact={act.expectedProfitImpact}
                           executions={loopExecutions[act.actionTaskId] || []}
                           outcomes={loopOutcomes[act.actionTaskId] || []}
-                          onRefresh={function() {
-                            fetchLoopHistory(datasetId).then(function(data) {
-                              var execMap: Record<string, Execution[]> = {};
-                              var outcomeMap: Record<string, Outcome[]> = {};
-                              for (const dd of data.decisions) {
-                                for (const t of (dd.actionTasks || [])) {
-                                  if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-                                  if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
-                                }
-                              }
-                              setLoopExecutions(execMap);
-                              setLoopOutcomes(outcomeMap);
-                            }).catch(function() {});
-                          }}
+                          onRefresh={refetchLoop}
                         />
                       )}
                     </div>
@@ -613,7 +591,7 @@ export default function DashboardPage() {
         )}
 
         {/* Row 6: Execution/Outcome Review Board */}
-        {hasData && datasetId && <LoopReviewBoard datasetId={datasetId} />}
+        {hasData && datasetId && <LoopReviewBoard datasetId={datasetId} loopData={loopData} loading={loopLoading} error={loopError} onRefresh={refetchLoop} />}
       </div>
     </div>
     </RequireAuth>

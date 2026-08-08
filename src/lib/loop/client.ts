@@ -96,9 +96,9 @@ function ensureOk(res: Response): void {
   }
 }
 
-export async function fetchLoopHistory(datasetId: string, userId?: string): Promise<LoopHistory> {
+export async function fetchLoopHistory(datasetId: string, userId?: string, signal?: AbortSignal): Promise<LoopHistory> {
   const url = "/api/loop?datasetId=" + encodeURIComponent(datasetId) + (userId ? "&userId=" + encodeURIComponent(userId) : "");
-  const res = await authFetch(url);
+  const res = await authFetch(url, { signal });
   ensureOk(res);
   return await res.json();
 }
