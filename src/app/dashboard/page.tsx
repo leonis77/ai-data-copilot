@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
-import { CardSkeleton } from "@/components/ui/skeleton";
+import { Upload, ArrowRight, Sparkles, BarChart3, AlertCircle } from "lucide-react";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache, computeStatsCached, clearStatsCache } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset, computeStatsCached, clearStatsCache } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
@@ -31,221 +30,182 @@ import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
 import { RequireAuth } from "@/hooks/use-auth-guard";
 import { authFetch } from "@/lib/auth-fetch";
+import { useDataFetch } from "@/hooks/use-data-fetch";
+import { DashboardSkeleton } from "@/components/app/skeleton/dashboard-skeleton";
 
 export default function DashboardPage() {
   const obs = useObservability();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [hasData, setHasData] = useState(false);
-  const [stats, setStats] = useState<any>(null);
-  const [datasetName, setDatasetName] = useState("");
+
+  // Data fetch
   const [datasetId, setDatasetId] = useState("");
-  const [datasetData, setDatasetData] = useState<any>(null);
+  const { data: rawData, loading: dataLoading, error: dataError, refetch: refetchRawData } = useDataFetch(
+    ["dashboard", user?.id, datasetId].join(":"),
+    (signal: AbortSignal) => fetchRawData(signal, user?.id as string, datasetId),
+    [user?.id, datasetId],
+    { enabled: !!user?.id }
+  );
+
+  // Derived state
+  const [stats, setStats] = useState<ReturnType<typeof import("@/lib/store").computeStatsCached> | null>(null);
+  const [datasetName, setDatasetName] = useState("");
+  const [hasData, setHasData] = useState(false);
+  const [datasetData, setDatasetData] = useState<{ columns: string[]; rows: Record<string, unknown>[]; original_name: string } | null>(null);
   const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
   const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
   const [pipelineError, setPipelineError] = useState("");
   const [loopExecutions, setLoopExecutions] = useState<Record<string, Execution[]>>({});
   const [loopOutcomes, setLoopOutcomes] = useState<Record<string, Outcome[]>>({});
+  const [agentLoading, setAgentLoading] = useState(false);
 
-  // Track the latest loadData request id so stale async callbacks
-  // do not overwrite newer state after rapid dataset switches.
-  var requestIdRef = useRef(0);
+  // Compute stats when rawData changes
+  useEffect(function () {
+    if (!rawData) return;
+    var parsed = computeStatsCached(rawData.rows, rawData.columns);
+    setStats(parsed);
+    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === datasetId; })?.originalName || "");
+    setHasData(true);
+    setDatasetData(rawData);
+  }, [rawData, datasetId, user?.id]);
 
-  useEffect(function() { loadData(""); }, [user?.id]);
-  useEffect(function() { if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" }); }, [hasData]);
-
-  function handleSelect(newId: string) {
-    setLoading(true);
+  // Fetch agent analysis when data changes
+  useEffect(function () {
+    if (!rawData || !user?.id || !datasetId) return;
+    var cancelled = false;
+    setAgentLoading(true);
     setDecisionChain(null);
     setInsufficientData(null);
     setPipelineError("");
-    setLoopExecutions({});
-    setLoopOutcomes({});
-    if (newId) clearStatsCache();
-    loadData(newId);
-  }
 
-  async function loadData(dsId: string) {
-    // Bump request id and capture the current one so async branches
-    // can verify they are still the latest request before setting state.
-    var currentRequestId = ++requestIdRef.current;
-    try {
-      let id = dsId;
-      if (!id) { var saved = getStore(user?.id || ""); id = saved.activeId || ""; }
-      if (!id) { setLoading(false); return; }
-      setDatasetId(id);
-      var localData = getDatasetRows(id);
-      var data: any = null;
-      if (localData && localData.rows.length > 0) {
-        data = { columns: localData.columns, rows: localData.rows };
-      } else {
-        var res = await authFetch("/api/upload?id=" + id);
-        if (!res.ok) { setLoading(false); return; }
-        data = await res.json();
-      }
-      if (!data || !data.columns) { setLoading(false); return; }
-      if (currentRequestId !== requestIdRef.current) return;
-      var storeData = getStore(user?.id || "");
-      var selCols: string[] = data.columns || [];
-      var filteredRows = (data.rows || []).map(function(r: any) {
-        var o: Record<string, unknown> = {};
-        for (var i = 0; i < selCols.length; i++) o[selCols[i]] = r[selCols[i]];
-        return o;
-      });
-      // Pre-compute relatedIds in parallel with datasetData/stats setup
-      var relatedIds: string[] = [];
-      if (storeData.datasets.length > 1) {
-        for (var ri = 0; ri < storeData.datasets.length; ri++) {
-          if (storeData.datasets[ri].id !== id) {
-            relatedIds.push(storeData.datasets[ri].id);
+    (async function (): Promise<void> {
+      try {
+        var storeData = getStore(user?.id || "");
+        var relatedIds: string[] = storeData.datasets.filter(function (d: any) { return d.id !== datasetId; }).map(function (d: any) { return d.id; });
+
+        var inlineDatasets: Record<string, any> = {};
+        var activeRows = getDatasetRows(datasetId);
+        if (activeRows && activeRows.rows.length > 0) {
+          var activeMeta = storeData.datasets.find(function (d: any) { return d.id === datasetId; });
+          if (activeMeta) inlineDatasets[datasetId] = buildInlineDataset(activeMeta, activeRows.rows, 500);
+        }
+        for (var ri = 0; ri < relatedIds.length; ri++) {
+          var relRows = getDatasetRows(relatedIds[ri]);
+          if (relRows && relRows.rows.length > 0) {
+            var relMeta = storeData.datasets.find(function (d: any) { return d.id === relatedIds[ri]; });
+            if (relMeta) inlineDatasets[relatedIds[ri]] = buildInlineDataset(relMeta, relRows.rows, 200);
           }
         }
-      }
-      var inlineDatasets: Record<string, any> = {};
-      if (localData && localData.rows.length > 0) {
-        var activeMeta = storeData.datasets.find(function(d) { return d.id === id; });
-        if (activeMeta) inlineDatasets[id] = buildInlineDataset(activeMeta, localData.rows, 500);
-      }
-      for (var rri = 0; rri < relatedIds.length; rri++) {
-        var relRows = getDatasetRows(relatedIds[rri]);
-        if (relRows && relRows.rows.length > 0) {
-          var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[rri]; });
-          if (relMeta) inlineDatasets[relatedIds[rri]] = buildInlineDataset(relMeta, relRows.rows, 200);
+
+        var agentStart = Date.now();
+        var chainRes = await authFetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: datasetId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
+        });
+
+        if (cancelled) return;
+
+        var chainData = await chainRes.json().catch(function () { return null; });
+        obs.trackApiCall("/api/agent", Date.now() - agentStart, chainRes.ok, { datasetId: datasetId, type: chainData?.type });
+
+        if (!chainRes.ok || !chainData) {
+          var apiErr = chainData ? parseApiError(chainData) : null;
+          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
+          setAgentLoading(false);
+          return;
         }
-      }
-      setDatasetData({ ...data, rows: filteredRows, columns: selCols });
-      // computeStats is synchronous; for datasets >200 rows the main-thread
-      // cost is measurable. Defer non-critical state updates after it.
-      var parsed = computeStatsCached(filteredRows, selCols);
-      setStats(parsed);
-      setHasData(true);
-      setDatasetName(data.original_name || storeData.datasets.find(function(d) { return d.id === id; })?.originalName || "");
-      setLoading(false);
-      if (currentRequestId !== requestIdRef.current) return;
-      // Agent analysis and loop history are independent — run in parallel
-      // 优先使用分析缓存，避免刷新页面时重复调用 /api/agent
-      var cachedAnalysis = getAnalysisCache(user?.id || "", id, "dashboard");
-      (async function (): Promise<void> {
-        var chainData: any;
-        if (cachedAnalysis) {
-          chainData = cachedAnalysis.data;
-          obs.trackApiCall("/api/agent", 0, true, { datasetId: id, type: chainData?.type, cached: true });
-        } else {
-          var agentStart = Date.now();
-          var chainRes = await authFetch("/api/agent", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: id, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
-          });
-          if (currentRequestId !== requestIdRef.current) return;
-          chainData = await chainRes.json().catch(function() { return null; });
-          var agentDuration = Date.now() - agentStart;
-          obs.trackApiCall("/api/agent", agentDuration, chainRes.ok, { datasetId: id, type: chainData?.type });
-          if (chainRes.ok && chainData) {
-            setAnalysisCache(user?.id || "", id, chainData, "dashboard");
-          }
-        }
-        if (currentRequestId !== requestIdRef.current) return;
-        if (chainData?.type === "decision_chain") {
+
+        if (chainData.type === "decision_chain") {
           setDecisionChain(chainData as DecisionChainResponse);
           setInsufficientData(null);
           setPipelineError("");
-        } else if (chainData?.type === "insufficient_data") {
+        } else if (chainData.type === "insufficient_data") {
           setDecisionChain(null);
           setInsufficientData(chainData as InsufficientDataResponse);
           setPipelineError("");
         } else {
-          var apiErr = chainData ? parseApiError(chainData) : null;
-          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
+          var err = chainData ? parseApiError(chainData) : null;
+          setPipelineError(err ? err.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
         }
-      })();
-      // Loop history 与 agent 并行请求
-      (async function () {
-        try {
-          if (currentRequestId !== requestIdRef.current) return;
-          var loopData = await fetchLoopHistory(id);
-          if (currentRequestId !== requestIdRef.current) return;
-          var execMap: Record<string, Execution[]> = {};
-          var outcomeMap: Record<string, Outcome[]> = {};
-          for (const dd of loopData.decisions) {
-            const actionTasks = dd.actionTasks || [];
-            for (const t of actionTasks) {
-              if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-              if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
-            }
+        setAgentLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setPipelineError(e instanceof Error ? e.message : "AI 服务暂时不可用，请稍后重试。");
+        setAgentLoading(false);
+      }
+    })();
+
+    return function () { cancelled = true; };
+  }, [rawData, user?.id, datasetId, obs]);
+
+  // Fetch loop history when dataset changes
+  useEffect(function () {
+    if (!datasetId) return;
+    var cancelled = false;
+
+    (async function (): Promise<void> {
+      try {
+        var loopData = await fetchLoopHistory(datasetId);
+        if (cancelled) return;
+        var execMap: Record<string, Execution[]> = {};
+        var outcomeMap: Record<string, Outcome[]> = {};
+        for (const dd of (loopData as any).decisions) {
+          const actionTasks = dd.actionTasks || [];
+          for (const t of actionTasks) {
+            if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
+            if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
           }
-          setLoopExecutions(execMap);
-          setLoopOutcomes(outcomeMap);
-        } catch (e) {
-          if (currentRequestId !== requestIdRef.current) return;
-          logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
         }
-      })();
-    } catch(e) {
-      if (currentRequestId !== requestIdRef.current) return;
-      setLoading(false);
-    }
+        setLoopExecutions(execMap);
+        setLoopOutcomes(outcomeMap);
+      } catch (e) {
+        if (cancelled) return;
+        logger.warn("Loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+
+    return function () { cancelled = true; };
+  }, [datasetId]);
+
+  // Track page view
+  useEffect(function () {
+    if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" });
+  }, [hasData, datasetId, obs]);
+
+  // Handle dataset selection
+  function handleSelect(newId: string) {
+    setDatasetId(newId);
+    clearStatsCache();
   }
 
-  // Loading state
-  if (loading) {
+  // Loading/error states
+  if (dataLoading) return <DashboardSkeleton />;
+  if (dataError) {
     return (
-      <div className="min-h-screen pt-16">
-        <div className="section-container py-12">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="icon-box bg-blue-50 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-brand animate-pulse" />
-              </div>
-              <div>
-                <div className="h-6 w-40 skeleton rounded-lg mb-1.5" />
-                <div className="h-4 w-64 skeleton rounded-lg" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-              {[1, 2, 3].map(function(i) {
-                return (
-                  <div key={i} className="rounded-2xl p-6 border border-gray-200 bg-white card">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-8 h-8 rounded-lg skeleton-pulse" />
-                      <div className="flex-1">
-                        <div className="h-4 w-24 skeleton rounded mb-2" />
-                        <div className="h-3 w-32 skeleton rounded" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 w-full skeleton rounded" />
-                      <div className="h-3 w-3/4 skeleton rounded" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="min-h-screen pt-16 flex items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md px-6">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-50 flex items-center justify-center mb-6">
+            <AlertCircle className="w-8 h-8 text-red-400" />
           </div>
-        </div>
+          <h2 className="text-title mb-4">数据加载失败</h2>
+          <p className="text-body mb-8">{dataError.message}</p>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={refetchRawData} className="btn-primary">重试</motion.button>
+        </motion.div>
       </div>
     );
   }
-
-  // Empty state
-  if (!hasData) {
+  if (!rawData) {
     return (
       <div className="min-h-screen pt-16 flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}
-          className="text-center max-w-md px-6">
-          <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="text-center max-w-md px-6">
+          <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative">
             <div className="absolute inset-0 rounded-3xl bg-blue-50" />
             <BarChart3 className="w-10 h-10 text-brand relative z-10" />
           </motion.div>
           <h2 className="text-title text-balance mb-4">数据不足，无法生成诊断</h2>
-          <p className="text-body mb-10 leading-relaxed">
-            请先上传销售数据，AI 才能为你生成经营诊断报告
-          </p>
+          <p className="text-body mb-10 leading-relaxed">请先上传销售数据，AI 才能为你生成经营诊断报告</p>
           <Link href="/upload">
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
               <Upload className="w-5 h-5" />上传数据
               <ArrowRight className="w-5 h-5" />
             </motion.button>
@@ -287,7 +247,7 @@ export default function DashboardPage() {
               <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
             </div>
           </motion.div>
-          <GenericOverview columns={datasetData.columns} rows={datasetData.rows} datasetName={datasetName} />
+          {datasetData ? <GenericOverview columns={datasetData.columns} rows={datasetData.rows} datasetName={datasetName} /> : null}
         </div>
       </div>
     );
@@ -622,7 +582,7 @@ export default function DashboardPage() {
                 <p className="text-body mt-1">{pipelineError}</p>
               </div>
               <button
-                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); loadData(datasetId); }}
+                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); refetchRawData(); }}
                 className="btn-ghost px-4 py-2 text-sm shrink-0">
                 重试
               </button>
@@ -631,7 +591,7 @@ export default function DashboardPage() {
         )}
 
         {/* Pipeline loading state */}
-        {!decisionChain && !insufficientData && !pipelineError && !aiSummary && evidenceCards.length === 0 && (
+        {agentLoading && !decisionChain && !insufficientData && !pipelineError && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
             className="rounded-2xl p-6 border border-gray-100 card">
             <div className="flex items-center gap-3">
@@ -651,4 +611,25 @@ export default function DashboardPage() {
     </div>
     </RequireAuth>
   );
+}
+
+// ═══ Data Fetchers ═══
+
+async function fetchRawData(signal: AbortSignal, userId: string, dsId: string) {
+  if (!dsId) {
+    var saved = getStore(userId);
+    dsId = saved.activeId || "";
+  }
+  if (!dsId) return null;
+
+  var localData = getDatasetRows(dsId);
+  if (localData && localData.rows.length > 0) {
+    return { columns: localData.columns, rows: localData.rows, original_name: "" };
+  }
+
+  var res = await authFetch("/api/upload?id=" + dsId, { signal });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  var data = await res.json();
+  if (!data || !data.columns) return null;
+  return data;
 }

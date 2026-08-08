@@ -26,6 +26,7 @@ import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
 import { authFetch } from "@/lib/auth-fetch";
 import { RequireAuth } from "@/hooks/use-auth-guard";
+import { ChatSkeleton } from "@/components/app/skeleton/chat-skeleton";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-brand", report: "text-primary", interpret: "text-brand", general: "text-tertiary" };
@@ -65,8 +66,9 @@ export default function ChatPage() {
   useEffect(function() {
     if (autoSent.current) return;
     if (typeof window === "undefined") return;
+    if (checking) return;
     var params = new URLSearchParams(window.location.search);
-    if (params.get("auto") === "compare" && hasData && !loading) {
+    if (params.get("auto") === "compare" && hasData) {
       autoSent.current = true;
       var url = new URL(window.location.href);
       url.searchParams.delete("auto");
@@ -76,7 +78,7 @@ export default function ChatPage() {
         send("帮我对比分析所有已上传数据的跨平台利润情况，找出同一商品在不同平台的定价和利润差异");
       }
     }
-  }, [hasData, loading]);
+  }, [checking, hasData]);
 
   function checkData() {
     try {
@@ -180,22 +182,7 @@ export default function ChatPage() {
     } finally { setLoading(false); }
   }
 
-  if (checking) return (
-    <div className="min-h-screen py-12 pt-20">
-      <div className="section-container">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="icon-box bg-blue-50 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-brand animate-pulse" />
-          </div>
-          <div>
-            <div className="h-6 w-32 skeleton rounded-lg mb-1.5" />
-            <div className="h-4 w-48 skeleton rounded-lg" />
-          </div>
-        </div>
-        <div className="h-[60vh] glass rounded-2xl shimmer" />
-      </div>
-    </div>
-  );
+  if (checking) return <ChatSkeleton />;
 
   return (
     <RequireAuth>

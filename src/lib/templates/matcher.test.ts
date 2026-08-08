@@ -115,3 +115,21 @@ describe("cross-platform misidentification regression", () => {
     expect(result!.template.platform).toBe("douyin");
   });
 });
+
+// ── 京东列名变体回归测试 ──
+
+describe("JD column name variants", () => {
+  it("京东实际列名含订单编号/收货人地址应仍匹配 jd_order_v2", () => {
+    const jdVariations = ["订单编号", "商品名称", "订单金额", "下单时间", "收货人地址", "订单状态", "SKU编码", "运费"];
+    const result = matchPlatformTemplate(jdVariations);
+    expect(result).not.toBeNull();
+    expect(result!.template.id).toBe("jd_order_v2");
+  });
+
+  it("京东列名在 matchAllTemplates 中应排第一", () => {
+    const jdColumns = ["订单号", "商品标题", "订单金额", "下单时间", "收货地址", "订单状态", "SKU编码", "运费"];
+    const results = matchAllTemplates(jdColumns);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].template.id).toBe("jd_order_v2");
+  });
+});

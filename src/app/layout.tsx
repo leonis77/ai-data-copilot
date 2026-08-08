@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
-import { PageTransition } from "@/components/layout/page-transition";
 
 export const metadata: Metadata = {
   title: "ProcureWise - 跨平台电商利润优化引擎",
@@ -16,7 +15,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-import { AnimatePresence } from "@/components/layout/animate-presence";
+import { AppShell } from "@/components/layout/app-shell";
 import { AuthProvider } from "@/lib/auth-context";
 
 export default function RootLayout({
@@ -52,11 +51,7 @@ export default function RootLayout({
       <body className="min-h-screen text-primary antialiased touch-manipulation">
         <AuthProvider>
           <Navbar />
-          <AnimatePresence mode="sync">
-            <PageTransition>
-              <main className="pt-16 relative z-10">{children}</main>
-            </PageTransition>
-          </AnimatePresence>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { BarChart3, Upload, ArrowRight, TrendingUp, Package, Tag, MapPin, AlertTriangle } from "lucide-react";
+import { BarChart3, Upload, ArrowRight, TrendingUp, Package, Tag, MapPin, AlertTriangle, AlertCircle } from "lucide-react";
 import { SalesTrend } from "@/components/workspace/sales-trend";
 import { ProductRank } from "@/components/workspace/product-rank";
 import { CategoryBreakdown } from "@/components/workspace/category-breakdown";
@@ -15,6 +15,8 @@ import { authFetch } from "@/lib/auth-fetch";
 import { RequireAuth } from "@/hooks/use-auth-guard";
 import { useObservability } from "@/hooks/use-observability";
 import { t } from "@/lib/i18n";
+import { useDataFetch } from "@/hooks/use-data-fetch";
+import { WorkspaceSkeleton } from "@/components/app/skeleton/workspace-skeleton";
 
 const TABS = [
   { label: t.workspace.salesTrend, icon: TrendingUp, key: "sales" },
@@ -40,32 +42,39 @@ export default function WorkspacePage() {
   const { user } = useAuth();
   const [active, setActive] = useState(0);
   const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [dateRange, setDateRange] = useState(30);
+  const dsId = getStore(user?.id || "").activeId || "";
+
+  const { data: rawData, loading, error, refetch } = useDataFetch(
+    ["workspace", user?.id, dsId].join(":"),
+    (signal: AbortSignal) => fetchWorkspaceData(signal, user?.id as string, dsId),
+    [user?.id, dsId],
+    { enabled: !!user?.id }
+  );
 
   useEffect(() => {
-    var controller: AbortController | undefined;
-    setLoading(true);
-    const s = getStore(user?.id || "");
-    if (!s.activeId) { setLoading(false); return; }
-    setHasData(true);
-    const localData = getDatasetRows(s.activeId);
-    if (localData && localData.rows.length > 0) {
-      setData({ columns: localData.columns, rows: localData.rows });
-      setLoading(false);
-      return;
+    if (rawData) {
+      setData(rawData);
+      setHasData(true);
     }
-    controller = new AbortController();
-    authFetch("/api/upload?id=" + s.activeId, { signal: controller.signal })
-      .then(r => r.json())
-      .then(d => { setData(d); })
-      .catch(function(e) { if (e.name !== "AbortError") { /* ignore */ } })
-      .finally(() => setLoading(false));
-    return function() { if (controller) controller.abort(); };
-  }, [user?.id]);
+  }, [rawData]);
 
-  if (loading) return <div className="min-h-screen py-12 pt-20"><div className="section-container"><div className="h-8 w-48 skeleton rounded-lg mb-2" /><div className="h-[400px] glass mt-6" /></div></div>;
+  if (loading && !rawData) return <WorkspaceSkeleton />;
+  if (error) {
+    return (
+      <div className="min-h-screen py-12 pt-20 flex items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md px-6">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-50 flex items-center justify-center mb-6">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          </div>
+          <h2 className="text-title mb-4">数据加载失败</h2>
+          <p className="text-body mb-8">{error.message}</p>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={refetch} className="btn-primary">重试</motion.button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!hasData || !data) {
     return (
@@ -134,4 +143,19 @@ export default function WorkspacePage() {
     </div>
     </RequireAuth>
   );
+}
+
+// ═══ Data Fetcher ═══
+
+async function fetchWorkspaceData(signal: AbortSignal, userId: string, dsId: string) {
+  if (!dsId) return null;
+  const localData = getDatasetRows(dsId);
+  if (localData && localData.rows.length > 0) {
+    return { columns: localData.columns, rows: localData.rows };
+  }
+  const res = await authFetch("/api/upload?id=" + dsId, { signal });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  if (!data || !data.columns) return null;
+  return data;
 }

@@ -197,14 +197,32 @@ function matchesAtWordBoundary(text: string, keyword: string): boolean {
   if (text === keyword) return true;
   var textSegs = toWordSegments(text);
   var kwSegs = toWordSegments(keyword);
-  // Sliding window: keyword segments must appear as consecutive subsequence of text segments
-  for (var start = 0; start <= textSegs.length - kwSegs.length; start++) {
-    var match = true;
-    for (var k = 0; k < kwSegs.length; k++) {
-      if (textSegs[start + k] !== kwSegs[k]) { match = false; break; }
-    }
-    if (match) return true;
+
+  // Strategy 1: subsequence match at segment level
+  var ti = 0;
+  for (var k = 0; k < kwSegs.length; k++) {
+    while (ti < textSegs.length && textSegs[ti] !== kwSegs[k]) ti++;
+    if (ti >= textSegs.length) break;
+    ti++;
   }
+  if (k >= kwSegs.length) return true;
+
+  // Strategy 2: character-level subsequence for CJK-only keyword/text
+  // Handles cases where Segmenter groups chars differently, e.g.:
+  //   '订单号' vs '订单编号'  -> '号' not in seg '编号'
+  //   '收货地址' vs '收货人地址' -> '收货' not in seg '收货人'
+  var isCjkKeyword = /^[一-鿿]+$/ .test(keyword);
+  var isCjkText = /^[一-鿿]+$/ .test(text);
+  if (isCjkKeyword && isCjkText) {
+    var ci = 0;
+    for (var c = 0; c < keyword.length; c++) {
+      while (ci < text.length && text[ci] !== keyword[c]) ci++;
+      if (ci >= text.length) return false;
+      ci++;
+    }
+    return true;
+  }
+
   return false;
 }
 
