@@ -8,8 +8,9 @@
 import { AgentContext, AgentResponse } from "./types";
 import { logger } from "@/lib/logger";
 import { getClient, withRetry } from "./llm";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
-const SYSTEM_PROMPT = `你是ProcureWise的首席电商数据分析师。
+const SYSTEM_PROMPT = `${INJECTION_GUARDRAIL}你是ProcureWise的首席电商数据分析师。
 
 ## 核心能力
 1. 精准解读：从销售+成本数据中提取关键指标，标注计算口径

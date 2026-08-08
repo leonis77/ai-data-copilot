@@ -7,8 +7,9 @@
 
 import { AgentContext, AgentResponse } from "./types";
 import { getClient, withRetry } from "./llm";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
-const SYSTEM_PROMPT = `你是ProcureWise的通用电商数据分析师。
+const SYSTEM_PROMPT = `${INJECTION_GUARDRAIL}你是ProcureWise的通用电商数据分析师。
 
 ## 核心能力
 1. 快速解答数据相关的问题

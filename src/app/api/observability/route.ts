@@ -3,6 +3,7 @@ import { logger, withRequestId } from "@/lib/logger";
 import { ApiErrorCode, apiError } from "@/lib/errors";
 import { z } from "zod";
 import { readJsonBody } from "@/lib/api-utils";
+import { authenticateRequest } from "@/lib/auth";
 
 const MetricEventSchema = z.object({
   type: z.string().min(1),
@@ -22,6 +23,12 @@ export type MetricEvent = z.infer<typeof MetricEventSchema>;
 export async function POST(request: NextRequest) {
   const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
   return withRequestId(rid, async function () {
+    // Auth guard
+    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    if (!authResult.ok) {
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+    }
+
     try {
       const raw = await readJsonBody(request);
       if (raw instanceof Response) return raw;
@@ -60,6 +67,10 @@ export async function POST(request: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await authenticateRequest(request.headers.get("authorization"));
+  if (!authResult.ok) {
+    return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
+  }
   return NextResponse.json({ ok: true, status: "observability endpoint active" });
 }

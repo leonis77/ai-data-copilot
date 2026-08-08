@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, error.message), { status: 400 });
     }
     return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL, "登录失败", { details: error instanceof Error ? error.message : String(error) }),
+      apiError(ApiErrorCode.INTERNAL, "登录失败，请稍后重试"),
       { status: 500 }
     );
   }

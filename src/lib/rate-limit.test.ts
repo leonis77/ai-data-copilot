@@ -2,32 +2,31 @@
  * Rate Limiter 单测
  *
  * 覆盖：
- * - checkRateLimit 基本限流逻辑
+ * - checkRateLimitSync 基本限流逻辑（同步内存限流）
+ * - checkRateLimit 异步限流逻辑（Upstash Redis + 降级）
  * - 滑动窗口重置
  * - 多 IP 独立计数
  * - getRateLimitHeaders
  */
 
 import { describe, it, expect } from "vitest";
-import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS, resetRateLimitStore } from "@/lib/rate-limit";
+import { checkRateLimit, checkRateLimitSync, getRateLimitHeaders, RATE_LIMITS, resetRateLimitStore } from "@/lib/rate-limit";
 
-describe("checkRateLimit", () => {
+describe("checkRateLimitSync", () => {
   const config = { windowMs: 60_000, maxRequests: 3 };
 
   it("首次请求应允许", () => {
-    const result = checkRateLimit("192.168.1.1", config);
+    const result = checkRateLimitSync("192.168.1.1", config);
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(2);
   });
 
   it("达到上限后应拒绝", () => {
     const ip = "192.168.1.2";
-    // 前 3 次允许
-    checkRateLimit(ip, config);
-    checkRateLimit(ip, config);
-    checkRateLimit(ip, config);
-    // 第 4 次拒绝
-    const result = checkRateLimit(ip, config);
+    checkRateLimitSync(ip, config);
+    checkRateLimitSync(ip, config);
+    checkRateLimitSync(ip, config);
+    const result = checkRateLimitSync(ip, config);
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
   });
@@ -36,13 +35,11 @@ describe("checkRateLimit", () => {
     const ip1 = "192.168.1.3";
     const ip2 = "192.168.1.4";
 
-    // 用完 ip1
-    checkRateLimit(ip1, config);
-    checkRateLimit(ip1, config);
-    checkRateLimit(ip1, config);
+    checkRateLimitSync(ip1, config);
+    checkRateLimitSync(ip1, config);
+    checkRateLimitSync(ip1, config);
 
-    // ip2 应该还能请求
-    const result = checkRateLimit(ip2, config);
+    const result = checkRateLimitSync(ip2, config);
     expect(result.allowed).toBe(true);
   });
 
@@ -50,15 +47,13 @@ describe("checkRateLimit", () => {
     const ip = "192.168.1.5";
     const shortConfig = { windowMs: 100, maxRequests: 2 };
 
-    checkRateLimit(ip, shortConfig);
-    checkRateLimit(ip, shortConfig);
-    // 第 3 次应拒绝
-    const blocked = checkRateLimit(ip, shortConfig);
+    checkRateLimitSync(ip, shortConfig);
+    checkRateLimitSync(ip, shortConfig);
+    const blocked = checkRateLimitSync(ip, shortConfig);
     expect(blocked.allowed).toBe(false);
 
-    // 等待窗口过期
     await new Promise(function (resolve) { setTimeout(resolve, 150); });
-    const afterReset = checkRateLimit(ip, shortConfig);
+    const afterReset = checkRateLimitSync(ip, shortConfig);
     expect(afterReset.allowed).toBe(true);
   });
 
@@ -66,11 +61,29 @@ describe("checkRateLimit", () => {
     const ip = "192.168.1.6";
     const cfg = { windowMs: 60_000, maxRequests: 5 };
 
-    const r1 = checkRateLimit(ip, cfg);
+    const r1 = checkRateLimitSync(ip, cfg);
     expect(r1.remaining).toBe(4);
 
-    const r2 = checkRateLimit(ip, cfg);
+    const r2 = checkRateLimitSync(ip, cfg);
     expect(r2.remaining).toBe(3);
+  });
+});
+
+describe("checkRateLimit (async)", () => {
+  it("首次请求应允许（降级为内存限流）", async () => {
+    resetRateLimitStore();
+    const result = await checkRateLimit("192.168.1.10", { windowMs: 60_000, maxRequests: 3 });
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(2);
+  });
+
+  it("达到上限后应拒绝（降级为内存限流）", async () => {
+    const ip = "192.168.1.11";
+    await checkRateLimit(ip, { windowMs: 60_000, maxRequests: 3 });
+    await checkRateLimit(ip, { windowMs: 60_000, maxRequests: 3 });
+    await checkRateLimit(ip, { windowMs: 60_000, maxRequests: 3 });
+    const result = await checkRateLimit(ip, { windowMs: 60_000, maxRequests: 3 });
+    expect(result.allowed).toBe(false);
   });
 });
 
@@ -121,12 +134,12 @@ describe("resetRateLimitStore", () => {
     const ip = "10.0.0.1";
     const cfg = RATE_LIMITS.auth;
 
-    checkRateLimit(ip, cfg);
-    checkRateLimit(ip, cfg);
-    expect(checkRateLimit(ip, cfg).allowed).toBe(true);
+    checkRateLimitSync(ip, cfg);
+    checkRateLimitSync(ip, cfg);
+    expect(checkRateLimitSync(ip, cfg).allowed).toBe(true);
 
     resetRateLimitStore();
-    const afterReset = checkRateLimit(ip, cfg);
+    const afterReset = checkRateLimitSync(ip, cfg);
     expect(afterReset.allowed).toBe(true);
     expect(afterReset.remaining).toBe(cfg.maxRequests - 1);
   });

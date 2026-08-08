@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       logger.error("Analyze API failed", { requestId: rid, message: error instanceof Error ? error.message : String(error) });
       return NextResponse.json(
-        apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "分析失败", { recoverable: true }),
+        apiError(ApiErrorCode.INTERNAL_ERROR, "分析失败，请稍后重试", { recoverable: true }),
         { status: 500 }
       );
     }

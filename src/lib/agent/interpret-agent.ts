@@ -8,8 +8,9 @@
 import { AgentContext, AgentResponse } from "./types";
 import { logger } from "@/lib/logger";
 import { getClient, withRetry } from "./llm";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
-const SYSTEM_PROMPT = `你是ProcureWise的电商数据深度解读专家。
+const SYSTEM_PROMPT = `${INJECTION_GUARDRAIL}你是ProcureWise的电商数据深度解读专家。
 
 ## 核心能力
 发现业务模式、异常和机会——不是描述数据，是用数据讲故事。

@@ -1,5 +1,6 @@
 import { getClient, withRetry } from "@/lib/agent/llm";
 import { logger } from "@/lib/logger";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 import type { TaggedProduct } from "./signals";
 
 export interface PurchaseRecommendation {
@@ -60,7 +61,7 @@ export async function generatePurchaseList(
       return client.chat.completions.create({
         model: "deepseek-v4-flash",
         messages: [
-          { role: "system", content: "You are a supply chain analyst. Output only JSON." },
+          { role: "system", content: INJECTION_GUARDRAIL + "You are a supply chain analyst. Output only JSON." },
           { role: "user", content: buildPrompt(products, categoryName) },
         ],
         temperature: 0.1, max_tokens: 800,

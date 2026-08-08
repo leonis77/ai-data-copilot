@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     logger.error("Upload failed", { message: error instanceof Error ? error.message : String(error) });
     logApiCall("/api/upload", false, { message: error instanceof Error ? error.message : String(error) });
     endTimer(timerId, "error");
-    return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "parse failed", { recoverable: true }), { status: 500 });
+    return NextResponse.json(apiError(ApiErrorCode.INTERNAL_ERROR, "上传失败，请稍后重试", { recoverable: true }), { status: 500 });
   }
   });
 }

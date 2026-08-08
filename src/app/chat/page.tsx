@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { logger } from "@/lib/logger";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import type { EvidenceCard, PrioritizedAction, CrossDatasetSummary, ApplicableRule, ReasoningStep, PipelineMeta } from "@/lib/pipeline/types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
@@ -242,7 +243,7 @@ export default function ChatPage() {
                         ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-md shadow-sm"
                         : "bg-white border border-gray-200 text-secondary rounded-bl-md shadow-sm")}>
                         <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-primary [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{m.content}</ReactMarkdown>
                         </div>
                       </div>
                       {m.chart && <div className="glass p-3 rounded-xl text-xs text-secondary">{"图表建议"}: {m.chart.title} ({m.chart.type})</div>}

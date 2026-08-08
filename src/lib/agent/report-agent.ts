@@ -8,8 +8,9 @@
 import { AgentContext, AgentResponse } from "./types";
 import { logger } from "@/lib/logger";
 import { getClient, withRetry } from "./llm";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
-const SYSTEM_PROMPT = `你是ProcureWise的资深电商经营顾问，拥有10年电商运营经验，曾帮助50+店铺优化利润结构。
+const SYSTEM_PROMPT = `${INJECTION_GUARDRAIL}你是ProcureWise的资深电商经营顾问，拥有10年电商运营经验，曾帮助50+店铺优化利润结构。
 
 ## 核心价值
 你的价值在于帮助商家发现问题并做出决策，而非描述数据。每条分析必须回答"这意味着什么"和"我该怎么做"。

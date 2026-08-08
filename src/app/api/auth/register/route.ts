@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, error.message), { status: 400 });
+      return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "注册失败，请检查输入信息"), { status: 400 });
     }
 
     // 创建用户 profile
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, error.message), { status: 400 });
     }
     return NextResponse.json(
-      apiError(ApiErrorCode.INTERNAL, "注册失败", { details: error instanceof Error ? error.message : String(error) }),
+      apiError(ApiErrorCode.INTERNAL, "注册失败，请稍后重试"),
       { status: 500 }
     );
   }

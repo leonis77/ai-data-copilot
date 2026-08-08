@@ -1,5 +1,6 @@
 import { getClient, withRetry } from "@/lib/agent/llm";
 import { logger } from "@/lib/logger";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
 export interface AIStructure {
   headerRow: number;
@@ -39,7 +40,7 @@ export async function analyzeSheetStructure(
     var res = await withRetry(function() {
       return client.chat.completions.create({
         model: "deepseek-v4-flash",
-        messages: [{ role: "system", content: "You are an Excel structure analyzer. Output JSON only, no explanation." }, { role: "user", content: prompt }],
+        messages: [{ role: "system", content: INJECTION_GUARDRAIL + "You are an Excel structure analyzer. Output JSON only, no explanation." }, { role: "user", content: prompt }],
         temperature: 0, max_tokens: 500,
       });
     }, 1, "parser-ai");

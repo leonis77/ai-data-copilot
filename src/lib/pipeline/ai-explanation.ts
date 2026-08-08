@@ -24,6 +24,7 @@ import type {
   CrossDatasetSummary,
 } from "./types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
 // ═══════════════════════════════════════════════
 // 主入口
@@ -65,6 +66,9 @@ export async function generateAIExplanation(
 
 function buildStructuredSystemPrompt(context: AIExplanationContext): string {
   const parts: string[] = [];
+
+  // ═══ 安全声明（Prompt Injection 防护） ═══
+  parts.push(INJECTION_GUARDRAIL);
 
   // ═══ 角色定义 ═══
   parts.push(`## 🤖 你的角色：ProcureWise首席采购决策分析师

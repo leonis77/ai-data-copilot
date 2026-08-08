@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { authFetch } from "@/lib/auth-fetch";
 
 type MetricType = "page_view" | "api_call" | "pipeline_result" | "user_action" | "error" | "performance";
 
@@ -36,11 +37,12 @@ let flushTimer: ReturnType<typeof setInterval> | null = null;
 function flush(): void {
   if (buffer.length === 0) return;
   const payload = buffer.splice(0, buffer.length);
-  if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-    navigator.sendBeacon("/api/observability", JSON.stringify({ events: payload }));
-  } else {
-    fetch("/api/observability", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ events: payload }), keepalive: true }).catch(function() {});
-  }
+  authFetch("/api/observability", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ events: payload }),
+    keepalive: true,
+  }).catch(function() {});
 }
 
 function ensureFlushTimer(): void {

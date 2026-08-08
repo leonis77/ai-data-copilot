@@ -1,70 +1,70 @@
 /**
- * M4 Security — 简单内存限流器
+ * M4 Security — Rate Limiter
  *
- * 用于演示目的的最小限流实现。
- * 生产环境应替换为 Upstash Redis Rate Limit 或类似方案。
+ * 生产环境使用 Upstash Redis Rate Limit（支持 serverless 多实例）。
+ * 如果未配置 Upstash 环境变量，则降级为内存限流（演示用）。
  *
- * 策略：
- * - 每个 IP 独立计数
- * - 滑动窗口：windowMs 内最多 maxRequests 次请求
- * - 超出后返回 429 并附带 Retry-After
+ * 环境变量：
+ * - UPSTASH_REDIS_REST_URL
+ * - UPSTASH_REDIS_REST_TOKEN
  */
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number; // timestamp ms
+import { NextRequest, NextResponse } from "next/server";
+
+// ═══ Try Upstash Redis first ═══
+
+let redis: { createClient: (url: string, token: string) => { rateLimit: (opts: { limiter: { type: string; limit: number; duration: number; }; key: string; }) => Promise<{ success: boolean; limit: number; remaining: number; reset: number; }> } } | null = null;
+let redisAvailable = false;
+
+try {
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (upstashUrl && upstashToken) {
+    const mod = require("@upstash/ratelimit") as { createClient: (url: string, token: string) => { rateLimit: (opts: { limiter: { type: string; limit: number; duration: number; }; key: string; }) => Promise<{ success: boolean; limit: number; remaining: number; reset: number; }> } };
+    redis = mod;
+    redisAvailable = true;
+  }
+} catch {
+  // Upstash not available, will use in-memory fallback
 }
 
-// ═══════════════════════════════════════════════
-// Config
-// ═══════════════════════════════════════════════
+// ═══ Config ═══
 
 export interface RateLimitConfig {
-  /** 窗口大小（ms） */
   windowMs: number;
-  /** 窗口内最大请求数 */
   maxRequests: number;
 }
 
-/** 预定义策略 */
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  /** 普通 API：1 分钟 60 次 */
   default: { windowMs: 60_000, maxRequests: 60 },
-  /** Agent 分析：1 分钟 10 次（ heavier 计算） */
   agent: { windowMs: 60_000, maxRequests: 10 },
-  /** Auth 接口：1 分钟 5 次（防暴力破解） */
   auth: { windowMs: 60_000, maxRequests: 5 },
-  /** 上传接口：1 分钟 3 次（文件上传较重） */
   upload: { windowMs: 60_000, maxRequests: 3 },
 };
 
-// ═══════════════════════════════════════════════
-// In-Memory Store
-// ═══════════════════════════════════════════════
+// ═══ In-Memory Fallback ═══
 
-const store = new Map<string, RateLimitEntry>();
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
 
-/** 清理过期条目（防止内存泄漏） */
-function cleanup(): void {
+const memStore = new Map<string, RateLimitEntry>();
+
+function memCleanup(): void {
   const now = Date.now();
-  for (const [key, entry] of store) {
-    if (entry.resetAt < now) {
-      store.delete(key);
-    }
+  for (const [key, entry] of memStore) {
+    if (entry.resetAt < now) memStore.delete(key);
   }
 }
 
-// 每 5 分钟清理一次
-setInterval(cleanup, 5 * 60_000);
+setInterval(memCleanup, 5 * 60_000);
 
-/** 重置限流器状态（仅测试用） */
 export function resetRateLimitStore(): void {
-  store.clear();
+  memStore.clear();
 }
 
-// ═══════════════════════════════════════════════
-// Core
-// ═══════════════════════════════════════════════
+// ═══ Core ═══
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -74,21 +74,17 @@ export interface RateLimitResult {
 }
 
 /**
- * 检查 IP 是否在限流范围内
- *
- * @param ip - 客户端 IP
- * @param config - 限流配置
- * @returns 限流结果
+ * 检查 IP 是否在限流范围内（同步，内存限流）
  */
-export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitResult {
+export function checkRateLimitSync(ip: string, config: RateLimitConfig): RateLimitResult {
   const now = Date.now();
-  const key = ip;
+  const key = "rl:" + ip;
 
-  let entry = store.get(key);
+  let entry = memStore.get(key);
 
   if (!entry || entry.resetAt < now) {
     entry = { count: 0, resetAt: now + config.windowMs };
-    store.set(key, entry);
+    memStore.set(key, entry);
   }
 
   if (entry.count >= config.maxRequests) {
@@ -109,8 +105,41 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
 }
 
 /**
- * 从 Next.js request 提取 IP
+ * 检查 IP 是否在限流范围内
+ * 优先使用 Upstash Redis（多实例共享），降级为内存限流
  */
+export async function checkRateLimit(ip: string, config: RateLimitConfig): Promise<RateLimitResult> {
+  // Upstash Redis path
+  if (redisAvailable && redis) {
+    try {
+      const upstashUrl = process.env.UPSTASH_REDIS_REST_URL!;
+      const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN!;
+      const ratelimit = redis.createClient(upstashUrl, upstashToken);
+      const result = await ratelimit.rateLimit({
+        limiter: {
+          type: "sliding_window",
+          limit: config.maxRequests,
+          duration: Math.floor(config.windowMs / 1000),
+        },
+        key: "rl:" + ip,
+      });
+      return {
+        allowed: result.success,
+        remaining: result.remaining,
+        resetAt: result.reset * 1000,
+        ...(result.success ? {} : { retryAfterMs: Math.max(0, result.reset * 1000 - Date.now()) }),
+      };
+    } catch {
+      // Redis failed, fall through to in-memory
+    }
+  }
+
+  // In-memory fallback
+  return checkRateLimitSync(ip, config);
+}
+
+// ═══ IP Extraction ═══
+
 export function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -121,47 +150,14 @@ export function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
-/**
- * 限流响应头
- */
+// ═══ Response Helpers ═══
+
 export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
   return {
     "X-RateLimit-Remaining": String(result.remaining),
     "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)),
     ...(result.retryAfterMs ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) } : {}),
   };
-}
-
-// ═══════════════════════════════════════════════
-// Next.js Middleware Helper
-// ═══════════════════════════════════════════════
-
-import { NextRequest, NextResponse } from "next/server";
-
-export type RateLimitMiddlewareOptions = {
-  /** 限流策略名 */
-  strategy?: keyof typeof RATE_LIMITS;
-  /** 自定义限流配置 */
-  config?: RateLimitConfig;
-  /** 是否要求认证 */
-  requireAuth?: boolean;
-};
-
-/**
- * 应用限流中间件逻辑
- *
- * 用法：
- *   const result = applyRateLimit(request, { strategy: "agent" });
- *   if (!result.allowed) return rateLimitResponse(result);
- */
-export function applyRateLimit(
-  request: NextRequest,
-  options: RateLimitMiddlewareOptions = {},
-): RateLimitResult {
-  const strategy = options.strategy || "default";
-  const config = options.config || RATE_LIMITS[strategy];
-  const ip = getClientIp(request);
-  return checkRateLimit(ip, config);
 }
 
 export function rateLimitResponse(result: RateLimitResult): NextResponse {
@@ -174,4 +170,40 @@ export function rateLimitResponse(result: RateLimitResult): NextResponse {
     status: 429,
     headers: getRateLimitHeaders(result),
   });
+}
+
+// ═══ Middleware Helpers ═══
+
+export type RateLimitMiddlewareOptions = {
+  strategy?: keyof typeof RATE_LIMITS;
+  config?: RateLimitConfig;
+  requireAuth?: boolean;
+};
+
+/**
+ * 同步限流检查（使用内存限流，向后兼容）。
+ * 生产环境请使用 applyRateLimitAsync 以启用 Upstash Redis。
+ */
+export function applyRateLimit(
+  request: NextRequest,
+  options: RateLimitMiddlewareOptions = {},
+): RateLimitResult {
+  const strategy = options.strategy || "default";
+  const config = options.config || RATE_LIMITS[strategy];
+  const ip = getClientIp(request);
+  return checkRateLimitSync(ip, config);
+}
+
+/**
+ * 异步限流检查（优先使用 Upstash Redis，降级为内存限流）。
+ * 用于支持 serverless 多实例的场景。
+ */
+export async function applyRateLimitAsync(
+  request: NextRequest,
+  options: RateLimitMiddlewareOptions = {},
+): Promise<RateLimitResult> {
+  const strategy = options.strategy || "default";
+  const config = options.config || RATE_LIMITS[strategy];
+  const ip = getClientIp(request);
+  return checkRateLimit(ip, config);
 }

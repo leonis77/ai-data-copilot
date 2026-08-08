@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { INJECTION_GUARDRAIL } from "@/lib/prompt-guardrail";
 
 const API_KEY = process.env.DEEPSEEK_API_KEY || "";
 const BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
@@ -50,7 +51,7 @@ ${userQuestion ? `用户问题：${userQuestion}` : "请提供全面的数据分
       messages: [
         {
           role: "system",
-          content: "你是一个资深商业数据分析师。分析数据时请遵循：1.先判断数据类型 2.只基于真实数据，绝不编造 3.发现数据中的业务逻辑（如定价策略、物流规则） 4.给出具体可执行建议。请始终用中文回答，输出有效的JSON格式。",
+          content: INJECTION_GUARDRAIL + "你是一个资深商业数据分析师。分析数据时请遵循：1.先判断数据类型 2.只基于真实数据，绝不编造 3.发现数据中的业务逻辑（如定价策略、物流规则） 4.给出具体可执行建议。请始终用中文回答，输出有效的JSON格式。",
         },
         { role: "user", content: prompt },
       ],
@@ -70,7 +71,7 @@ export async function chatWithData(
   dataContext: string,
   messages: { role: string; content: string }[]
 ): Promise<string> {
-  const systemPrompt = `你是一个AI数据分析助手。你可以访问以下数据集信息来回答用户问题：
+  const systemPrompt = INJECTION_GUARDRAIL + `你是一个AI数据分析助手。你可以访问以下数据集信息来回答用户问题：
 
 ${dataContext}
 

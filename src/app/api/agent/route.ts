@@ -400,7 +400,7 @@ export async function POST(request: NextRequest) {
       content: "AI 分析暂时不可用，请稍后重试。",
       error: {
         code: "AGENT_FAILED",
-        message,
+        message: "服务暂时不可用",
         recoverable: true,
       },
     }, { status: 500 });

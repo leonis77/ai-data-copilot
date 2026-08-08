@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       logger.error("Loop API failed", { requestId: rid, message: error instanceof Error ? error.message : String(error) });
       return NextResponse.json(
-        apiError(ApiErrorCode.INTERNAL_ERROR, error instanceof Error ? error.message : "loop failed", { recoverable: true }),
+        apiError(ApiErrorCode.INTERNAL_ERROR, "操作失败，请稍后重试", { recoverable: true }),
         { status: 500 }
       );
     }
