@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, CheckCircle2, XCircle, PlayCircle, BarChart3, Clock, RefreshCcw } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -66,8 +65,13 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
   const [comparison, setComparison] = useState<any>(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
 
+  // Prevent concurrent fetches for the same datasetId.
+  var loadingRef = useRef(false);
+  var loadingComparisonRef = useRef(false);
+
   async function load() {
-    if (!datasetId) return;
+    if (!datasetId || loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -84,11 +88,14 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载复盘数据失败");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }
+
   async function loadComparison() {
-    if (!datasetId) return;
+    if (!datasetId || loadingComparisonRef.current) return;
+    loadingComparisonRef.current = true;
     setLoadingComparison(true);
     try {
       const data = await fetchLoopHistory(datasetId, user?.id);
@@ -123,16 +130,24 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     } catch (e) {
       console.warn("Failed to load comparison:", e);
     } finally {
+      loadingComparisonRef.current = false;
       setLoadingComparison(false);
     }
   }
 
+  // Single effect for both data loads — avoids duplicate fetchLoopHistory
+  // calls when datasetId changes and prevents overlapping requests.
+  useEffect(function() {
+    void load();
+    void loadComparison();
+  }, [datasetId]);
 
   async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
     setUpdating(function(prev) { const next = Object.assign({}, prev); next[decisionId] = true; return next; });
     try {
       await updateDecisionStatus({ decisionId, status });
       await load();
+      await loadComparison();
     } catch (e) {
       setError(e instanceof Error ? e.message : "更新决策状态失败");
     } finally {
@@ -144,18 +159,11 @@ export default function LoopReviewBoard({ datasetId }: LoopReviewBoardProps) {
     try {
       await updateActionTaskStatus({ taskId, status });
       await load();
+      await loadComparison();
     } catch (e) {
       setError(e instanceof Error ? e.message : "更新任务状态失败");
     }
   }
-
-  useEffect(function() {
-    void load();
-  }, [datasetId]);
-
-  useEffect(function() {
-    void loadComparison();
-  }, [datasetId]);
 
   if (rows.length === 0 && !loading) {
     return (
