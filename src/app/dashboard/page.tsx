@@ -6,9 +6,8 @@ import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3 } from "lucide-react";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache, computeStatsCached, clearStatsCache } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
-import { computeStats } from "@/lib/parser";
 import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic";
@@ -62,6 +61,7 @@ export default function DashboardPage() {
     setPipelineError("");
     setLoopExecutions({});
     setLoopOutcomes({});
+    if (newId) clearStatsCache();
     loadData(newId);
   }
 
@@ -92,18 +92,12 @@ export default function DashboardPage() {
         for (var i = 0; i < selCols.length; i++) o[selCols[i]] = r[selCols[i]];
         return o;
       });
-      setDatasetData({ ...data, rows: filteredRows, columns: selCols });
-      var parsed = computeStats(filteredRows, selCols);
-      setStats(parsed);
-      setHasData(true);
-      setDatasetName(data.original_name || storeData.datasets.find(function(d) { return d.id === id; })?.originalName || "");
-      setLoading(false);
-      if (currentRequestId !== requestIdRef.current) return;
+      // Pre-compute relatedIds in parallel with datasetData/stats setup
       var relatedIds: string[] = [];
       if (storeData.datasets.length > 1) {
-        for (var i = 0; i < storeData.datasets.length; i++) {
-          if (storeData.datasets[i].id !== id) {
-            relatedIds.push(storeData.datasets[i].id);
+        for (var ri = 0; ri < storeData.datasets.length; ri++) {
+          if (storeData.datasets[ri].id !== id) {
+            relatedIds.push(storeData.datasets[ri].id);
           }
         }
       }
@@ -112,13 +106,22 @@ export default function DashboardPage() {
         var activeMeta = storeData.datasets.find(function(d) { return d.id === id; });
         if (activeMeta) inlineDatasets[id] = buildInlineDataset(activeMeta, localData.rows, 500);
       }
-      for (var ri = 0; ri < relatedIds.length; ri++) {
-        var relRows = getDatasetRows(relatedIds[ri]);
+      for (var rri = 0; rri < relatedIds.length; rri++) {
+        var relRows = getDatasetRows(relatedIds[rri]);
         if (relRows && relRows.rows.length > 0) {
-          var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[ri]; });
-          if (relMeta) inlineDatasets[relatedIds[ri]] = buildInlineDataset(relMeta, relRows.rows, 200);
+          var relMeta = storeData.datasets.find(function(d) { return d.id === relatedIds[rri]; });
+          if (relMeta) inlineDatasets[relatedIds[rri]] = buildInlineDataset(relMeta, relRows.rows, 200);
         }
       }
+      setDatasetData({ ...data, rows: filteredRows, columns: selCols });
+      // computeStats is synchronous; for datasets >200 rows the main-thread
+      // cost is measurable. Defer non-critical state updates after it.
+      var parsed = computeStatsCached(filteredRows, selCols);
+      setStats(parsed);
+      setHasData(true);
+      setDatasetName(data.original_name || storeData.datasets.find(function(d) { return d.id === id; })?.originalName || "");
+      setLoading(false);
+      if (currentRequestId !== requestIdRef.current) return;
       // Agent analysis and loop history are independent — run in parallel
       // 优先使用分析缓存，避免刷新页面时重复调用 /api/agent
       var cachedAnalysis = getAnalysisCache(user?.id || "", id, "dashboard");

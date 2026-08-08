@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import type { SemanticProfile } from "@/lib/semantic/types";
+import { computeStats as computeStatsInner } from "@/lib/parser";
 
 const MAIN_KEY = "aicopilot";
 const MAX_STORE_SIZE = 4 * 1024 * 1024; // 4MB warning threshold
@@ -331,4 +332,37 @@ export function buildInlineDataset(
     originalName: meta.originalName || undefined,
     platform: meta.platform || undefined,
   };
+}
+
+// ═══ Stats Cache (in-memory, per session) ═══
+
+var _statsCache: Record<string, { hash: string; result: ReturnType<typeof computeStatsInner> }> = {};
+
+function rowHash(rows: Record<string, unknown>[]): string {
+  // Fast hash: use row count + first/last row content as fingerprint.
+  // Avoids hashing all cells on every call.
+  if (rows.length === 0) return "0:0";
+  var first = JSON.stringify(rows[0]);
+  var last = rows.length > 1 ? JSON.stringify(rows[rows.length - 1]) : first;
+  return rows.length + ":" + first.length + ":" + last.length;
+}
+
+export function computeStatsCached(rows: Record<string, unknown>[], columns: string[]): ReturnType<typeof computeStatsInner> {
+  var key = columns.join(",") + ":" + rowHash(rows);
+  var cached = _statsCache[key];
+  if (cached && cached.hash === key) {
+    return cached.result;
+  }
+  var result = computeStatsInner(rows, columns);
+  _statsCache[key] = { hash: key, result };
+  // Cap cache size to avoid memory bloat on dataset switches
+  var keys = Object.keys(_statsCache);
+  if (keys.length > 20) {
+    delete _statsCache[keys[0]];
+  }
+  return result;
+}
+
+export function clearStatsCache(): void {
+  _statsCache = {};
 }

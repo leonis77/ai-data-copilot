@@ -118,6 +118,20 @@ export default function ChatPage() {
           if (relMeta) inlineDatasets[relatedIds[rri]] = buildInlineDataset(relMeta, relRows.rows, 200);
         }
       }
+      // Loop history is independent of the agent call — fetch in parallel.
+      var loopPromise = (async function (): Promise<{ executions: Record<string, Execution[]>; outcomes: Record<string, Outcome[]> }> {
+        if (!dsId) return { executions: {}, outcomes: {} };
+        var loopData = await fetchLoopHistory(dsId);
+        var execs: Record<string, Execution[]> = {};
+        var outs: Record<string, Outcome[]> = {};
+        for (const dd of loopData.decisions) {
+          for (const t of (dd.actionTasks || [])) {
+            if (dd.executions && dd.executions[t.id]) execs[t.id] = dd.executions[t.id];
+            if (dd.outcomes && dd.outcomes[t.id]) outs[t.id] = dd.outcomes[t.id];
+          }
+        }
+        return { executions: execs, outcomes: outs };
+      })();
       var res = await authFetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
       var agentStart = Date.now();
       var data = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
@@ -131,6 +145,10 @@ export default function ChatPage() {
       if (dsId) {
         setAnalysisCache(user?.id || "", dsId, data, "chat");
       }
+      // Await loop history in parallel — it's likely already resolved by now.
+      var loopResult = await loopPromise;
+      setLoopExecutions(function(p) { return Object.assign({}, p, loopResult.executions); });
+      setLoopOutcomes(function(p) { return Object.assign({}, p, loopResult.outcomes); });
       var responseData: AgentApiResponse = data;
       var isDecisionChain = responseData.type === "decision_chain";
       var decisionData: DecisionChainResponse | null = isDecisionChain ? responseData as DecisionChainResponse : null;
@@ -138,25 +156,6 @@ export default function ChatPage() {
       var content = responseData.content;
       if (responseData.type === "insufficient_data" && responseData.limitations.length > 0) {
         content += "\n\n**需要补充：**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
-      }
-
-      var newExecutions: Record<string, Execution[]> = {};
-      var newOutcomes: Record<string, Outcome[]> = {};
-      if (isDecisionChain && decisionData?.actions?.length) {
-        try {
-          setChatDsId(dsId);
-          var loopData = await fetchLoopHistory(dsId);
-          for (const dd of loopData.decisions) {
-            for (const t of (dd.actionTasks || [])) {
-              if (dd.executions && dd.executions[t.id]) newExecutions[t.id] = dd.executions[t.id];
-              if (dd.outcomes && dd.outcomes[t.id]) newOutcomes[t.id] = dd.outcomes[t.id];
-            }
-          }
-          setLoopExecutions(function(p) { return Object.assign({}, p, newExecutions); });
-          setLoopOutcomes(function(p) { return Object.assign({}, p, newOutcomes); });
-        } catch (e) {
-          logger.warn("Chat loop history fetch failed", { message: e instanceof Error ? e.message : String(e) });
-        }
       }
 
       setMsgs(function(p: Msg[]) { return [...p, {
