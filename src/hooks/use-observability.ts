@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 
 type MetricType = "page_view" | "api_call" | "pipeline_result" | "user_action" | "error" | "performance";
@@ -57,30 +57,38 @@ export function trackMetric(type: MetricType, name: string, value?: number, tags
   ensureFlushTimer();
 }
 
-export function useObservability() {
+interface ObsApi {
+  trackPageView: (pageName: string, tags?: Record<string, string | number | boolean>) => void;
+  trackApiCall: (route: string, durationMs: number, ok: boolean, tags?: Record<string, string | number | boolean>) => void;
+  trackPipelineResult: (resultType: string, durationMs: number, tags?: Record<string, string | number | boolean>) => void;
+  trackError: (error: Error | string, tags?: Record<string, string | number | boolean>) => void;
+  trackPerformance: (name: string, valueMs: number, tags?: Record<string, string | number | boolean>) => void;
+}
+
+export function useObservability(): ObsApi {
   const pageViewTracked = useRef(false);
 
-  const trackPageView = useCallback(function(pageName: string, tags?: Record<string, string | number | boolean>) {
+  const trackPageViewRef = useRef(function(pageName: string, tags?: Record<string, string | number | boolean>) {
     if (pageViewTracked.current) return;
     pageViewTracked.current = true;
     trackMetric("page_view", pageName, undefined, tags);
-  }, []);
+  });
 
-  const trackApiCall = useCallback(function(route: string, durationMs: number, ok: boolean, tags?: Record<string, string | number | boolean>) {
+  const trackApiCallRef = useRef(function(route: string, durationMs: number, ok: boolean, tags?: Record<string, string | number | boolean>) {
     trackMetric("api_call", route, durationMs, Object.assign({ ok }, tags || {}));
-  }, []);
+  });
 
-  const trackPipelineResult = useCallback(function(resultType: string, durationMs: number, tags?: Record<string, string | number | boolean>) {
+  const trackPipelineResultRef = useRef(function(resultType: string, durationMs: number, tags?: Record<string, string | number | boolean>) {
     trackMetric("pipeline_result", resultType, durationMs, tags);
-  }, []);
+  });
 
-  const trackError = useCallback(function(error: Error | string, tags?: Record<string, string | number | boolean>) {
+  const trackErrorRef = useRef(function(error: Error | string, tags?: Record<string, string | number | boolean>) {
     trackMetric("error", error instanceof Error ? error.message : error, undefined, tags);
-  }, []);
+  });
 
-  const trackPerformance = useCallback(function(name: string, valueMs: number, tags?: Record<string, string | number | boolean>) {
+  const trackPerformanceRef = useRef(function(name: string, valueMs: number, tags?: Record<string, string | number | boolean>) {
     trackMetric("performance", name, valueMs, tags);
-  }, []);
+  });
 
   useEffect(function() {
     return function() {
@@ -89,11 +97,27 @@ export function useObservability() {
     };
   }, []);
 
-  return useMemo(() => ({
-    trackPageView,
-    trackApiCall,
-    trackPipelineResult,
-    trackError,
-    trackPerformance,
-  }), [trackPageView, trackApiCall, trackPipelineResult, trackError, trackPerformance]);
+  // Stable object reference — never changes across re-renders.
+  // Using refs for implementations + useMemo(..., []) guarantees
+  // consumers see the same obs object every render, preventing
+  // cascading useEffect restarts.
+  return useMemo(function() {
+    return {
+      trackPageView: function(pageName: string, tags?: Record<string, string | number | boolean>) {
+        return trackPageViewRef.current(pageName, tags);
+      },
+      trackApiCall: function(route: string, durationMs: number, ok: boolean, tags?: Record<string, string | number | boolean>) {
+        return trackApiCallRef.current(route, durationMs, ok, tags);
+      },
+      trackPipelineResult: function(resultType: string, durationMs: number, tags?: Record<string, string | number | boolean>) {
+        return trackPipelineResultRef.current(resultType, durationMs, tags);
+      },
+      trackError: function(error: Error | string, tags?: Record<string, string | number | boolean>) {
+        return trackErrorRef.current(error, tags);
+      },
+      trackPerformance: function(name: string, valueMs: number, tags?: Record<string, string | number | boolean>) {
+        return trackPerformanceRef.current(name, valueMs, tags);
+      },
+    };
+  }, []);
 }
