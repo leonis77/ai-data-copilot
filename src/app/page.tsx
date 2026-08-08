@@ -221,24 +221,10 @@ function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: n
 
 /** 步骤 */
 function StepItem({ step, index }: { step: typeof STEPS[0]; index: number }) {
-  var accent = "#2563EB";
   return (
-    <Reveal delay={index * 0.2} x={index % 2 === 0 ? -30 : 30} y={20}>
-      <div className="flex items-start gap-6 md:gap-8 group">
-        <div className="relative">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold text-white shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-            style={{
-              backgroundColor: accent,
-              boxShadow: "0 20px 40px -10px " + accent + "50",
-            }}>
-            {step.num}
-          </div>
-          {index < STEPS.length - 1 && (
-            <div className="hidden md:block absolute left-1/2 top-14 w-0.5 h-24 -translate-x-1/2"
-              style={{ background: "linear-gradient(to bottom, " + accent + "40, transparent)" }} />
-          )}
-        </div>
-        <div className="flex-1 pt-3">
+    <Reveal delay={index * 0.2} y={20}>
+      <div className="flex items-start gap-4 md:gap-6 group">
+        <div className="flex-1">
           <h4 className="text-xl font-bold text-[#0a0a0f] mb-2 tracking-tight">{step.title}</h4>
           <p className="text-base text-gray-600 leading-relaxed">{step.desc}</p>
         </div>
@@ -420,12 +406,7 @@ function LandingPage() {
       {/* ═══════════════════════════════════════
            Hero — 微渐变底色 + 柔光装饰
          ═══════════════════════════════════════ */}
-      <section className="relative pt-36 pb-24 md:pt-52 md:pb-40 bg-mesh-gradient overflow-hidden">
-        {/* 装饰柔光球 */}
-        <div className="absolute top-20 left-[10%] w-72 h-72 bg-blue-400/[0.04] rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 right-[15%] w-96 h-96 bg-cyan-400/[0.03] rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 left-[40%] w-64 h-64 bg-emerald-400/[0.03] rounded-full blur-3xl pointer-events-none" />
-
+      <section className="relative pt-28 pb-24 md:pt-32 md:pb-32 bg-mesh-gradient overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div>
@@ -437,12 +418,10 @@ function LandingPage() {
               </Reveal>
 
               <Reveal delay={0.15}>
-                <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.05] mb-8">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.05] mb-8 text-[#0a0a0f]">
                   上传数据，
                   <br />
-                  <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">
-                    AI 告诉你该进什么货
-                  </span>
+                   AI 告诉你该进什么货
                 </h1>
               </Reveal>
 
@@ -473,46 +452,46 @@ function LandingPage() {
               </Reveal>
             </div>
 
-            {/* 右侧视觉元素 - 抽象数据可视化 */}
+            {/* 右侧视觉元素 - 抽象指标看板 */}
             <Reveal delay={0.3} x={40}>
               <div className="hidden lg:block relative">
                 <div className="relative w-full aspect-square max-w-md mx-auto">
-                  {/* 背景装饰圆 */}
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl rotate-6 opacity-60" />
-                  <div className="absolute inset-0 bg-white rounded-3xl shadow-xl border border-gray-100 p-8 flex flex-col justify-between">
-                    {/* 顶部栏 */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-6">
-                        <div className="w-3 h-3 rounded-full bg-red-400" />
-                        <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                        <div className="w-3 h-3 rounded-full bg-green-400" />
+                  <div className="absolute inset-0 bg-white rounded-3xl shadow-xl border border-gray-100 p-8 flex flex-col items-center justify-center gap-6">
+                    {/* 进度条组 */}
+                    <div className="w-full space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-blue-100 rounded-full overflow-hidden">
+                          <div className="h-full w-3/4 bg-blue-500 rounded-full" />
+                        </div>
+                        <span className="text-xs font-mono text-blue-600 w-10 text-right">78%</span>
                       </div>
-                      <div className="space-y-3">
-                        <div className="h-3 bg-gray-100 rounded w-3/4" />
-                        <div className="h-3 bg-gray-100 rounded w-1/2" />
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-emerald-100 rounded-full overflow-hidden">
+                          <div className="h-full w-5/6 bg-emerald-500 rounded-full" />
+                        </div>
+                        <span className="text-xs font-mono text-emerald-600 w-10 text-right">92%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-amber-100 rounded-full overflow-hidden">
+                          <div className="h-full w-1/3 bg-amber-500 rounded-full" />
+                        </div>
+                        <span className="text-xs font-mono text-amber-600 w-10 text-right">34%</span>
                       </div>
                     </div>
-                    {/* 数据卡片 */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <div className="text-xs text-blue-600 font-semibold mb-1">总利润</div>
-                        <div className="text-2xl font-bold text-blue-700">¥128.5K</div>
-                        <div className="text-xs text-emerald-600 font-medium mt-1">+23.5%</div>
+                    {/* 指标卡 */}
+                    <div className="grid grid-cols-3 gap-3 w-full">
+                      <div className="text-center p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="text-lg font-bold text-blue-700">¥128K</div>
+                        <div className="text-[10px] text-blue-600 font-medium">总利润</div>
                       </div>
-                      <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-                        <div className="text-xs text-emerald-600 font-semibold mb-1">利润率</div>
-                        <div className="text-2xl font-bold text-emerald-700">32.8%</div>
-                        <div className="text-xs text-emerald-600 font-medium mt-1">健康</div>
+                      <div className="text-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <div className="text-lg font-bold text-emerald-700">32.8%</div>
+                        <div className="text-[10px] text-emerald-600 font-medium">利润率</div>
                       </div>
-                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
-                        <div className="text-xs text-amber-600 font-semibold mb-1">预警</div>
-                        <div className="text-2xl font-bold text-amber-700">3</div>
-                        <div className="text-xs text-amber-600 font-medium mt-1">需关注</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                        <div className="text-xs text-gray-600 font-semibold mb-1">商品数</div>
-                        <div className="text-2xl font-bold text-gray-700">1,284</div>
-                        <div className="text-xs text-gray-500 font-medium mt-1">4 平台</div>
+                      <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="text-lg font-bold text-gray-700">1,284</div>
+                        <div className="text-[10px] text-gray-500 font-medium">商品数</div>
                       </div>
                     </div>
                   </div>
@@ -521,30 +500,13 @@ function LandingPage() {
             </Reveal>
           </div>
 
-          <Reveal delay={0.6}>
-            <div className="mt-16 flex flex-wrap items-center gap-8 text-sm font-semibold text-gray-600">
-              {["免费使用", "无需信用卡", "数据本地存储"].map(function (text, i) {
-                return (
-                  <span key={i} className={"flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600"}>
-                    <CheckCircle2 className={"w-4 h-4"} />
-                    <span>{text}</span>
-                  </span>
-                );
-              })}
-            </div>
-          </Reveal>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════
            平台 Logo 墙 — 微渐变 + 点阵纹理
          ═══════════════════════════════════════ */}
-      <section id="platforms" className="relative py-20 bg-dot-pattern border-y border-gray-100/80 overflow-hidden">
-        {/* 装饰 */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-200/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-400/[0.02] rounded-full blur-3xl pointer-events-none" />
-
+      <section id="platforms" className="relative py-20 border-y border-gray-100/80 overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <Reveal>
             <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-[0.3em] mb-12">
@@ -562,18 +524,14 @@ function LandingPage() {
       {/* ═══════════════════════════════════════
            数据指标 — 暖色渐变底色 + 大数字
          ═══════════════════════════════════════ */}
-      <section id="stats" className="relative py-32 md:py-40 bg-warm-wash overflow-hidden">
-        {/* 装饰柔光 */}
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-500/[0.03] rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-emerald-500/[0.025] rounded-full blur-3xl pointer-events-none translate-y-1/4 -translate-x-1/4" />
-
+      <section id="stats" className="relative py-32 md:py-40 bg-warm-wash">
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <Reveal>
             <div className="text-center mb-20 md:mb-24">
               <h2 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-[#0a0a0f] leading-[1.1]">
                 为电商采购者打造的
                 <br className="hidden sm:block" />
-                <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">决策引擎</span>
+                决策引擎
               </h2>
               <p className="text-gray-600 text-lg md:text-xl max-w-lg mx-auto leading-relaxed">
                 从数据上传到利润决策，全流程 AI 驱动
@@ -592,16 +550,12 @@ function LandingPage() {
       {/* ═══════════════════════════════════════
            核心功能 — 冷色渐变底色
          ═══════════════════════════════════════ */}
-      <section id="features" className="relative py-32 md:py-40 bg-cool-wash overflow-hidden">
-        {/* 装饰 */}
-        <div className="absolute top-20 left-0 w-[350px] h-[350px] bg-cyan-500/[0.03] rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 right-0 w-[300px] h-[300px] bg-indigo-500/[0.025] rounded-full blur-3xl pointer-events-none translate-x-1/4" />
-
+      <section id="features" className="relative py-32 md:py-40 bg-cool-wash">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <Reveal>
             <div className="text-center mb-20 md:mb-24">
               <h2 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-[#0a0a0f] leading-[1.1]">
-                <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">六大核心能力</span>
+                六大核心能力
               </h2>
               <p className="text-gray-600 text-lg md:text-xl max-w-lg mx-auto leading-relaxed">
                 从数据接入到决策输出，覆盖采购全链路
@@ -620,17 +574,12 @@ function LandingPage() {
       {/* ═══════════════════════════════════════
            使用流程 — 微渐变底色 + 角标装饰
          ═══════════════════════════════════════ */}
-      <section id="how-it-works" className="relative py-32 md:py-40 bg-mesh-gradient overflow-hidden">
-        {/* 角标装饰 */}
-        <div className="corner-accent corner-accent--tl" />
-        <div className="corner-accent corner-accent--br" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-blue-500/[0.02] rounded-full blur-3xl pointer-events-none" />
-
+      <section id="how-it-works" className="relative py-32 md:py-40 bg-mesh-gradient">
         <div className="max-w-5xl mx-auto px-6 relative z-10">
           <Reveal>
             <div className="text-center mb-20 md:mb-24">
               <h2 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-[#0a0a0f] leading-[1.1]">
-                <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">三步开始</span>
+                三步开始
               </h2>
               <p className="text-gray-600 text-lg md:text-xl max-w-lg mx-auto leading-relaxed">
                 无需复杂配置，上传数据即可获得利润分析
@@ -649,18 +598,13 @@ function LandingPage() {
       {/* ═══════════════════════════════════════
            CTA — 微渐变 + 顶部分割线
          ═══════════════════════════════════════ */}
-      <section className="relative py-32 md:py-40 bg-warm-wash border-t border-gray-100/80 overflow-hidden">
-        {/* 顶部渐变分割线 */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/30 to-transparent" />
-        {/* 装饰柔光 */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-to-b from-blue-500/[0.03] to-transparent rounded-full blur-3xl pointer-events-none" />
-
+      <section className="relative py-32 md:py-40 bg-warm-wash border-t border-gray-100/80">
         <div className="max-w-4xl mx-auto px-6 relative z-10">
           <Reveal>
             <div className="text-center mb-12">
               <h2 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-[#0a0a0f] leading-[1.1]">
                 让每一笔采购<br className="hidden sm:block" />
-                <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">都有据可依</span>
+                都有据可依
               </h2>
               <p className="text-gray-600 text-lg md:text-xl max-w-lg mx-auto leading-relaxed">
                 上传你的销售数据，30 秒获得跨平台利润分析与 AI 采购建议

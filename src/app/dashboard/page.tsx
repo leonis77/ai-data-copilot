@@ -281,9 +281,7 @@ export default function DashboardPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
             <div className="flex items-center gap-4 mb-2">
               <div>
-                <h1 className="text-title">
-                  <span className="bg-gradient-to-r from-sky-400 to-cyan-400 bg-clip-text text-transparent">数据画像</span>
-                </h1>
+                <h1 className="text-title text-primary">数据画像</h1>
                 {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
               </div>
               <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
@@ -303,9 +301,7 @@ export default function DashboardPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
             <div className="flex items-center gap-4 mb-2">
               <div>
-                <h1 className="text-title">
-                  <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">供货分析</span>
-                </h1>
+                <h1 className="text-title text-primary">供货分析</h1>
                 {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
               </div>
               <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
@@ -328,17 +324,12 @@ export default function DashboardPage() {
   return (
     <RequireAuth>
       <div className="min-h-screen pt-16">
-        <div className="section-container py-8 md:py-12 relative">
-          {/* Ambient glow */}
-          <div className="ambient-glow" />
-
+        <div className="section-container py-8 md:py-12">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="page-header">
           <div className="flex items-center gap-4 mb-2">
             <div>
-              <h1 className="text-title">
-                <span className="bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text text-transparent">经营诊断</span>
-              </h1>
+              <h1 className="text-title text-primary">经营诊断</h1>
               {datasetName && <p className="text-caption mt-1.5 truncate max-w-[200px] md:max-w-none">{datasetName}</p>}
             </div>
             <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />

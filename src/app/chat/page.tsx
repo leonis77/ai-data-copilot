@@ -203,9 +203,9 @@ export default function ChatPage() {
         <div className="section-container">
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="mb-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="icon-box bg-gradient-to-br from-blue-500 to-cyan-600 shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
+            <div className="icon-box bg-brand shadow-sm"><Sparkles className="w-5 h-5 text-white" /></div>
             <div>
-              <h1 className="text-title"><span className="gradient-text">AI 分析助手</span></h1>
+              <h1 className="text-title text-primary">AI 分析助手</h1>
               <p className="text-caption">{"问数据 · 出报告 · 深解读 · 找爆款"}</p>
             </div>
             {hasData && <TableSelector userId={user?.id} className="ml-auto" />}
@@ -240,7 +240,7 @@ export default function ChatPage() {
                     {!isUser && <div className="icon-box-sm bg-blue-50 flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-blue-100"><Icon className={"w-4 h-4 text-brand"} /></div>}
                     <div className="max-w-[85%] space-y-2">
                       <div className={"rounded-2xl px-4 py-3 text-sm leading-relaxed " + (isUser
-                        ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-md shadow-sm"
+                        ? "bg-brand text-white rounded-br-md shadow-sm"
                         : "bg-white border border-gray-200 text-secondary rounded-bl-md shadow-sm")}>
                         <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-primary [&_table]:w-full [&_th]:text-left [&_th]:p-1 [&_td]:p-1">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{m.content}</ReactMarkdown>
@@ -350,7 +350,7 @@ export default function ChatPage() {
             <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex gap-3">
                 <input value={inp} onChange={function(e: any) { setInp(e.target.value); }} onKeyDown={function(e: any) { if (e.key === "Enter") send(inp); }} placeholder={"告诉 AI 助手你想了解什么..."} className="input-base flex-1" />
-                <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} transition={{ type: "spring", stiffness: 400, damping: 15 }} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center disabled:opacity-30 transition-opacity shadow-glow hover:shadow-glow-strong">
+                <motion.button whileHover={{scale:1.05}} whileTap={{scale:0.95}} transition={{ type: "spring", stiffness: 400, damping: 15 }} onClick={function() { send(inp); }} disabled={!inp.trim()||loading} className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center disabled:opacity-30 transition-opacity">
                   <ArrowRight className="w-5 h-5 text-white" />
                 </motion.button>
               </div>
