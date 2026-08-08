@@ -20,7 +20,7 @@ import {
   saveActionTask,
 } from "@/lib/loop";
 import { startTimer, endTimer, logPipelineResult, logApiCall } from "@/lib/observability";
-import { applyRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { applyRateLimitAsync, rateLimitResponse } from "@/lib/rate-limit";
 import { readJsonBody } from "@/lib/api-utils";
 import { authenticateRequest } from "@/lib/auth";
 
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     }
     const userId = authResult.user!.id;
 
-    // ⭐ 限流：Agent 分析接口 1 分钟 10 次
-    const rateResult = applyRateLimit(request, { strategy: "agent" });
+    // ⭐ 限流：Agent 分析接口 1 分钟 10 次（Upstash Redis 多实例共享）
+    const rateResult = await applyRateLimitAsync(request, { strategy: "agent" });
     if (!rateResult.allowed) {
       return rateLimitResponse(rateResult);
     }

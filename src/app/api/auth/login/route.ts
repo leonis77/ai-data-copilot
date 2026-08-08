@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, error.message), { status: 400 });
+      return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, "参数校验失败"), { status: 400 });
     }
     return NextResponse.json(
       apiError(ApiErrorCode.INTERNAL, "登录失败，请稍后重试"),

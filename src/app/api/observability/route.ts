@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       try {
         parsed = ObservabilityIngestSchema.parse(raw);
       } catch (e: any) {
-        return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, e?.message || "参数校验失败", { recoverable: true, details: e?.issues }), { status: 400 });
+        return NextResponse.json(apiError(ApiErrorCode.VALIDATION_FAILED, "参数校验失败", { recoverable: true }), { status: 400 });
       }
 
       const counts = { page_view: 0, api_call: 0, pipeline_result: 0, user_action: 0, error: 0, performance: 0 };
