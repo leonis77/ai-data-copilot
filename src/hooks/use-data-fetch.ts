@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { dataManager } from "@/lib/data-manager";
 
 export function useDataFetch<T>(
@@ -30,7 +30,7 @@ export function useDataFetch<T>(
   const ttl = options?.ttl ?? 60_000;
   const enabled = options?.enabled ?? true;
   const [refetchSignal, setRefetchSignal] = useState(0);
-  const allDeps = [...deps, refetchSignal];
+  var allDeps = useMemo(function() { return [...deps, refetchSignal]; }, [deps.join(","), refetchSignal]);
 
   useEffect(() => {
     mountedRef.current = true;

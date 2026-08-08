@@ -38,7 +38,9 @@ export default function DashboardPage() {
   const { user } = useAuth();
 
   // Data fetch
-  const [datasetId, setDatasetId] = useState("");
+  var initialDsId = "";
+  try { initialDsId = getStore(user?.id || "").activeId || ""; } catch {}
+  const [datasetId, setDatasetId] = useState(initialDsId);
   const { data: rawData, loading: dataLoading, error: dataError, refetch: refetchRawData } = useDataFetch(
     ["dashboard", user?.id, datasetId].join(":"),
     (signal: AbortSignal) => fetchRawData(signal, user?.id as string, datasetId),
@@ -61,9 +63,14 @@ export default function DashboardPage() {
   // Compute stats when rawData changes
   useEffect(function () {
     if (!rawData) return;
+    var resolvedDsId = datasetId;
+    if (!resolvedDsId) {
+      try { resolvedDsId = getStore(user?.id || "").activeId || ""; } catch {}
+      if (resolvedDsId) setDatasetId(resolvedDsId);
+    }
     var parsed = computeStatsCached(rawData.rows, rawData.columns);
     setStats(parsed);
-    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === datasetId; })?.originalName || "");
+    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === (resolvedDsId || datasetId); })?.originalName || "");
     setHasData(true);
     setDatasetData(rawData);
   }, [rawData, datasetId, user?.id]);
