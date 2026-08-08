@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 
 type MetricType = "page_view" | "api_call" | "pipeline_result" | "user_action" | "error" | "performance";
@@ -89,11 +89,11 @@ export function useObservability() {
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     trackPageView,
     trackApiCall,
     trackPipelineResult,
     trackError,
     trackPerformance,
-  };
+  }), [trackPageView, trackApiCall, trackPipelineResult, trackError, trackPerformance]);
 }
