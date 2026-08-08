@@ -76,7 +76,7 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
                               ¥{pc.priceRelated.toFixed(2)}
                             </td>
                             <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-faint" : up ? "text-emerald-500" : "text-red-500")}>
-                              {zero ? "—" : (up ? "+" : "") + pc.diff.toFixed(2)}
+                              {zero ? "-" : (up ? "+" : "") + pc.diff.toFixed(2)}
                               {!zero && (
                                 <span className="text-faint ml-0.5">
                                   ({pc.diffPercent >= 0 ? "+" : ""}{pc.diffPercent}%)
@@ -129,7 +129,7 @@ export function CrossDatasetView({ data }: CrossDatasetViewProps) {
                               {qc.qtyRelated}
                             </td>
                             <td className={"py-1.5 pl-2 text-right font-mono " + (zero ? "text-faint" : up ? "text-emerald-500" : "text-red-500")}>
-                              {zero ? "—" : (up ? "+" : "") + qc.gap}
+                              {zero ? "-" : (up ? "+" : "") + qc.gap}
                             </td>
                           </tr>
                         );

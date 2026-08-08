@@ -65,63 +65,45 @@ var FEATURES = [
     icon: Upload,
     title: "一键上传，自动识别",
     desc: "拖拽 Excel/CSV，AI 自动识别平台格式与字段映射，无需手动配置",
-    accent: "#3b82f6",
-    accentLight: "#eff6ff",
-    accentDark: "#1d4ed8",
   },
   {
     icon: TrendingUp,
     title: "2026 真实费率引擎",
     desc: "四大平台独立费率计算，扣除佣金、运费、退货、达人佣金，还原真实利润",
-    accent: "#10b981",
-    accentLight: "#ecfdf5",
-    accentDark: "#047857",
   },
   {
     icon: Shield,
     title: "AI 采购决策建议",
-    desc: "利润率、ROI、价格倒挂——AI 自动判定加量 / 维持 / 减量 / 停止",
-    accent: "#ef4444",
-    accentLight: "#fef2f2",
-    accentDark: "#dc2626",
+    desc: "利润率、ROI、价格倒挂，AI 自动判定加量 / 维持 / 减量 / 停止",
   },
   {
     icon: Zap,
     title: "亏损自动预警",
-    desc: "负利润率、跨平台价差超30%、货品积压——三色预警立即发现隐藏亏损",
-    accent: "#f59e0b",
-    accentLight: "#fffbeb",
-    accentDark: "#d97706",
+    desc: "负利润率、跨平台价差超30%、货品积压，三色预警立即发现隐藏亏损",
   },
   {
     icon: BarChart3,
     title: "跨平台利润对比",
     desc: "同一商品在淘宝/京东/拼多多/抖音的利润差异一目了然",
-    accent: "#06b6d4",
-    accentLight: "#ecfeff",
-    accentDark: "#0891b2",
   },
   {
     icon: CheckCircle2,
     title: "数字可溯源",
-    desc: "每个利润数字追溯到原始数据行，AI 不确定时明确说「不知道」",
-    accent: "#6366f1",
-    accentLight: "#eef2ff",
-    accentDark: "#4f46e5",
+    desc: "每个利润数字追溯到原始数据行，AI 不确定时明确说不知道",
   },
 ];
 
 var STATS = [
-  { value: 4, suffix: "大平台", label: "淘宝 · 京东 · 拼多多 · 抖音", accent: "#3b82f6", accentLight: "#dbeafe" },
-  { value: 30, suffix: "秒", label: "上传到利润报告", accent: "#10b981", accentLight: "#d1fae5" },
-  { value: 2026, suffix: "费率", label: "最新平台费率实时更新", accent: "#f59e0b", accentLight: "#fef3c7" },
-  { value: 100, suffix: "%", label: "数字可溯源，拒绝幻觉", accent: "#ef4444", accentLight: "#fee2e2" },
+  { value: 4, suffix: "大平台", label: "淘宝 · 京东 · 拼多多 · 抖音" },
+  { value: 30, suffix: "秒", label: "上传到利润报告" },
+  { value: 2026, suffix: "费率", label: "最新平台费率实时更新" },
+  { value: 100, suffix: "%", label: "数字可溯源，拒绝幻觉" },
 ];
 
 var STEPS = [
-  { num: "01", title: "上传数据", desc: "拖拽 Excel/CSV，支持多平台同时上传", accent: "#3b82f6" },
-  { num: "02", title: "AI 自动分析", desc: "识别平台、匹配字段、计算真实利润", accent: "#10b981" },
-  { num: "03", title: "获取决策", desc: "利润排名、亏损预警、跨平台对比", accent: "#f59e0b" },
+  { num: "01", title: "上传数据", desc: "拖拽 Excel/CSV，支持多平台同时上传" },
+  { num: "02", title: "AI 自动分析", desc: "识别平台、匹配字段、计算真实利润" },
+  { num: "03", title: "获取决策", desc: "利润排名、亏损预警、跨平台对比" },
 ];
 
 var PLATFORMS = [
@@ -198,28 +180,30 @@ function Navbar() {
 /** 特性卡片 */
 function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: number }) {
   const Icon = feature.icon;
+  var accent = "#2563EB";
+  var accentLight = "#EFF6FF";
   return (
     <Reveal delay={index * 0.1} y={32} scale>
       <div className="group relative h-full rounded-2xl border-2 border-gray-100 bg-white p-8 md:p-10 transition-all duration-500 hover:shadow-xl hover:border-gray-200 overflow-hidden">
         {/* 渐变边框光晕 */}
         <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
           style={{
-            background: `linear-gradient(135deg, ${feature.accent}15 0%, transparent 50%)`,
-            boxShadow: `inset 0 0 0 1px ${feature.accent}25`,
+            background: `linear-gradient(135deg, ${accent}15 0%, transparent 50%)`,
+            boxShadow: `inset 0 0 0 1px ${accent}25`,
           }} />
 
         {/* 图标 */}
         <div className="relative w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-          style={{ backgroundColor: feature.accentLight, color: feature.accent }}>
+          style={{ backgroundColor: accentLight, color: accent }}>
           <Icon className="w-6 h-6" />
         </div>
 
         {/* 标签 */}
         <div className="relative inline-block px-3 py-1 rounded-lg text-xs font-bold mb-4 border transition-colors duration-300"
           style={{
-            backgroundColor: feature.accentLight,
-            color: feature.accentDark,
-            borderColor: feature.accent + "30",
+            backgroundColor: accentLight,
+            color: accent,
+            borderColor: accent + "30",
           }}>
           {feature.title.split("，")[0]}
         </div>
@@ -229,7 +213,7 @@ function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: n
 
         {/* 底部渐变线 */}
         <div className="absolute bottom-0 left-8 right-8 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{ background: `linear-gradient(to right, ${feature.accent}60, ${feature.accent}10)` }} />
+          style={{ background: `linear-gradient(to right, ${accent}60, ${accent}10)` }} />
       </div>
     </Reveal>
   );
@@ -237,20 +221,21 @@ function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: n
 
 /** 步骤 */
 function StepItem({ step, index }: { step: typeof STEPS[0]; index: number }) {
+  var accent = "#2563EB";
   return (
     <Reveal delay={index * 0.2} x={index % 2 === 0 ? -30 : 30} y={20}>
       <div className="flex items-start gap-6 md:gap-8 group">
         <div className="relative">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold text-white shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
             style={{
-              backgroundColor: step.accent,
-              boxShadow: `0 20px 40px -10px ${step.accent}50`,
+              backgroundColor: accent,
+              boxShadow: "0 20px 40px -10px " + accent + "50",
             }}>
             {step.num}
           </div>
           {index < STEPS.length - 1 && (
             <div className="hidden md:block absolute left-1/2 top-14 w-0.5 h-24 -translate-x-1/2"
-              style={{ background: `linear-gradient(to bottom, ${step.accent}40, transparent)` }} />
+              style={{ background: "linear-gradient(to bottom, " + accent + "40, transparent)" }} />
           )}
         </div>
         <div className="flex-1 pt-3">
@@ -288,11 +273,11 @@ function StatBlock({ stat, index }: { stat: typeof STATS[0]; index: number }) {
       <div ref={divRef} className="relative rounded-2xl border-2 border-gray-100 bg-white p-8 md:p-10 text-center overflow-hidden transition-all duration-500 hover:shadow-xl hover:border-gray-200 group cursor-default">
         {/* 背景色块 */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{ background: `linear-gradient(135deg, ${stat.accentLight} 0%, white 100%)` }} />
+          style={{ background: "linear-gradient(135deg, #EFF6FF 0%, white 100%)" }} />
 
         <div className="relative">
           <div className="text-6xl md:text-7xl font-extrabold tracking-tighter mb-3 transition-transform duration-500 group-hover:scale-110"
-            style={{ color: stat.accent }}>
+            style={{ color: "#2563EB" }}>
             <span ref={countRef}>0</span>
           </div>
           <div className="text-base font-bold text-gray-700 mb-2">{stat.suffix}</div>
@@ -442,59 +427,107 @@ function LandingPage() {
         <div className="absolute bottom-10 left-[40%] w-64 h-64 bg-emerald-400/[0.03] rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-6xl mx-auto px-6 relative z-10">
-          <Reveal delay={0}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-gray-200 bg-white text-xs font-bold text-gray-700 mb-12">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              跨平台电商利润优化引擎 · 2026
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div>
+              <Reveal delay={0}>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-gray-200 bg-white text-xs font-bold text-gray-700 mb-8">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  跨平台电商利润优化引擎 · 2026
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.15}>
+                <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.05] mb-8">
+                  上传数据，
+                  <br />
+                  <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">
+                    AI 告诉你该进什么货
+                  </span>
+                </h1>
+              </Reveal>
+
+              <Reveal delay={0.3}>
+                <p className="text-lg md:text-xl text-gray-600 max-w-xl mb-10 leading-relaxed">
+                  覆盖淘宝 / 京东 / 拼多多 / 抖音四大平台，2026 年真实费率引擎自动计算单品利润，AI 判定加量 / 维持 / 减量 / 停止。
+                </p>
+              </Reveal>
+
+              <Reveal delay={0.45}>
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  <Link href="/upload">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                      className="group px-8 py-4 rounded-2xl bg-[#0a0a0f] text-white font-bold text-base flex items-center gap-3 hover:bg-gray-800 transition-all hover:shadow-2xl">
+                      上传数据 · 30秒看利润
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </motion.button>
+                  </Link>
+                  <Link href="/dashboard">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                      className="px-8 py-4 rounded-2xl border-2 border-gray-200 text-[#0a0a0f] font-bold text-base hover:border-gray-300 hover:bg-gray-50 transition-all">
+                      查看利润看板
+                    </motion.button>
+                  </Link>
+                </div>
+              </Reveal>
             </div>
-          </Reveal>
 
-          <Reveal delay={0.15}>
-            <h1 className="text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-tight leading-[1.05] mb-10 max-w-5xl">
-              上传数据，
-              <br />
-              <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">
-                AI 告诉你该进什么货
-              </span>
-            </h1>
-          </Reveal>
-
-          <Reveal delay={0.3}>
-            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mb-14 leading-relaxed">
-              覆盖淘宝 / 京东 / 拼多多 / 抖音四大平台，2026 年真实费率引擎自动计算单品利润，
-              AI 判定「加量 / 维持 / 减量 / 停止」，让你的每一笔采购都有据可依。
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.45}>
-            <div className="flex flex-col sm:flex-row items-start gap-4">
-              <Link href="/upload">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="group px-10 py-5 rounded-2xl bg-[#0a0a0f] text-white font-bold text-lg flex items-center gap-3 hover:bg-gray-800 transition-all hover:shadow-2xl">
-                  上传数据 · 30秒看利润
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </motion.button>
-              </Link>
-              <Link href="/dashboard">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="px-10 py-5 rounded-2xl border-2 border-gray-200 text-[#0a0a0f] font-bold text-lg hover:border-gray-300 hover:bg-gray-50 transition-all">
-                  查看利润看板
-                </motion.button>
-              </Link>
-            </div>
-          </Reveal>
+            {/* 右侧视觉元素 - 抽象数据可视化 */}
+            <Reveal delay={0.3} x={40}>
+              <div className="hidden lg:block relative">
+                <div className="relative w-full aspect-square max-w-md mx-auto">
+                  {/* 背景装饰圆 */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl rotate-6 opacity-60" />
+                  <div className="absolute inset-0 bg-white rounded-3xl shadow-xl border border-gray-100 p-8 flex flex-col justify-between">
+                    {/* 顶部栏 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="w-3 h-3 rounded-full bg-red-400" />
+                        <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                        <div className="w-3 h-3 rounded-full bg-green-400" />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="h-3 bg-gray-100 rounded w-3/4" />
+                        <div className="h-3 bg-gray-100 rounded w-1/2" />
+                      </div>
+                    </div>
+                    {/* 数据卡片 */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                        <div className="text-xs text-blue-600 font-semibold mb-1">总利润</div>
+                        <div className="text-2xl font-bold text-blue-700">¥128.5K</div>
+                        <div className="text-xs text-emerald-600 font-medium mt-1">+23.5%</div>
+                      </div>
+                      <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                        <div className="text-xs text-emerald-600 font-semibold mb-1">利润率</div>
+                        <div className="text-2xl font-bold text-emerald-700">32.8%</div>
+                        <div className="text-xs text-emerald-600 font-medium mt-1">健康</div>
+                      </div>
+                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                        <div className="text-xs text-amber-600 font-semibold mb-1">预警</div>
+                        <div className="text-2xl font-bold text-amber-700">3</div>
+                        <div className="text-xs text-amber-600 font-medium mt-1">需关注</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="text-xs text-gray-600 font-semibold mb-1">商品数</div>
+                        <div className="text-2xl font-bold text-gray-700">1,284</div>
+                        <div className="text-xs text-gray-500 font-medium mt-1">4 平台</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
 
           <Reveal delay={0.6}>
             <div className="mt-16 flex flex-wrap items-center gap-8 text-sm font-semibold text-gray-600">
               {["免费使用", "无需信用卡", "数据本地存储"].map(function (text, i) {
-                const colors = ["text-emerald-600", "text-blue-600", "text-violet-600"];
-                const bgs = ["bg-emerald-50", "bg-blue-50", "bg-violet-50"];
                 return (
-                  <span key={i} className={"flex items-center gap-2.5 px-3 py-1.5 rounded-lg " + bgs[i]}>
-                    <CheckCircle2 className={"w-4 h-4 " + colors[i]} />
-                    <span className={colors[i]}>{text}</span>
+                  <span key={i} className={"flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600"}>
+                    <CheckCircle2 className={"w-4 h-4"} />
+                    <span>{text}</span>
                   </span>
                 );
               })}
@@ -576,7 +609,7 @@ function LandingPage() {
             </div>
           </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
             {FEATURES.map(function (feature, i) {
               return <FeatureCard key={i} feature={feature} index={i} />;
             })}

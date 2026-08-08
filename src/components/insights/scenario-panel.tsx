@@ -343,7 +343,7 @@ export default function ScenarioPanel({ scenarios, profitResults }: ScenarioPane
             {/* Platform selector */}
             <div className="mb-5">
               <label className="text-caption text-tertiary uppercase tracking-widest font-semibold block mb-2">
-                当前平台：{profitResults[interactive.productIndex]?.platform || "—"}
+                当前平台：{profitResults[interactive.productIndex]?.platform || "-"}
               </label>
               <div className="flex flex-wrap gap-2">
                 {availablePlatforms.map(function(plat) {

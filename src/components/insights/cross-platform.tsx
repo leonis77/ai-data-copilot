@@ -148,7 +148,7 @@ function ProductCard({ comparison: comp, index }: { comparison: CrossPlatformCom
                 <Metric label="售价" value={"¥" + r.sellPrice.toFixed(2)} positive />
                 <Metric label="进货成本" value={"¥" + r.purchaseCost.toFixed(2)} />
                 <Metric label="平台扣费" value={"¥" + (r.costs?.commissionFee || 0).toFixed(2)} />
-                <Metric label="达人佣金" value={(r.costs?.influencerCommission || 0) > 0 ? "¥" + r.costs.influencerCommission.toFixed(2) : "—"} />
+                <Metric label="达人佣金" value={(r.costs?.influencerCommission || 0) > 0 ? "¥" + r.costs.influencerCommission.toFixed(2) : "-"} />
                 <Metric label="单品利润" value={(isPositive ? "+¥" : "−¥") + Math.abs(r.netProfitPerItem).toFixed(2)} positive={isPositive} />
                 <Metric label="利润率" value={(r.profitMargin >= 0 ? "+" : "") + r.profitMargin.toFixed(2) + "%"} positive={r.profitMargin >= 0} />
               </div>
