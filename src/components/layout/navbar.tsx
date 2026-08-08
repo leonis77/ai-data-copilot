@@ -60,7 +60,7 @@ export function Navbar() {
             <motion.div
               whileHover={{ scale: 1.08, rotate: 8 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm"
+              className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-brand flex items-center justify-center shadow-sm"
             >
               <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
             </motion.div>
@@ -101,7 +101,7 @@ export function Navbar() {
             {initialized && user ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-100">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand to-cyan-500 flex items-center justify-center text-white text-xs font-bold">
+                  <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white text-xs font-bold">
                     {userInitial}
                   </div>
                   <span className="text-sm font-medium text-primary max-w-[120px] truncate">

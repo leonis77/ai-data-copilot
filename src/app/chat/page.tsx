@@ -199,7 +199,7 @@ export default function ChatPage() {
 
   return (
     <RequireAuth>
-      <div className="min-h-screen py-12 pt-20">
+      <div className="min-h-screen py-8 pt-16">
         <div className="section-container">
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -212,20 +212,20 @@ export default function ChatPage() {
           </div>
         </motion.div>
         {!hasData ? (
-          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="text-center py-20">
+          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="text-center py-12">
             <motion.div
-              animate={{ y: [0, -12, 0], rotate: [0, 3, -3, 0] }}
+              animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="w-20 h-20 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center mb-6 relative">
+              className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center mb-5 relative">
               <div className="absolute inset-0 rounded-2xl bg-blue-500/5" />
-              <Sparkles className="w-10 h-10 text-brand relative z-10" />
+              <Sparkles className="w-8 h-8 text-brand relative z-10" />
             </motion.div>
-            <h2 className="text-title mb-3 text-primary">请先上传数据</h2>
-            <p className="text-body mb-8 leading-relaxed">AI 助手需要经营数据才能为你提供分析</p>
+            <h2 className="text-title mb-2 text-primary">请先上传数据</h2>
+            <p className="text-body mb-6 leading-relaxed">AI 助手需要经营数据才能为你提供分析</p>
             <Link href="/upload">
-              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
-                <Upload className="w-5 h-5" />{"上传数据"}
-                <ArrowRight className="w-5 h-5" />
+              <motion.button whileHover={{scale:1.03}} whileTap={{scale:0.97}} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-base px-6 py-3 rounded-xl flex items-center gap-2">
+                <Upload className="w-4 h-4" />{"上传数据"}
+                <ArrowRight className="w-4 h-4" />
               </motion.button>
             </Link>
           </motion.div>
