@@ -195,23 +195,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async function () {
     // Capture user from ref to avoid dependency on state.user
     const currentUser = userRef.current;
+    // Immediately clear local state for instant UX
+    invalidateAuthTokenCache();
+    if (currentUser) {
+      clearUserStore(currentUser.id);
+    }
+    try { localStorage.removeItem("aicopilot"); } catch {}
+    setState({
+      user: null,
+      session: null,
+      loading: false,
+      initialized: true,
+    });
+    // Fire signOut in background without awaiting
     try {
       await supabase.auth.signOut();
     } catch (e) {
       logger.error("Sign out error:", { message: e instanceof Error ? e.message : String(e) });
-    } finally {
-      // Immediately invalidate cached auth token
-      invalidateAuthTokenCache();
-      if (currentUser) {
-        clearUserStore(currentUser.id);
-      }
-      try { localStorage.removeItem("aicopilot"); } catch {}
-      setState({
-        user: null,
-        session: null,
-        loading: false,
-        initialized: true,
-      });
     }
   }, []);
 
