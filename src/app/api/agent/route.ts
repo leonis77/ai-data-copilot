@@ -8,6 +8,7 @@ import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations, detectRoles } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
+import type { CrossPlatformComparison } from "@/lib/cross-platform";
 import type { InsufficientDataResult } from "@/lib/pipeline/types";
 import { detectPlatform } from "@/lib/platform/detect";
 import { serializeDecisionChain } from "@/lib/agent/api-types";
@@ -263,6 +264,7 @@ export async function POST(request: NextRequest) {
     // ⭐ 尝试使用 DecisionPipeline（经营决策链路贯通）
     // 如果成功，返回结构化的 DecisionChain
     // 如果失败，回退到原有的 routeAgent（向后兼容）
+    var chain: any;
     try {
       const result = await executeDecisionPipeline(
         input || "请分析这些数据",
@@ -285,7 +287,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const chain = result as any;
+      chain = result as any;
       if (chain) {
         const runId = "run_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
         const chainSnapshot = JSON.parse(JSON.stringify(chain)) as Record<string, unknown>;
@@ -388,7 +390,20 @@ export async function POST(request: NextRequest) {
     const result = await routeAgent(enrichedInput || "请分析这些数据", ctx);
     logApiCall("/api/agent", true, { degraded: true });
     endTimer(timerId, "warn");
-    return NextResponse.json({ ...result, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
+
+    // 关键修复：将 routeAgent 返回的 { type: "interpret"|"query"|"report"|"general" }
+    // 规范化为 { type: "decision_chain" }，使 Dashboard 能正确识别并渲染回退分析结果。
+    // 若 pipeline 部分成功产生了 chain，保留其结构；否则以 agent 结果的内容作为摘要。
+    var fallbackContent = result.content || "分析完成（降级模式）";
+    var fallbackCrossPlatform: CrossPlatformComparison[] = [];
+    var fallbackResponse: any;
+    try {
+      var serialized = serializeDecisionChain(chain);
+      fallbackResponse = Object.assign({}, serialized, { content: fallbackContent, crossPlatform: fallbackCrossPlatform, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
+    } catch {
+      fallbackResponse = { type: "decision_chain", content: fallbackContent, crossPlatform: fallbackCrossPlatform, degraded: true, fallbackReason: "decision_pipeline_unavailable" };
+    }
+    return NextResponse.json(fallbackResponse);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Agent API failed", { requestId: rid, message });

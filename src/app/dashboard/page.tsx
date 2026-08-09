@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
   const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
   const [pipelineError, setPipelineError] = useState("");
+  const [degradedResponse, setDegradedResponse] = useState(false);
   const [agentLoading, setAgentLoading] = useState(false);
 
   // Loop history data (single source of truth for ExecutionTracker + LoopReviewBoard)
@@ -145,13 +146,16 @@ export default function DashboardPage() {
           setDecisionChain(chainData as DecisionChainResponse);
           setInsufficientData(null);
           setPipelineError("");
+          setDegradedResponse(!!(chainData as any).degraded);
         } else if (chainData.type === "insufficient_data") {
           setDecisionChain(null);
           setInsufficientData(chainData as InsufficientDataResponse);
           setPipelineError("");
+          setDegradedResponse(false);
         } else {
           var err = chainData ? parseApiError(chainData) : null;
           setPipelineError(err ? err.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
+          setDegradedResponse(false);
         }
         setAgentLoading(false);
       } catch (e) {
@@ -486,6 +490,17 @@ export default function DashboardPage() {
           <ScenarioPanel scenarios={scenarios!} profitResults={decisionChain?.metrics?.profit || []} />
         )}
 
+        {/* Degraded mode banner */}
+        {degradedResponse && decisionChain && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.4 }}
+            className="rounded-xl p-4 border border-amber-200 bg-amber-50/70 flex items-center gap-3">
+            <div className="icon-box bg-amber-100 shrink-0"><span className="text-amber-500 text-sm">⚠️</span></div>
+            <p className="text-sm text-amber-300/90">
+              深度分析引擎暂不可用，以下为简化分析结果。部分高级功能（证据卡、利润测算、跨平台对比）可能受限。
+            </p>
+          </motion.div>
+        )}
+
         {/* Row 4.5: Evidence Cards */}
         {evidenceCards.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }} className="section-gap">
@@ -568,7 +583,7 @@ export default function DashboardPage() {
                 <p className="text-body mt-1">{pipelineError}</p>
               </div>
               <button
-                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); refetchRawData(); }}
+                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); setDegradedResponse(false); refetchRawData(); }}
                 className="btn-ghost px-4 py-2 text-sm shrink-0">
                 重试
               </button>
