@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, BarChart3, AlertCircle } from "lucide-react";
@@ -67,6 +67,13 @@ export default function DashboardPage() {
     { enabled: !!user?.id && !!datasetId }
   );
   const refetchLoop = useCallback(function() { void refetchLoopRaw(); }, [refetchLoopRaw]);
+
+  // 关键修复：datasetId 从 localStorage 解析只执行一次，防止每次 rawData 变化时
+  // 都触发 useDataFetch 重新请求（rawData→stats→setDatasetId→useDataFetch 级联）
+  var resolvedDsIdRef = useRef(false);
+  if (!resolvedDsIdRef.current && !datasetId && user?.id) {
+    try { var saved = getStore(user?.id); var activeId = saved.activeId || ""; if (activeId) { setDatasetId(activeId); resolvedDsIdRef.current = true; } } catch {}
+  }
 
   // Derived loop maps (no setState needed — derived from loopData)
   var loopExecutions: Record<string, Execution[]> = {};

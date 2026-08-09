@@ -144,8 +144,10 @@ export default function UploadPage() {
       setTemplate(tmpl);
       setCols(matchResult ? buildColumnMetas(data.columns, matchResult) : data.columns.map(function(c: string) { return { name: c, type: "text" as const, selected: true }; }));
 
-      const profile = detectProfile(data.columns, data.semanticRoles);
-      addDataset(user?.id || "", data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles, data.platform || undefined);
+      // 关键修复：semanticRoles 可能为 null/undefined（Supabase 不可用或 AI 解析失败时）
+      // 直接传递 undefined 给 detectProfile，由其内部 guard 处理
+      const profile = detectProfile(data.columns, data.semanticRoles || undefined);
+      addDataset(user?.id || "", data.id, file.name, data.rowCount, data.columns, profile, data.semanticRoles || undefined, data.platform || undefined);
       if (data.rows && data.rows.length > 0) {
         saveDatasetRows(user?.id || "", data.id, data.rows, data.columns);
       }

@@ -46,13 +46,24 @@ export function useDataFetch<T>(
 
     setState({ data: null, loading: true, error: null });
 
-    dataManager.fetch(key, fetcher, ttl).then(
+    // dataManager.fetch 可能在 cache hit 时同步返回数据（非 Promise）
+    // 必须用 Promise.resolve() 包装，确保 .then() 总是异步执行，
+    // 避免在 effect 执行期间同步调用 setState 导致 React #300
+    var fetchResult = dataManager.fetch(key, fetcher, ttl);
+    var fetchPromise: Promise<any> = fetchResult instanceof Promise
+      ? fetchResult
+      : Promise.resolve(fetchResult);
+
+    var cancelled = false;
+    fetchPromise.then(
       (data) => {
+        if (cancelled) return;
         if (keyRef.current !== currentKey) return;
         if (!mountedRef.current) return;
         setState({ data, loading: false, error: null });
       },
       (err) => {
+        if (cancelled) return;
         if (keyRef.current !== currentKey) return;
         if (!mountedRef.current) return;
         if (err.name === "AbortError") return;
@@ -61,6 +72,7 @@ export function useDataFetch<T>(
     );
 
     return () => {
+      cancelled = true;
       mountedRef.current = false;
       dataManager.cancel(currentKey);
     };
