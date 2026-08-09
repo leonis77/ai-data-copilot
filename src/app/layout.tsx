@@ -17,6 +17,7 @@ export const viewport: Viewport = {
 
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthProvider } from "@/lib/auth-context";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function RootLayout({
   children,
@@ -47,11 +48,40 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
+        {/* Global error reporting */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__ERROR_BOUNDARY__ = [];
+              window.onerror = function(msg, url, line, col, err) {
+                window.__ERROR_BOUNDARY__.push({
+                  type: 'runtime',
+                  message: msg,
+                  url: url,
+                  line: line,
+                  col: col,
+                  stack: err ? err.stack : null,
+                  ts: Date.now()
+                });
+              };
+              window.addEventListener('unhandledrejection', function(e) {
+                window.__ERROR_BOUNDARY__.push({
+                  type: 'unhandled_rejection',
+                  message: e.reason ? (e.reason.message || String(e.reason)) : 'unknown',
+                  stack: e.reason ? e.reason.stack : null,
+                  ts: Date.now()
+                });
+              });
+            `,
+          }}
+        />
       </head>
       <body className="min-h-screen text-primary antialiased touch-manipulation">
         <AuthProvider>
-          <Navbar />
-          <AppShell>{children}</AppShell>
+          <ErrorBoundary>
+            <Navbar />
+            <AppShell>{children}</AppShell>
+          </ErrorBoundary>
         </AuthProvider>
       </body>
     </html>
