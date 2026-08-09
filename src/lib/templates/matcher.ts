@@ -184,14 +184,16 @@ function toWordSegments(text: string): string[] {
 /**
  * 检查 keyword 是否以「词边界」形式出现在 text 中。
  *
- * 规则（滑动窗口）：
+ * 规则（三层策略）：
  * - text === keyword → 命中
- * - keyword 的词段序列作为 text 词段序列的连续子序列出现 → 命中
- *   例: keyword="金额" 命中 text="实付金额"（seg ["实","付","金额"] 的末尾 ["金额"]）
- *   例: keyword="订单" 命中 text="订单号"（seg ["订单","号"] 的开头 ["订单"]）
- *   例: keyword="订单ID" 不命中 text="订单号"（seg ["订单","号"] vs ["订单","ID"] 末尾不同）
- *   例: keyword="收货" 命中 text="收货地址"（seg ["收","货","地址"] 的子序列 ["货","址"]? No!）
- *   Wait — "收货" = ["收","货"], "收货地址" = ["收","货","址"]. Subsequence ["收","货"] at start → 命中 ✓
+ * - Strategy 1: keyword 的词段序列作为 text 词段序列的连续子序列出现 → 命中
+ * - Strategy 2: CJK-only 时用字符级子序列（处理 Segmenter 分词粒度差异）
+ * - Strategy 3: mixed CJK/non-CJK 时用 substring（处理非中文字符插入场景）
+ *
+ * 例: keyword="金额" 命中 text="实付金额"（seg ["实","付","金额"] 的末尾 ["金额"]）
+ * 例: keyword="订单" 命中 text="订单号"（seg ["订单","号"] 的开头 ["订单"]）
+ * 例: keyword="订单ID" 不命中 text="订单号"（seg ["订单","号"] vs ["订单","ID"] 末尾不同）
+ * 例: keyword="收货" 命中 text="收货地址"（seg ["收货","地址"] 的开头 ["收货"]）
  */
 function matchesAtWordBoundary(text: string, keyword: string): boolean {
   if (text === keyword) return true;
@@ -211,17 +213,26 @@ function matchesAtWordBoundary(text: string, keyword: string): boolean {
   // Handles cases where Segmenter groups chars differently, e.g.:
   //   '订单号' vs '订单编号'  -> '号' not in seg '编号'
   //   '收货地址' vs '收货人地址' -> '收货' not in seg '收货人'
-  var isCjkKeyword = /^[一-鿿]+$/ .test(keyword);
-  var isCjkText = /^[一-鿿]+$/ .test(text);
+  var isCjkKeyword = /^[一-鿿]+$/.test(keyword);
+  var isCjkText = /^[一-鿿]+$/.test(text);
   if (isCjkKeyword && isCjkText) {
-    var ci = 0;
+    var ci2 = 0;
     for (var c = 0; c < keyword.length; c++) {
-      while (ci < text.length && text[ci] !== keyword[c]) ci++;
-      if (ci >= text.length) return false;
-      ci++;
+      while (ci2 < text.length && text[ci2] !== keyword[c]) ci2++;
+      if (ci2 >= text.length) return false;
+      ci2++;
     }
     return true;
   }
+
+  // Strategy 3: substring fallback for mixed CJK/non-CJK text
+  // Handles cases like text="实付金额(元)" keyword="金额":
+  //   Segmenter may split "实付金额(元)" → ['实','付','金额(元)']
+  //   kwSegs=['金额'] not found as subsequence in ['实','付','金额(元)']
+  //   But text.indexOf('金额') >= 0 → TRUE
+  // Guard: only fires when Strategies 1+2 failed (prevents false positives)
+  if (text.indexOf(keyword) >= 0) return true;
+  if (keyword.indexOf(text) >= 0) return true;
 
   return false;
 }

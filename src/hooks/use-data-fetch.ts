@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { dataManager } from "@/lib/data-manager";
 
 export function useDataFetch<T>(
@@ -30,9 +30,14 @@ export function useDataFetch<T>(
   const ttl = options?.ttl ?? 60_000;
   const enabled = options?.enabled ?? true;
   const [refetchSignal, setRefetchSignal] = useState(0);
-  var allDeps = useMemo(function() { return [...deps, refetchSignal]; }, [deps.join(","), refetchSignal]);
 
-  useEffect(() => {
+  // CRITICAL: Do NOT wrap deps in useMemo. useMemo does NOT guarantee
+  // reference stability (React documentation explicitly states this).
+  // A new array reference on every render would make useEffect fire
+  // continuously, cascading into React #300 "Too many re-renders".
+  // Spreading deps directly into useEffect's dependency array is correct
+  // and only triggers the effect when a value actually changes.
+  useEffect(function () {
     mountedRef.current = true;
     const currentKey = key;
     keyRef.current = key;
@@ -56,13 +61,13 @@ export function useDataFetch<T>(
 
     var cancelled = false;
     fetchPromise.then(
-      (data) => {
+      function (data) {
         if (cancelled) return;
         if (keyRef.current !== currentKey) return;
         if (!mountedRef.current) return;
-        setState({ data, loading: false, error: null });
+        setState({ data: data, loading: false, error: null });
       },
-      (err) => {
+      function (err) {
         if (cancelled) return;
         if (keyRef.current !== currentKey) return;
         if (!mountedRef.current) return;
@@ -71,16 +76,16 @@ export function useDataFetch<T>(
       }
     );
 
-    return () => {
+    return function () {
       cancelled = true;
       mountedRef.current = false;
       dataManager.cancel(currentKey);
     };
-  }, allDeps);
+  }, [...deps, refetchSignal]);
 
-  const refetch = useCallback(() => {
+  const refetch = useCallback(function () {
     dataManager.invalidate(key);
-    setRefetchSignal((s) => s + 1);
+    setRefetchSignal(function (s) { return s + 1; });
   }, [key]);
 
   return { ...state, refetch };
