@@ -68,13 +68,6 @@ export default function DashboardPage() {
   );
   const refetchLoop = useCallback(function() { void refetchLoopRaw(); }, [refetchLoopRaw]);
 
-  // 关键修复：datasetId 从 localStorage 解析只执行一次，防止每次 rawData 变化时
-  // 都触发 useDataFetch 重新请求（rawData→stats→setDatasetId→useDataFetch 级联）
-  var resolvedDsIdRef = useRef(false);
-  if (!resolvedDsIdRef.current && !datasetId && user?.id) {
-    try { var saved = getStore(user?.id); var activeId = saved.activeId || ""; if (activeId) { setDatasetId(activeId); resolvedDsIdRef.current = true; } } catch {}
-  }
-
   // Derived loop maps (no setState needed — derived from loopData)
   var loopExecutions: Record<string, Execution[]> = {};
   var loopOutcomes: Record<string, Outcome[]> = {};
@@ -87,20 +80,29 @@ export default function DashboardPage() {
     }
   }
 
-  // Compute stats when rawData changes
+  // Resolve datasetId from localStorage once on mount (separate from stats to prevent cascade)
+  useEffect(function () {
+    if (datasetId) return;
+    try {
+      var saved = getStore(user?.id || "");
+      var activeId = saved.activeId || "";
+      if (activeId) setDatasetId(activeId);
+    } catch {}
+  }, [user?.id]);
+
+  // Compute stats when rawData changes (datasetId intentionally excluded to prevent cascade)
   useEffect(function () {
     if (!rawData) return;
+    var parsed = computeStatsCached(rawData.rows, rawData.columns);
+    setStats(parsed);
     var resolvedDsId = datasetId;
     if (!resolvedDsId) {
       try { resolvedDsId = getStore(user?.id || "").activeId || ""; } catch {}
-      if (resolvedDsId) setDatasetId(resolvedDsId);
     }
-    var parsed = computeStatsCached(rawData.rows, rawData.columns);
-    setStats(parsed);
-    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === (resolvedDsId || datasetId); })?.originalName || "");
+    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === (resolvedDsId || ""); })?.originalName || "");
     setHasData(true);
     setDatasetData(rawData);
-  }, [rawData, datasetId, user?.id]);
+  }, [rawData, user?.id]);
 
   // Fetch agent analysis when data changes
   useEffect(function () {
