@@ -27,22 +27,25 @@ export function useDataFetch<T>(
 
   const mountedRef = useRef(true);
   const keyRef = useRef(key);
+
+  // ⚠️ 必须在 useEffect 之前声明，因为 effect 的 .then() 闭包会引用它们
+  const currentKey = key;
   const ttl = options?.ttl ?? 60_000;
   const enabled = options?.enabled ?? true;
-  const [refetchSignal, setRefetchSignal] = useState(0);
 
-  // CRITICAL: Do NOT wrap deps in useMemo. useMemo does NOT guarantee
-  // reference stability (React documentation explicitly states this).
-  // A new array reference on every render would make useEffect fire
-  // continuously, cascading into React #300 "Too many re-renders".
-  // Spreading deps directly into useEffect's dependency array is correct
-  // and only triggers the effect when a value actually changes.
+  // ⚠️ 不要将 refetchSignal 放入 useEffect 依赖数组。
+  // 根因: refetch() 调用 setRefetchSignal → 触发 re-render →
+  // effect 检测到 refetchSignal 变化 → 重新执行 → setState → re-render →
+  // effect 再次执行... 无限级联 → React #300 "Too many re-renders"。
+  //
+  // 正确做法: effect 仅依赖 [...deps]，refetch 直接调用 fetcher + setState，
+  // 绕过 effect 依赖数组。这样 refetch 不会触发 effect 重新执行。
+
   useEffect(function () {
     mountedRef.current = true;
-    const currentKey = key;
-    keyRef.current = key;
+    keyRef.current = currentKey;
 
-    dataManager.cancel(key);
+    dataManager.cancel(currentKey);
 
     if (!enabled) {
       setState({ data: null, loading: false, error: null });
@@ -51,10 +54,7 @@ export function useDataFetch<T>(
 
     setState({ data: null, loading: true, error: null });
 
-    // dataManager.fetch 可能在 cache hit 时同步返回数据（非 Promise）
-    // 必须用 Promise.resolve() 包装，确保 .then() 总是异步执行，
-    // 避免在 effect 执行期间同步调用 setState 导致 React #300
-    var fetchResult = dataManager.fetch(key, fetcher, ttl);
+    var fetchResult = dataManager.fetch(currentKey, fetcher, ttl);
     var fetchPromise: Promise<any> = fetchResult instanceof Promise
       ? fetchResult
       : Promise.resolve(fetchResult);
@@ -81,12 +81,25 @@ export function useDataFetch<T>(
       mountedRef.current = false;
       dataManager.cancel(currentKey);
     };
-  }, [...deps, refetchSignal]);
+  }, [...deps]);
 
   const refetch = useCallback(function () {
-    dataManager.invalidate(key);
-    setRefetchSignal(function (s) { return s + 1; });
-  }, [key]);
+    dataManager.invalidate(keyRef.current);
+    const signal = new AbortController();
+    fetcher(signal.signal).then(
+      function (data) {
+        if (keyRef.current !== currentKey) return;
+        if (!mountedRef.current) return;
+        setState({ data: data, loading: false, error: null });
+      },
+      function (err) {
+        if (keyRef.current !== currentKey) return;
+        if (!mountedRef.current) return;
+        if (err.name === "AbortError") return;
+        setState({ data: null, loading: false, error: err as Error });
+      }
+    );
+  }, [fetcher, currentKey]);
 
   return { ...state, refetch };
 }
