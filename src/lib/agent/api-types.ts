@@ -9,6 +9,8 @@ export interface DecisionChainResponse extends DecisionChain {
   decisionId?: string;
   /** 关联的分析运行 ID */
   analysisRunId?: string;
+  /** true = pipeline 降级到 routeAgent，内容为简化版 */
+  degraded?: boolean;
 }
 
 export interface InsufficientDataResponse {

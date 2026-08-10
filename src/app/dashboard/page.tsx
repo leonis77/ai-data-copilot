@@ -161,6 +161,14 @@ export default function DashboardPage() {
           setInsufficientData(chainData as InsufficientDataResponse);
           setPipelineError("");
           setDegradedResponse(false);
+        } else if ((chainData as any).degraded) {
+          // routeAgent 降级响应：pipeline 失败但 routeAgent 返回了有效分析
+          // 归一化为 decision_chain 以正常渲染，顶部显示降级提示
+          var normalized: any = Object.assign({ type: "decision_chain" }, chainData);
+          setDecisionChain(normalized as DecisionChainResponse);
+          setInsufficientData(null);
+          setPipelineError("");
+          setDegradedResponse(true);
         } else {
           var err = chainData ? parseApiError(chainData) : null;
           setPipelineError(err ? err.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
