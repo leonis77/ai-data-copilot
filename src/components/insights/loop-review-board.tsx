@@ -1,78 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { Fragment, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  TrendingUp,
-  CheckCircle2,
-  XCircle,
-  PlayCircle,
-  BarChart3,
-  Clock,
-  RefreshCcw,
-  Filter,
-  ChevronDown,
-  Plus,
-  AlertTriangle,
-  Target,
-  Award,
-  Activity,
-} from "lucide-react";
-import { GlassCard } from "@/components/ui/glass-card";
-import type { Decision, ActionTask, Execution, Outcome } from "@/lib/loop/types";
-import type { LoopHistory } from "@/lib/loop/client";
-import { fetchLoopHistory, updateDecisionStatus, updateActionTaskStatus, startExecution, completeExecution, saveOutcome } from "@/lib/loop/client";
-import { useAuth } from "@/lib/auth-context";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════════════════════════════════════════
+import { TrendingUp, CheckCircle2, XCircle, PlayCircle, BarChart3, Clock, RefreshCcw } from "lucide-react";
+import type { Execution, Outcome } from "@/lib/loop/types";
+import type { PrioritizedAction } from "@/lib/pipeline/types";
+import { useDataContext, dataEventBus } from "@/contexts/data-context";
+import { updateDecisionStatus } from "@/lib/loop/client";
 
 interface LoopReviewBoardProps {
-  datasetId: string;
-  loopData: LoopHistory | null;
-  loading: boolean;
-  error: Error | null;
-  onRefresh: () => void;
+  onDecisionStatusChange?: (decisionId: string, status: "approved" | "rejected") => void;
+  pendingActions?: PrioritizedAction[];
 }
-
-interface DecisionRow {
-  decision: Decision;
-  actionTasks: ActionTask[];
-  executions: Record<string, Execution[]>;
-  outcomes: Record<string, Outcome[]>;
-}
-
-type TabType = "all" | "pending" | "executing" | "verified";
-
-const VERDICT_LABEL: Record<string, string> = {
-  buy_more: "加量",
-  hold: "维持",
-  reduce: "减量",
-  drop: "止损",
-  custom: "自定义",
-};
-
-const VERDICT_COLOR: Record<string, string> = {
-  buy_more: "text-emerald-500",
-  hold: "text-brand",
-  reduce: "text-amber-500",
-  drop: "text-red-500",
-  custom: "text-brand",
-};
-
-const STATUS_ICON: Record<string, React.ReactElement> = {
-  running: <PlayCircle className="w-3.5 h-3.5 text-amber-500" />,
-  completed: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
-  failed: <XCircle className="w-3.5 h-3.5 text-red-500" />,
-  cancelled: <XCircle className="w-3.5 h-3.5 text-faint" />,
-  pending: <Clock className="w-3.5 h-3.5 text-faint" />,
-  in_progress: <PlayCircle className="w-3.5 h-3.5 text-amber-500" />,
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function formatMoney(n: number): string {
   if (Math.abs(n) >= 10000) return "¥" + (n / 10000).toFixed(1) + "万";
@@ -82,648 +21,505 @@ function formatMoney(n: number): string {
 
 function formatDate(iso: string): string {
   if (!iso) return "";
-  const d = new Date(iso);
+  var d = new Date(iso);
   return d.toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDateFull(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+var VERDICT_LABEL: Record<string, string> = {
+  buy_more: "加量", hold: "维持", reduce: "减量", drop: "止损", custom: "自定义",
+};
+
+var VERDICT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  buy_more: { bg: "rgba(5,150,105,0.06)", text: "#059669", border: "rgba(5,150,105,0.12)" },
+  hold:     { bg: "rgba(79,70,229,0.06)", text: "#4F46E5", border: "rgba(79,70,229,0.12)" },
+  reduce:   { bg: "rgba(180,83,9,0.06)", text: "#B45309", border: "rgba(180,83,9,0.12)" },
+  drop:     { bg: "rgba(220,38,38,0.06)", text: "#DC2626", border: "rgba(220,38,38,0.12)" },
+  custom:   { bg: "rgba(79,70,229,0.06)", text: "#4F46E5", border: "rgba(79,70,229,0.12)" },
+};
+
+var STATUS_STYLES: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+  running:     { icon: <PlayCircle className="w-3.5 h-3.5" />, label: "执行中", color: "#D97706" },
+  completed:   { icon: <CheckCircle2 className="w-3.5 h-3.5" />, label: "已完成", color: "#059669" },
+  failed:      { icon: <XCircle className="w-3.5 h-3.5" />, label: "失败", color: "#DC2626" },
+  cancelled:   { icon: <XCircle className="w-3.5 h-3.5" />, label: "已取消", color: "rgba(15,15,18,0.30)" },
+  pending:     { icon: <Clock className="w-3.5 h-3.5" />, label: "待执行", color: "rgba(15,15,18,0.30)" },
+  in_progress: { icon: <PlayCircle className="w-3.5 h-3.5" />, label: "进行中", color: "#D97706" },
+};
+
+var DECISION_STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  pending:   { bg: "rgba(79,70,229,0.04)", text: "rgba(15,15,18,0.38)", border: "rgba(0,0,0,0.05)" },
+  approved:  { bg: "rgba(5,150,105,0.04)", text: "#059669", border: "rgba(5,150,105,0.10)" },
+  rejected:  { bg: "rgba(220,38,38,0.04)", text: "#DC2626", border: "rgba(220,38,38,0.10)" },
+  completed: { bg: "rgba(79,70,229,0.04)", text: "#4F46E5", border: "rgba(79,70,229,0.10)" },
+};
+
+var RISK_COLORS: Record<string, string> = {
+  high: "#DC2626", medium: "#B45309", low: "#059669",
+};
+
+// ═══ Summary formatting ═══
+
+interface FormattedSegment {
+  type: "header" | "bullet" | "subbullet" | "numbered" | "body" | "empty";
+  text: string;
+  indent: number;
+  raw: string;
 }
 
-function statusLabel(s: string): string {
-  if (s === "completed") return "已完成";
-  if (s === "failed") return "失败";
-  if (s === "cancelled") return "已取消";
-  if (s === "running") return "执行中";
-  return "待执行";
+function parseSummary(raw: string): FormattedSegment[] {
+  if (!raw) return [];
+  const lines = raw.split(/\r?\n/);
+  var segments: FormattedSegment[] = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+    if (trimmed === "") {
+      segments.push({ type: "empty", text: "", indent: 0, raw: line });
+      continue;
+    }
+    var numberedMatch = trimmed.match(/^#\s*(\d+[\.\、])\s*(.*)$/);
+    if (numberedMatch) {
+      segments.push({ type: "header", text: trimmed, indent: 0, raw: line });
+      continue;
+    }
+    if (/^(\s{2,})\s*[-*]\s/.test(trimmed) || /^(\s{2,})\s*\d+[\.\)]\s/.test(trimmed)) {
+      segments.push({ type: "subbullet", text: trimmed, indent: 1, raw: line });
+      continue;
+    }
+    if (/^[-*]\s/.test(trimmed) || /^\d+[\.\)]\s/.test(trimmed)) {
+      segments.push({ type: "bullet", text: trimmed, indent: 0, raw: line });
+      continue;
+    }
+    segments.push({ type: "body", text: trimmed, indent: 0, raw: line });
+  }
+  return segments;
 }
 
-function statusColor(s: string): string {
-  if (s === "completed") return "text-emerald-500";
-  if (s === "failed") return "text-red-500";
-  if (s === "running") return "text-amber-500";
-  return "text-faint";
+function renderInlineMarkup(text: string): React.ReactNode {
+  var parts: React.ReactNode[] = [];
+  var remaining = text;
+  var key = 0;
+  while (remaining.length > 0) {
+    var boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+    if (boldMatch && boldMatch.index !== undefined) {
+      if (boldMatch.index > 0) {
+        parts.push(<span key={key++}>{remaining.slice(0, boldMatch.index)}</span>);
+      }
+      parts.push(<strong key={key++} className="font-bold" style={{ color: "rgba(15,15,18,0.88)" }}>{boldMatch[1]}</strong>);
+      remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+      continue;
+    }
+    if (remaining.length > 0) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      remaining = "";
+    }
+  }
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Sub-components
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function KpiCard({ title, value, subtitle, icon, trend, trendValue, colorClass = "text-primary" }: {
-  title: string; value: string | number; subtitle: string; icon: React.ReactNode; trend?: "up" | "down" | "neutral"; trendValue?: string; colorClass?: string;
-}) {
+function FormattedDecisionSummary({ raw }: { raw: string }) {
+  var segments = parseSummary(raw);
   return (
-    <GlassCard className="p-4 rounded-xl" hover={false} delay={0}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-caption text-faint uppercase tracking-wider font-medium">{title}</span>
-        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-faint">{icon}</div>
-      </div>
-      <div className={"text-2xl font-semibold " + colorClass}>{value}</div>
-      <div className="text-caption text-faint mt-1">{subtitle}</div>
-      {trend && trendValue && (
-        <div className={"text-xs mt-2 flex items-center gap-1 " + (trend === "up" ? "text-emerald-500" : trend === "down" ? "text-red-500" : "text-faint")}>
-          <TrendingUp className="w-3 h-3" />
-          {trendValue}
-        </div>
-      )}
-    </GlassCard>
-  );
-}
-
-function TabButton({ active, onClick, children, count }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 " + (
-        active ? "bg-brand text-white shadow-sm" : "text-secondary hover:text-primary hover:bg-gray-50"
-      )}>
-      {children}
-      {count !== undefined && <span className={"text-[10px] px-1.5 py-0.5 rounded-full " + (active ? "bg-white/20 text-white" : "bg-gray-100 text-faint")}>{count}</span>}
-    </button>
-  );
-}
-
-function FilterBar({ filter, setFilter, sortBy, setSortBy }: {
-  filter: string; setFilter: (v: string) => void; sortBy: string; setSortBy: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div className="relative">
-        <select
-          value={filter}
-          onChange={function(e) { setFilter(e.target.value); }}
-          className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs border border-gray-200 bg-white text-secondary outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all cursor-pointer">
-          <option value="all">全部 verdict</option>
-          <option value="buy_more">加量采购</option>
-          <option value="hold">维持现状</option>
-          <option value="reduce">减少采购</option>
-          <option value="drop">停止采购</option>
-        </select>
-        <ChevronDown className="w-3 h-3 text-faint absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-      </div>
-      <div className="relative">
-        <select
-          value={sortBy}
-          onChange={function(e) { setSortBy(e.target.value); }}
-          className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs border border-gray-200 bg-white text-secondary outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all cursor-pointer">
-          <option value="newest">最新优先</option>
-          <option value="oldest">最早优先</option>
-          <option value="profit_desc">预期收益 ↓</option>
-          <option value="profit_asc">预期收益 ↑</option>
-        </select>
-        <ChevronDown className="w-3 h-3 text-faint absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-      </div>
+    <div className="text-sm leading-relaxed space-y-1" style={{ color: "rgba(15,15,18,0.62)" }}>
+      {segments.map(function(seg, i) {
+        if (seg.type === "empty") return <div key={i} className="h-2" />;
+        if (seg.type === "header") {
+          return (
+            <div key={i} className="font-bold text-xs uppercase tracking-wider mt-3 first:mt-0" style={{ color: "rgba(15,15,18,0.78)" }}>
+              {renderInlineMarkup(seg.text)}
+            </div>
+          );
+        }
+        if (seg.type === "bullet") {
+          return (
+            <div key={i} className="flex items-start gap-2 pl-1">
+              <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ background: "rgba(15,15,18,0.18)" }} />
+              <span className="flex-1">{renderInlineMarkup(seg.text)}</span>
+            </div>
+          );
+        }
+        if (seg.type === "subbullet") {
+          return (
+            <div key={i} className="flex items-start gap-2 pl-6">
+              <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ background: "rgba(15,15,18,0.12)" }} />
+              <span className="flex-1 text-xs" style={{ color: "rgba(15,15,18,0.52)" }}>{renderInlineMarkup(seg.text)}</span>
+            </div>
+          );
+        }
+        if (seg.type === "numbered") {
+          return (
+            <div key={i} className="flex items-start gap-2 pl-1">
+              <span className="text-[10px] font-bold mt-0.5 shrink-0" style={{ color: "rgba(15,15,18,0.28)" }}>#</span>
+              <span className="flex-1">{renderInlineMarkup(seg.text)}</span>
+            </div>
+          );
+        }
+        return (
+          <p key={i} className="text-xs leading-relaxed">{renderInlineMarkup(seg.text)}</p>
+        );
+      })}
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Inline Execution Tracker (embedded in board)
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══ Mini Sub-components ═══
 
-function InlineTaskItem({ task, executions, outcomes, onRefresh }: {
-  task: ActionTask; executions: Execution[]; outcomes: Outcome[]; onRefresh: () => void;
+function StatPill({ label, value, sub, accent = "#4F46E5" }: {
+  label: string; value: string; sub: string; accent?: string;
 }) {
-  const [running, setRunning] = useState(false);
-  const [showOutcomeForm, setShowOutcomeForm] = useState(false);
-  const [outcomeMetric, setOutcomeMetric] = useState("月利润");
-  const [beforeValue, setBeforeValue] = useState("");
-  const [afterValue, setAfterValue] = useState("");
-  const [outcomeResult, setOutcomeResult] = useState<string | null>(null);
-
-  const latestExecution = executions.length > 0 ? executions[0] : null;
-  const latestOutcome = outcomes.length > 0 ? outcomes[0] : null;
-  const improvement = latestOutcome ? latestOutcome.improvement : 0;
-  const improvementPercent = latestOutcome ? latestOutcome.improvementPercent : 0;
-  const isPositive = improvement > 0;
-  const isNegative = improvement < 0;
-
-  async function handleStart() {
-    try {
-      setRunning(true);
-      setOutcomeResult(null);
-      const res = await startExecution({
-        id: "exec_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8),
-        actionTaskId: task.id,
-        executedBy: "user",
-      });
-      if (res.ok) onRefresh();
-    } catch (e) {
-      setOutcomeResult(e instanceof Error ? e.message : "执行失败");
-    } finally { setRunning(false); }
-  }
-
-  async function handleComplete() {
-    if (!latestExecution) return;
-    try {
-      setRunning(true);
-      setOutcomeResult(null);
-      await completeExecution({ executionId: latestExecution.id, status: "completed", result: "已完成" });
-      onRefresh();
-    } catch (e) {
-      setOutcomeResult(e instanceof Error ? e.message : "完成执行失败");
-    } finally { setRunning(false); }
-  }
-
-  async function handleSaveOutcome() {
-    if (!latestExecution) return;
-    const before = Number(beforeValue);
-    const after = Number(afterValue);
-    if (isNaN(before) || isNaN(after)) {
-      setOutcomeResult("请输入有效的数字");
-      return;
-    }
-    try {
-      setRunning(true);
-      setOutcomeResult(null);
-      await saveOutcome({
-        id: "outcome_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8),
-        executionId: latestExecution.id,
-        metric: outcomeMetric,
-        beforeValue: before,
-        afterValue: after,
-      });
-      setShowOutcomeForm(false);
-      setBeforeValue("");
-      setAfterValue("");
-      onRefresh();
-    } catch (e) {
-      setOutcomeResult(e instanceof Error ? e.message : "保存结果失败");
-    } finally { setRunning(false); }
-  }
-
   return (
-    <div className="flex items-center gap-2 text-sm py-2 border-b border-gray-50 last:border-0">
-      <div className="flex-1 min-w-0">
-        <span className="text-secondary truncate block">{task.title}</span>
-        <span className="text-faint text-xs">{task.priority} · {task.riskLevel === "high" ? "高风险" : task.riskLevel === "medium" ? "中风险" : "低风险"}</span>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {latestExecution ? (
-          <>
-            <span className={"flex items-center gap-1 text-xs " + statusColor(latestExecution.status)}>
-              {STATUS_ICON[latestExecution.status] || STATUS_ICON.pending}
-              {statusLabel(latestExecution.status)}
-            </span>
-            {latestOutcome && (
-              <span className={"flex items-center gap-1 text-xs " + (isPositive ? "text-emerald-500/70" : isNegative ? "text-red-500/70" : "text-faint")}>
-                <TrendingUp className="w-3 h-3" />
-                {isPositive ? "+" : ""}{improvementPercent.toFixed(1)}%
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-faint text-xs">未执行</span>
-        )}
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {(!latestExecution || latestExecution.status === "cancelled" || latestExecution.status === "failed") && (
-          <button onClick={handleStart} disabled={running} className="px-2 py-1 rounded-md bg-brand/10 text-brand text-xs hover:bg-brand/20 transition-colors disabled:opacity-50">
-            开始
-          </button>
-        )}
-        {latestExecution && latestExecution.status === "running" && (
-          <button onClick={handleComplete} disabled={running} className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-600 text-xs hover:bg-emerald-100 transition-colors disabled:opacity-50">
-            完成
-          </button>
-        )}
-        {latestExecution && latestExecution.status === "completed" && !latestOutcome && !showOutcomeForm && (
-          <button onClick={() => setShowOutcomeForm(true)} className="px-2 py-1 rounded-md border border-gray-200 text-secondary text-xs hover:border-brand/30 hover:text-brand transition-all">
-            录入
-          </button>
-        )}
-        {showOutcomeForm && (
-          <div className="flex items-center gap-1">
-            <input value={outcomeMetric} onChange={function(e) { setOutcomeMetric(e.target.value); }} placeholder="指标" className="w-16 px-1.5 py-1 rounded text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand" />
-            <input type="number" value={beforeValue} onChange={function(e) { setBeforeValue(e.target.value); }} placeholder="前" className="w-14 px-1.5 py-1 rounded text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand" />
-            <input type="number" value={afterValue} onChange={function(e) { setAfterValue(e.target.value); }} placeholder="后" className="w-14 px-1.5 py-1 rounded text-xs border border-gray-200 bg-white text-primary outline-none focus:border-brand" />
-            <button onClick={handleSaveOutcome} disabled={running} className="px-2 py-1 rounded-md bg-emerald-500 text-white text-xs hover:bg-emerald-600 disabled:opacity-50">保存</button>
-            <button onClick={() => { setShowOutcomeForm(false); setOutcomeResult(null); }} className="px-2 py-1 rounded-md border border-gray-200 text-secondary text-xs hover:text-primary">取消</button>
-          </div>
-        )}
-        {outcomeResult && <span className="text-xs text-red-500/70">{outcomeResult}</span>}
-      </div>
+    <div className="rounded-xl p-4 border transition-all" style={{ background: "var(--color-bg-surface)", borderColor: "rgba(0,0,0,0.04)" }}>
+      <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "rgba(15,15,18,0.38)" }}>{label}</div>
+      <div className="text-xl font-extrabold tracking-tight" style={{ color: accent, letterSpacing: "-0.01em" }}>{value}</div>
+      <div className="text-[10px] font-medium mt-1" style={{ color: "rgba(15,15,18,0.30)" }}>{sub}</div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Main Component
-// ═══════════════════════════════════════════════════════════════════════════════
+function FlowBadge({ label, bg, text, border }: { label: string; bg: string; text: string; border: string }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ background: bg, color: text, border: "1px solid " + border }}>{label}</span>
+  );
+}
 
-export default function LoopReviewBoard({ datasetId, loopData, loading, error, onRefresh }: LoopReviewBoardProps) {
-  const { user } = useAuth();
-  const [updating, setUpdating] = useState<Record<string, boolean>>({});
-  const [tab, setTab] = useState<TabType>("all");
-  const [filter, setFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+// ═══ Main ═══
 
-  var loadingRef = useRef(false);
+export default function LoopReviewBoard({
+  onDecisionStatusChange,
+  pendingActions = [],
+}: LoopReviewBoardProps) {
+  const { state, dispatch } = useDataContext();
+  const { rows, loopLoading, loopError } = state.loop;
 
-  var rows: DecisionRow[] = useMemo(function() {
-    if (!loopData || !loopData.decisions) return [];
-    return loopData.decisions.map(function(dd: any) {
-      return {
-        decision: dd.decision,
-        actionTasks: dd.actionTasks || [],
-        executions: dd.executions || {},
-        outcomes: dd.outcomes || {},
-      };
-    });
-  }, [loopData]);
+  const handleRefresh = useCallback(async () => {
+    // Refresh is handled automatically by useLoopData when dataset changes
+    // This is a no-op placeholder for backward compatibility
+  }, []);
 
-  var onRefreshRef = useRef(onRefresh);
-  onRefreshRef.current = onRefresh;
-
-  useEffect(function() {
-    void onRefreshRef.current();
-  }, [datasetId]);
-
-  async function handleDecisionStatusChange(decisionId: string, status: Decision["status"]) {
-    setUpdating(function(prev) { var next = Object.assign({}, prev); next[decisionId] = true; return next; });
-    try {
-      await updateDecisionStatus({ decisionId, status });
-      await onRefresh();
-    } catch (e) {
-      console.error("更新决策状态失败:", e);
-    } finally {
-      setUpdating(function(prev) { var next = Object.assign({}, prev); next[decisionId] = false; return next; });
-    }
-  }
-
-  async function handleTaskStatusChange(taskId: string, status: ActionTask["status"]) {
-    try {
-      await updateActionTaskStatus({ taskId, status });
-      await onRefresh();
-    } catch (e) {
-      console.error("更新任务状态失败:", e);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Aggregates
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  var aggregates = useMemo(function() {
-    var totalDecisions = rows.length;
-    var totalActionTasks = 0;
-    var executedTasks = 0;
-    var completedTasks = 0;
-    var failedTasks = 0;
-    var totalOutcomes = 0;
-    var verifiedProfitImpact = 0;
-    var expectedProfitImpact = 0;
-    var outcomesWithPositiveImprovement = 0;
-    var approvedDecisions = 0;
-
-    for (const row of rows) {
-      if (row.decision.status === "approved" || row.decision.status === "completed") approvedDecisions++;
-      totalActionTasks += row.actionTasks.length;
-      expectedProfitImpact += (row.decision.expectedProfitImpact || 0);
-      for (const t of row.actionTasks) {
-        const exes = row.executions[t.id] || [];
-        if (exes.length > 0) executedTasks++;
-        if (exes.some(function(e: Execution) { return e.status === "completed"; })) completedTasks++;
-        if (exes.some(function(e: Execution) { return e.status === "failed"; })) failedTasks++;
-        const outs = row.outcomes[t.id] || [];
-        totalOutcomes += outs.length;
-        for (const o of outs) {
-          verifiedProfitImpact += o.improvement;
-          if (o.improvement > 0) outcomesWithPositiveImprovement++;
+  const handleDecisionStatus = useCallback(
+    async (decisionId: string, status: "approved" | "rejected") => {
+      if (onDecisionStatusChange) {
+        await onDecisionStatusChange(decisionId, status);
+      } else {
+        try {
+          await updateDecisionStatus({ decisionId, status });
+          // Trigger refresh via event bus
+          dataEventBus.emit("loop:refreshed", { source: "loop-review-board" });
+        } catch (e) {
+          console.error("Failed to update decision status:", e);
         }
       }
-    }
+    },
+    [onDecisionStatusChange]
+  );
 
-    var approvalRate = totalDecisions > 0 ? Math.round((approvedDecisions / totalDecisions) * 100) : 0;
-    var executionRate = totalActionTasks > 0 ? Math.round((executedTasks / totalActionTasks) * 100) : 0;
-    var completionRate = totalActionTasks > 0 ? Math.round((completedTasks / totalActionTasks) * 100) : 0;
-    var positiveRate = totalOutcomes > 0 ? Math.round((outcomesWithPositiveImprovement / totalOutcomes) * 100) : 0;
-    var profitDelta = verifiedProfitImpact - expectedProfitImpact;
-    var profitDeltaPercent = expectedProfitImpact !== 0 ? Math.round((profitDelta / Math.abs(expectedProfitImpact)) * 100) : 0;
+  // Computed aggregations
+  var loopTotalDecisions = 0, loopTotalActionTasks = 0, loopExecutedTasks = 0, loopCompletedTasks = 0;
+  var loopFailedTasks = 0, loopTotalOutcomes = 0, loopVerifiedProfit = 0, loopExpectedProfit = 0;
+  var loopPositiveOutcomes = 0;
 
-    return {
-      totalDecisions, totalActionTasks, executedTasks, completedTasks, failedTasks,
-      totalOutcomes, verifiedProfitImpact, expectedProfitImpact, outcomesWithPositiveImprovement,
-      approvedDecisions, approvalRate, executionRate, completionRate, positiveRate, profitDelta, profitDeltaPercent
-    };
-  }, [rows]);
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Filtered + sorted rows
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  var visibleRows = useMemo(function() {
-    var filtered = rows;
-
-    // Tab filter
-    if (tab === "pending") {
-      filtered = rows.filter(function(r: DecisionRow) { return r.decision.status === "pending"; });
-    } else if (tab === "executing") {
-      filtered = rows.filter(function(r: DecisionRow) {
-        return r.actionTasks.some(function(t: ActionTask) {
-          var exes = r.executions[t.id] || [];
-          return exes.some(function(e: Execution) { return e.status === "running"; });
-        });
-      });
-    } else if (tab === "verified") {
-      filtered = rows.filter(function(r: DecisionRow) {
-        return r.actionTasks.some(function(t: ActionTask) {
-          var outs = r.outcomes[t.id] || [];
-          return outs.length > 0;
-        });
-      });
-    }
-
-    // Verdict filter
-    if (filter !== "all") {
-      filtered = filtered.filter(function(r: DecisionRow) { return r.decision.verdict === filter; });
-    }
-
-    // Sort
-    var sorted = filtered.slice();
-    sorted.sort(function(a: DecisionRow, b: DecisionRow) {
-      if (sortBy === "newest") return new Date(b.decision.createdAt).getTime() - new Date(a.decision.createdAt).getTime();
-      if (sortBy === "oldest") return new Date(a.decision.createdAt).getTime() - new Date(b.decision.createdAt).getTime();
-      if (sortBy === "profit_desc") return (b.decision.expectedProfitImpact || 0) - (a.decision.expectedProfitImpact || 0);
-      if (sortBy === "profit_asc") return (a.decision.expectedProfitImpact || 0) - (b.decision.expectedProfitImpact || 0);
-      return 0;
-    });
-
-    return sorted;
-  }, [rows, tab, filter, sortBy]);
-
-  var pendingCount = rows.filter(function(r: DecisionRow) { return r.decision.status === "pending"; }).length;
-  var executingCount = rows.filter(function(r: DecisionRow) {
-    return r.actionTasks.some(function(t: ActionTask) {
-      var exes = r.executions[t.id] || [];
-      return exes.some(function(e: Execution) { return e.status === "running"; });
-    });
-  }).length;
-  var verifiedCount = rows.filter(function(r: DecisionRow) {
-    return r.actionTasks.some(function(t: ActionTask) { return (r.outcomes[t.id] || []).length > 0; });
-  }).length;
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Empty state
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  if (rows.length === 0 && !loading) {
-    return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mt-8 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-brand" />
-            <h2 className="text-heading">执行复盘看板</h2>
-          </div>
-          <button onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
-            <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} /> 刷新
-          </button>
-        </div>
-        <div className="p-8 rounded-2xl border border-gray-100 text-center card">
-          <div className="icon-box bg-blue-50 mx-auto mb-3"><BarChart3 className="w-5 h-5 text-brand" /></div>
-          <p className="text-body">尚无执行复盘数据</p>
-          <p className="text-caption mt-2">完成 AI 经营分析并批准决策后，执行与验证数据将在此展示</p>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Comparison (real data from outcomes)
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  var comparison = useMemo(function() {
-    if (rows.length === 0) return null;
-    var totalExpected = 0;
-    var totalVerified = 0;
-    var totalBefore = 0;
-    var totalAfter = 0;
-    var outcomeCount = 0;
-    for (const row of rows) {
-      totalExpected += row.decision.expectedProfitImpact || 0;
-      for (const t of row.actionTasks) {
-        var outs = row.outcomes[t.id] || [];
-        for (const o of outs) {
-          totalVerified += o.improvement;
-          totalBefore += o.beforeValue;
-          totalAfter += o.afterValue;
-          outcomeCount++;
-        }
+  for (var lri = 0; lri < rows.length; lri++) {
+    var lr = rows[lri];
+    loopTotalDecisions++;
+    var actionTasks = lr.actionTasks || [];
+    loopTotalActionTasks += actionTasks.length;
+    loopExpectedProfit += (Number(lr.decision.expectedProfitImpact) || 0);
+    for (var lti = 0; lti < actionTasks.length; lti++) {
+      var lt = actionTasks[lti];
+      var taskId = lt.actionTaskId;
+      if (!taskId) continue;
+      var lexes = lr.executions[taskId] || [];
+      if (lexes.length > 0) loopExecutedTasks++;
+      if (lexes.some((e: any) => e.status === "completed")) loopCompletedTasks++;
+      if (lexes.some((e: any) => e.status === "failed")) loopFailedTasks++;
+      var louts = lr.outcomes[taskId] || [];
+      loopTotalOutcomes += louts.length;
+      for (var loi = 0; loi < louts.length; loi++) {
+        loopVerifiedProfit += louts[loi].improvement;
+        if (louts[loi].improvement > 0) loopPositiveOutcomes++;
       }
     }
-    var profitDelta = totalVerified - totalExpected;
-    var profitDeltaPercent = totalExpected !== 0 ? Math.round((profitDelta / Math.abs(totalExpected)) * 100) : 0;
-    var overallImprovement = totalBefore !== 0 ? Math.round(((totalAfter - totalBefore) / Math.abs(totalBefore)) * 100) : 0;
-    return {
-      totalExpected, totalVerified, profitDelta, profitDeltaPercent, overallImprovement, outcomeCount,
-      hasImprovement: profitDelta > 0 || (totalBefore > 0 && totalAfter > totalBefore)
-    };
-  }, [rows]);
+  }
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Render
-  // ═══════════════════════════════════════════════════════════════════════════════
+  var loopCompletionRate = loopTotalActionTasks > 0 ? Math.round((loopCompletedTasks / loopTotalActionTasks) * 100) : 0;
+  var loopPositiveRate = loopTotalOutcomes > 0 ? Math.round((loopPositiveOutcomes / loopTotalOutcomes) * 100) : 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mt-8 space-y-4">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }} className="mt-8 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-brand" />
-          <h2 className="text-heading">执行复盘看板</h2>
-          <span className="text-caption text-faint">{aggregates.totalDecisions} 次决策 · {aggregates.totalActionTasks} 个行动</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(14,165,233,0.05) 100%)" }}>
+            <BarChart3 className="w-4 h-4 text-brand" />
+          </div>
+          <h2 className="text-xl font-extrabold text-primary tracking-tight">执行复盘</h2>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: "rgba(0,0,0,0.03)", color: "rgba(15,15,18,0.38)" }}>
+            {loopTotalDecisions} 次决策 · {loopTotalActionTasks} 个行动
+          </span>
         </div>
-        <button onClick={onRefresh} disabled={loading} className="inline-flex items-center gap-1 text-caption text-faint hover:text-primary transition-colors duration-200 disabled:opacity-50">
-          <RefreshCcw className={"w-3 h-3 " + (loading ? "animate-spin" : "")} /> 刷新
+        <button onClick={handleRefresh} disabled={loopLoading} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors disabled:opacity-40" style={{ color: "rgba(15,15,18,0.38)" }}>
+          <RefreshCcw className={"w-3 h-3 " + (loopLoading ? "animate-spin" : "")} />
+          刷新
         </button>
       </div>
 
-      {error && (
-        <div className="text-body text-red-500 bg-red-50 rounded-lg px-4 py-2 border border-red-100">{error instanceof Error ? error.message : String(error)}</div>
-      )}
-
-      {/* ═══ KPI CARDS ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard title="决策批准率" value={aggregates.approvalRate + "%"} subtitle={aggregates.approvedDecisions + "/" + aggregates.totalDecisions + " 已批准"} icon={<CheckCircle2 className="w-4 h-4" />}
-          trend={aggregates.approvalRate >= 70 ? "up" : "neutral"} trendValue={aggregates.approvalRate >= 70 ? "健康" : "待提升"} colorClass={aggregates.approvalRate >= 70 ? "text-emerald-500" : "text-amber-500"} />
-        <KpiCard title="任务执行率" value={aggregates.executionRate + "%"} subtitle={aggregates.executedTasks + "/" + aggregates.totalActionTasks + " 已执行"} icon={<Activity className="w-4 h-4" />}
-          trend={aggregates.executionRate >= 70 ? "up" : "neutral"} trendValue={aggregates.executionRate >= 70 ? "推进良好" : "需跟进"} colorClass={aggregates.executionRate >= 70 ? "text-emerald-500" : "text-amber-500"} />
-        <KpiCard title="验证通过率" value={aggregates.positiveRate + "%"} subtitle={aggregates.outcomesWithPositiveImprovement + "/" + aggregates.totalOutcomes + " 条正向结果"} icon={<Award className="w-4 h-4" />}
-          trend={aggregates.positiveRate >= 60 ? "up" : "neutral"} trendValue={aggregates.positiveRate >= 60 ? "验证有效" : "待观察"} colorClass={aggregates.positiveRate >= 60 ? "text-emerald-500" : "text-amber-500"} />
-        <KpiCard title="验证收益" value={formatMoney(aggregates.verifiedProfitImpact)} subtitle={"预期 " + formatMoney(aggregates.expectedProfitImpact)} icon={<Target className="w-4 h-4" />}
-          trend={aggregates.profitDelta > 0 ? "up" : aggregates.profitDelta < 0 ? "down" : "neutral"}
-          trendValue={aggregates.profitDelta > 0 ? "+" + formatMoney(aggregates.profitDelta) + " 超预期" : aggregates.profitDelta < 0 ? formatMoney(aggregates.profitDelta) + " 未达预期" : "持平"}
-          colorClass={aggregates.verifiedProfitImpact >= 0 ? "text-emerald-500" : "text-red-500"} />
-      </div>
-
-      {/* ═══ REAL COMPARISON ═══ */}
-      {comparison && comparison.outcomeCount > 0 && (
-        <GlassCard className="p-5 rounded-xl" hover={false}>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="icon-box bg-blue-100"><RefreshCcw className="w-4 h-4 text-brand" /></div>
-            <h3 className="text-heading">效果验证总览</h3>
-            <span className={"text-caption px-2.5 py-1 rounded-full " + (comparison.hasImprovement ? "badge-success" : "badge-warning")}>
-              {comparison.hasImprovement ? "正向改善" : "待观察"}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl border border-gray-200 bg-white">
-              <div className="text-caption text-faint mb-1.5 uppercase tracking-wider">预期收益</div>
-              <div className="text-sm font-medium text-brand">{formatMoney(comparison.totalExpected)}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-gray-200 bg-white">
-              <div className="text-caption text-faint mb-1.5 uppercase tracking-wider">验证收益</div>
-              <div className={"text-sm font-medium " + (comparison.totalVerified >= 0 ? "text-emerald-500" : "text-red-500")}>
-                {comparison.totalVerified >= 0 ? "+" : ""}{formatMoney(comparison.totalVerified)}
-              </div>
-            </div>
-            <div className="p-3 rounded-xl border border-gray-200 bg-white">
-              <div className="text-caption text-faint mb-1.5 uppercase tracking-wider">收益偏差</div>
-              <div className={"text-sm font-medium " + (comparison.profitDelta > 0 ? "text-emerald-500" : comparison.profitDelta < 0 ? "text-red-500" : "text-faint")}>
-                {comparison.profitDelta > 0 ? "+" : ""}{formatMoney(comparison.profitDelta)}
-                <span className="text-xs ml-1">({comparison.profitDelta > 0 ? "+" : ""}{comparison.profitDeltaPercent}%)</span>
-              </div>
-            </div>
-            <div className="p-3 rounded-xl border border-gray-200 bg-white">
-              <div className="text-caption text-faint mb-1.5 uppercase tracking-wider">整体改善</div>
-              <div className={"text-sm font-medium " + (comparison.overallImprovement > 0 ? "text-emerald-500" : comparison.overallImprovement < 0 ? "text-red-500" : "text-faint")}>
-                {comparison.overallImprovement > 0 ? "+" : ""}{comparison.overallImprovement}%
-              </div>
-              <div className="text-caption text-faint mt-1">基于 {comparison.outcomeCount} 条验证数据</div>
-            </div>
-          </div>
-        </GlassCard>
-      )}
-
-      {/* ═══ TABS + FILTERS ═══ */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl">
-          <TabButton active={tab === "all"} onClick={() => setTab("all")} count={rows.length}>全部复盘</TabButton>
-          <TabButton active={tab === "pending"} onClick={() => setTab("pending")} count={pendingCount}>待办</TabButton>
-          <TabButton active={tab === "executing"} onClick={() => setTab("executing")} count={executingCount}>执行中</TabButton>
-          <TabButton active={tab === "verified"} onClick={() => setTab("verified")} count={verifiedCount}>已验证</TabButton>
+      {loopLoading && rows.length === 0 && (
+        <div className="p-6 rounded-2xl border border-dashed flex items-center gap-3" style={{ borderColor: "rgba(0,0,0,0.06)", background: "var(--color-bg-surface)" }}>
+          <RefreshCcw className="w-4 h-4 animate-spin text-brand" />
+          <span className="text-sm text-secondary">正在加载执行复盘...</span>
         </div>
-        <FilterBar filter={filter} setFilter={setFilter} sortBy={sortBy} setSortBy={setSortBy} />
-      </div>
+      )}
 
-      {/* ═══ DECISION TIMELINE ═══ */}
-      <div className="space-y-4">
-        {visibleRows.length === 0 ? (
-          <div className="p-8 rounded-2xl border border-gray-100 text-center card">
-            <div className="icon-box bg-gray-50 mx-auto mb-3"><Filter className="w-5 h-5 text-faint" /></div>
-            <p className="text-body text-secondary">当前筛选条件下无数据</p>
-            <p className="text-caption mt-2">尝试切换 Tab 或调整筛选条件</p>
-          </div>
-        ) : visibleRows.map(function(row) {
-          const d = row.decision;
-          const taskStats = row.actionTasks.map(function(t) {
-            const exes = row.executions[t.id] || [];
-            const outs = row.outcomes[t.id] || [];
-            const latestExe = exes[0] || null;
-            const latestOut = outs[0] || null;
-            var allOutcomes = outs;
-            return { task: t, latestExe, latestOut, allOutcomes, executionCount: exes.length };
-          });
+      {loopError && rows.length === 0 && !loopLoading && (
+        <div className="p-4 rounded-xl border border-dashed" style={{ background: "rgba(220,38,38,0.03)", borderColor: "rgba(220,38,38,0.08)" }}>
+          <p className="text-xs font-medium" style={{ color: "#DC2626" }}>{loopError}</p>
+        </div>
+      )}
 
-          var pendingTasks = taskStats.filter(function(s) { return s.task.status === "pending" && !s.latestExe; }).length;
-          var runningTasks = taskStats.filter(function(s) { return s.latestExe && s.latestExe.status === "running"; }).length;
-          var completedTasks = taskStats.filter(function(s) { return s.latestExe && s.latestExe.status === "completed"; }).length;
-          var verifiedTasks = taskStats.filter(function(s) { return s.allOutcomes.length > 0; }).length;
-
-          return (
-            <GlassCard key={d.id} className="p-5 rounded-xl" hover={false}>
-              {/* Decision Header */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className={"text-sm font-semibold " + (VERDICT_COLOR[d.verdict] || "text-brand")}>
-                      {VERDICT_LABEL[d.verdict] || d.verdict}
-                    </span>
-                    <span className="text-caption px-1.5 py-0.5 rounded bg-gray-50 text-faint border border-gray-200">
-                      {d.riskLevel === "high" ? "高风险" : d.riskLevel === "medium" ? "中风险" : "低风险"}
-                    </span>
-                    <span className="text-caption text-faint">{formatDate(d.createdAt)}</span>
-                  </div>
-                  <p className="text-body text-sm leading-relaxed line-clamp-2">{d.summary}</p>
-                  {d.productNames.length > 0 && (
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                      {d.productNames.map(function(p) {
-                        return (
-                          <span key={p} className="text-caption px-1.5 py-0.5 rounded bg-gray-50 text-faint border border-gray-100">{p}</span>
-                        );
-                      })}
+      {/* Empty state */}
+      {rows.length === 0 && !loopLoading && !loopError && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="space-y-4">
+          {/* Pending actions from agent pipeline (not yet persisted to DB) */}
+          {pendingActions.length > 0 && (
+            <div className="rounded-2xl border p-5" style={{ background: "rgba(79,70,229,0.02)", borderColor: "rgba(79,70,229,0.08)" }}>
+              <div className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: "rgba(15,15,18,0.38)" }}>待批准决策 ({pendingActions.length} 条 AI 建议)</div>
+              <div className="space-y-2">
+                {pendingActions.map(function(a: any, i: number) {
+                  var prio = a.priority || "P2";
+                  var prioStyle: Record<string, { bg: string; text: string; border: string }> = {
+                    P0: { bg: "rgba(220,38,38,0.06)", text: "#DC2626", border: "rgba(220,38,38,0.12)" },
+                    P1: { bg: "rgba(180,83,9,0.06)", text: "#B45309", border: "rgba(180,83,9,0.12)" },
+                    P2: { bg: "rgba(0,0,0,0.02)", text: "rgba(15,15,18,0.38)", border: "rgba(0,0,0,0.05)" },
+                  };
+                  var ps = prioStyle[prio] || prioStyle.P2;
+                  var riskText = RISK_COLORS[a.riskLevel] || "rgba(15,15,18,0.38)";
+                  var riskLabel = a.riskLevel === "high" ? "高风险" : a.riskLevel === "medium" ? "中风险" : "低风险";
+                  return (
+                    <div key={i} className="flex items-center gap-3 rounded-xl p-3 border" style={{ background: "var(--color-bg-surface)", borderColor: "rgba(0,0,0,0.04)" }}>
+                      <span className="text-[10px] font-bold px-2 py-1 rounded-lg border" style={{ background: ps.bg, color: ps.text, borderColor: ps.border }}>{prio}</span>
+                      <span className="text-[10px] font-bold px-2 py-1 rounded-lg border" style={{ background: "rgba(0,0,0,0.02)", color: riskText, borderColor: "rgba(0,0,0,0.05)" }}>{riskLabel}</span>
+                      <span className="text-xs text-secondary flex-1 truncate">{a.title || a.action || "未命名行动"}</span>
+                      {a.actionTaskId ? (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-brand border border-blue-200">task ✓</span>
+                      ) : (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-50 text-faint border border-gray-200">pending</span>
+                      )}
                     </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] mt-3 leading-relaxed" style={{ color: "rgba(15,15,18,0.30)" }}>
+                上方「行动建议」中点击「开始执行」即可追踪执行进度
+              </p>
+            </div>
+          )}
+          {/* Flow indicator */}
+          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl p-4 border" style={{ background: "var(--color-bg-surface)", borderColor: "rgba(0,0,0,0.04)" }}>
+            {[
+              { label: "AI 分析", bg: "rgba(79,70,229,0.06)", text: "#4F46E5", border: "rgba(79,70,229,0.10)" },
+              { label: "批准决策", bg: "rgba(180,83,9,0.06)", text: "#B45309", border: "rgba(180,83,9,0.10)" },
+              { label: "执行行动", bg: "rgba(5,150,105,0.06)", text: "#059669", border: "rgba(5,150,105,0.10)" },
+              { label: "录入结果", bg: "rgba(124,58,237,0.06)", text: "#7C3AED", border: "rgba(124,58,237,0.10)" },
+              { label: "验证改善", bg: "rgba(0,0,0,0.02)", text: "rgba(15,15,18,0.38)", border: "rgba(0,0,0,0.05)" },
+            ].map(function(badge, i) {
+              return (
+                <Fragment key={i}>
+                  <FlowBadge label={badge.label} bg={badge.bg} text={badge.text} border={badge.border} />
+                  {i < 4 && <span className="text-[10px] font-medium px-0.5" style={{ color: "rgba(15,15,18,0.15)" }}>→</span>}
+                </Fragment>
+              );
+            })}
+          </div>
+          {pendingActions.length === 0 && (
+          <div className="p-8 rounded-2xl border border-dashed text-center" style={{ borderColor: "rgba(0,0,0,0.04)", background: "var(--color-bg-surface)" }}>
+            <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.06) 0%, rgba(14,165,233,0.04) 100%)" }}>
+              <BarChart3 className="w-5 h-5 text-brand" />
+            </div>
+            <p className="text-sm text-secondary font-medium">闭环追踪：AI 建议 → 执行 → 验证</p>
+            <p className="text-[10px] mt-2 leading-relaxed max-w-md mx-auto" style={{ color: "rgba(15,15,18,0.30)" }}>
+              在上方「行动建议」中点击「开始执行」→「完成执行」→「录入结果」，即可在此查看验证数据
+            </p>
+          </div>
+          )}
+        </motion.div>
+      )}
+
+      {loopError && rows.length > 0 && (
+        <div className="p-4 rounded-xl border border-dashed" style={{ background: "rgba(220,38,38,0.03)", borderColor: "rgba(220,38,38,0.08)" }}>
+          <p className="text-xs font-medium" style={{ color: "#DC2626" }}>{loopError}</p>
+        </div>
+      )}
+
+      {/* Stats Row */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatPill label="执行完成率" value={loopCompletionRate + "%"} sub={loopCompletedTasks + "/" + loopTotalActionTasks + " 个行动已执行"} accent="#4F46E5" />
+          <StatPill label="正向验证率" value={loopPositiveRate + "%"} sub={loopPositiveOutcomes + "/" + loopTotalOutcomes + " 条结果验证为正"} accent="#059669" />
+          <StatPill label="预期收益" value={formatMoney(loopExpectedProfit)} sub="AI 建议的总预期利润影响" accent="#6366F1" />
+          <StatPill label="验证收益" value={(loopVerifiedProfit >= 0 ? "+" : "") + formatMoney(loopVerifiedProfit)} sub="Outcome 录入的实际改善值" accent={loopVerifiedProfit >= 0 ? "#059669" : "#DC2626"} />
+        </div>
+      )}
+
+      {/* Decision Timeline */}
+      {rows.map(function(row) {
+        var d = row.decision;
+        var taskExecStats = row.actionTasks.map(function(t: any) {
+          var taskId = t.actionTaskId;
+          var exes = taskId ? (row.executions[taskId] || []) : [];
+          var outs = taskId ? (row.outcomes[taskId] || []) : [];
+          var latestExe = exes.reduce(function(latest: Execution | null, execution: Execution) {
+            if (!latest) return execution;
+            return Date.parse(execution.createdAt || "") > Date.parse(latest.createdAt || "") ? execution : latest;
+          }, null);
+          var latestOut = outs.reduce(function(latest: Outcome | null, outcome: Outcome) {
+            if (!latest) return outcome;
+            return Date.parse(outcome.verifiedAt || "") > Date.parse(latest.verifiedAt || "") ? outcome : latest;
+          }, null);
+          return { task: t, latestExe, latestOut };
+        });
+
+        // Compute per-decision verified profit for comparison
+        var decisionVerifiedProfit = 0;
+        var decisionOutcomeCount = 0;
+        for (var ti = 0; ti < taskExecStats.length; ti++) {
+          var taskOuts = row.outcomes[taskExecStats[ti].task.actionTaskId || ""] || [];
+          for (var oi = 0; oi < taskOuts.length; oi++) {
+            decisionVerifiedProfit += taskOuts[oi].improvement;
+            decisionOutcomeCount++;
+          }
+        }
+        var expectedProfit = Number(d.expectedProfitImpact) || 0;
+        var profitDelta = decisionVerifiedProfit - expectedProfit;
+        var profitDeltaPercent = expectedProfit !== 0 ? Math.round((profitDelta / Math.abs(expectedProfit)) * 100) : 0;
+        var isProfitAccurate = Math.abs(profitDeltaPercent) <= 20;
+
+        return (
+          <motion.div key={d.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border p-5 md:p-6 transition-all" style={{ background: "var(--color-bg-surface)", borderColor: "rgba(0,0,0,0.04)", boxShadow: "0 1px 2px rgba(15,15,18,0.03)" }}>
+            {/* Decision header with prediction vs actual */}
+            <div className="flex flex-col md:flex-row items-start gap-4 mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="text-sm font-extrabold tracking-tight" style={{ color: VERDICT_COLORS[d.verdict]?.text || "#4F46E5" }}>
+                    {VERDICT_LABEL[d.verdict] || d.verdict}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{ background: "rgba(0,0,0,0.02)", borderColor: "rgba(0,0,0,0.05)", color: RISK_COLORS[d.riskLevel] || "rgba(15,15,18,0.38)" }}>
+                    {d.riskLevel === "high" ? "高风险" : d.riskLevel === "medium" ? "中风险" : "低风险"}
+                  </span>
+                  <span className="text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.30)" }}>{formatDate(d.createdAt)}</span>
+                </div>
+                <p className="text-sm font-medium text-primary leading-snug mb-2">
+                  {d.summary.split("\n")[0].replace(/[#*]+/g, "").trim() || d.summary.slice(0, 80)}
+                </p>
+                {/* Prediction vs Actual comparison */}
+                <div className="flex flex-wrap items-center gap-3 mt-3">
+                  <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.38)" }}>
+                    <span className="font-bold uppercase tracking-wider">预期</span>
+                    <span className="font-mono text-xs font-bold" style={{ color: "#6366F1" }}>{formatMoney(expectedProfit)}</span>
+                  </div>
+                  <span className="text-[10px]" style={{ color: "rgba(15,15,18,0.15)" }}>→</span>
+                  <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.38)" }}>
+                    <span className="font-bold uppercase tracking-wider">实际</span>
+                    <span className="font-mono text-xs font-bold" style={{ color: decisionVerifiedProfit >= 0 ? "#059669" : "#DC2626" }}>{(decisionVerifiedProfit >= 0 ? "+" : "") + formatMoney(decisionVerifiedProfit)}</span>
+                  </div>
+                  {decisionOutcomeCount > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{
+                      background: isProfitAccurate ? "rgba(5,150,105,0.05)" : "rgba(217,119,6,0.05)",
+                      color: isProfitAccurate ? "#059669" : "#B45309",
+                      borderColor: isProfitAccurate ? "rgba(5,150,105,0.12)" : "rgba(217,119,6,0.12)",
+                    }}>
+                      {isProfitAccurate ? "✓ 预测准确" : "⚠ 偏差 " + (profitDeltaPercent > 0 ? "+" : "") + profitDeltaPercent + "%"}
+                    </span>
                   )}
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="text-caption text-faint">预期收益</div>
-                  <div className="text-sm font-medium text-brand">{formatMoney(d.expectedProfitImpact)}</div>
-                  <div className="text-caption text-faint">置信度 {Math.round((d.confidence || 0) * 100)}%</div>
-                </div>
+                {d.productNames && d.productNames.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                    {d.productNames.map(function(p: string) {
+                      return (
+                        <span key={p} className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{ background: "rgba(0,0,0,0.02)", color: "rgba(15,15,18,0.38)", border: "1px solid rgba(0,0,0,0.04)" }}>
+                          {p}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-
-              {/* Progress bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-xs text-faint mb-1">
-                  <span>执行进度</span>
-                  <span>{completedTasks}/{row.actionTasks.length} 已完成 · {verifiedTasks} 已验证</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: (row.actionTasks.length > 0 ? (completedTasks / row.actionTasks.length) * 100 : 0) + "%" }} />
-                </div>
+              <div className="text-right shrink-0 md:text-right">
+                <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "rgba(15,15,18,0.38)" }}>预期收益</div>
+                <div className="text-lg font-extrabold text-brand tracking-tight">{formatMoney(expectedProfit)}</div>
+                <div className="text-[10px] font-medium mt-0.5" style={{ color: "rgba(15,15,18,0.30)" }}>置信度 {Math.round((d.confidence || 0) * 100)}%</div>
               </div>
+            </div>
 
-              {/* Decision status actions */}
-              {d.status === "pending" && (
-                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-                  <span className="text-caption text-faint mr-1">决策:</span>
-                  <button onClick={() => handleDecisionStatusChange(d.id, "approved")} disabled={!!updating[d.id]} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50">
-                    <CheckCircle2 className="w-3 h-3" /> 批准
-                  </button>
-                  <button onClick={() => handleDecisionStatusChange(d.id, "rejected")} disabled={!!updating[d.id]} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-medium border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50">
-                    <XCircle className="w-3 h-3" /> 驳回
-                  </button>
-                  <button onClick={() => handleDecisionStatusChange(d.id, "completed")} disabled={!!updating[d.id]} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-brand text-xs font-medium border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50">
-                    标记完成
-                  </button>
-                </div>
-              )}
-              {d.status !== "pending" && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <span className={"text-caption px-2.5 py-1 rounded-md border " + (
-                    d.status === "approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                    d.status === "rejected" ? "bg-red-50 text-red-500 border-red-200" :
-                    d.status === "completed" ? "bg-blue-50 text-brand border-blue-200" :
-                    "bg-gray-50 text-faint border-gray-200"
-                  )}>
-                    决策状态: {d.status === "approved" ? "已批准" : d.status === "rejected" ? "已驳回" : d.status === "completed" ? "已完成" : d.status}
-                  </span>
-                </div>
-              )}
+            {/* Decision status actions */}
+            {d.status === "pending" && (
+              <div className="flex items-center gap-2 flex-wrap pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: "rgba(15,15,18,0.38)" }}>决策操作:</span>
+                {[
+                  { label: "批准", status: "approved" as const, icon: <CheckCircle2 className="w-3 h-3" />, bg: "rgba(5,150,105,0.05)", text: "#059669", border: "rgba(5,150,105,0.12)" },
+                  { label: "驳回", status: "rejected" as const, icon: <XCircle className="w-3 h-3" />, bg: "rgba(220,38,38,0.05)", text: "#DC2626", border: "rgba(220,38,38,0.12)" },
+                ].map(function(action) {
+                  return (
+                    <button key={action.status} onClick={() => handleDecisionStatus(d.id, action.status)} disabled={loopLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all disabled:opacity-40 hover:opacity-80"
+                      style={{ background: action.bg, color: action.text, border: "1px solid " + action.border }}>
+                      {action.icon}{action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {d.status !== "pending" && (
+              <div className="pt-4 mt-1" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-bold border" style={{ background: DECISION_STATUS_STYLES[d.status]?.bg, color: DECISION_STATUS_STYLES[d.status]?.text, borderColor: DECISION_STATUS_STYLES[d.status]?.border }}>
+                  决策状态: {d.status === "approved" ? "已批准" : d.status === "rejected" ? "已驳回" : d.status === "completed" ? "已完成" : d.status}
+                </span>
+              </div>
+            )}
 
-              {/* Action Tasks */}
-              {taskStats.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                  <div className="text-xs text-faint uppercase tracking-wider font-medium mb-2">行动任务 ({row.actionTasks.length})</div>
-                  {taskStats.map(function(item) {
-                    return (
-                      <InlineTaskItem
-                        key={item.task.id}
-                        task={item.task}
-                        executions={item.allOutcomes.length > 0 ? (row.executions[item.task.id] || []) : []}
-                        outcomes={item.allOutcomes}
-                        onRefresh={onRefresh}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </GlassCard>
-          );
-        })}
-      </div>
+            {/* Action tasks */}
+            {taskExecStats.length > 0 && (
+              <div className="space-y-2.5 mt-4 pt-4" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                {taskExecStats.map(function(item) {
+                  return (
+                    <div key={item.task.id} className="flex items-center gap-3 rounded-xl p-3 border transition-all" style={{ background: "rgba(0,0,0,0.01)", borderColor: "rgba(0,0,0,0.03)" }}>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-primary truncate block">{item.task.title}</span>
+                        <span className="text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.30)" }}>优先级: {item.task.priority}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {item.latestExe ? (
+                          <>
+                            {(() => {
+                              var st = STATUS_STYLES[item.latestExe.status] || STATUS_STYLES.pending;
+                              return (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: st.color }}>
+                                  {st.icon}{st.label}
+                                </span>
+                              );
+                            })()}
+                            {item.latestOut && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: item.latestOut.improvement > 0 ? "#059669" : item.latestOut.improvement < 0 ? "#DC2626" : "rgba(15,15,18,0.30)" }}>
+                                <TrendingUp className="w-3 h-3" />
+                                {item.latestOut.improvement > 0 ? "+" : ""}{item.latestOut.improvementPercent.toFixed(1)}%
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.30)" }}>未执行</span>
+                        )}
+                        {!item.latestExe && item.task.status === "pending" && (
+                          <span className="text-[10px] font-medium" style={{ color: "rgba(15,15,18,0.30)" }}>请从行动建议开始执行</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        );
+      })}
     </motion.div>
   );
 }

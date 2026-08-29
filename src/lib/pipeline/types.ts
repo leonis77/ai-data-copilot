@@ -56,6 +56,10 @@ export interface ProfitSummary {
   monthlySales: number;
   /** 月收入 */
   monthlyRevenue: number;
+  /** 环比利润变化 */
+  monthOverMonth?: {
+    profitDeltaPercent: number;
+  };
 }
 
 /** 成本归因项：每项成本占总成本的比例 + 与行业基准的偏差 */

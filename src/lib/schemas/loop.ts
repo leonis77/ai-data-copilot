@@ -36,7 +36,7 @@ export const SaveOutcomeSchema = z.object({
 export const UpdateDecisionStatusSchema = z.object({
   action: z.literal("update_decision_status"),
   decisionId: z.string().min(1, "decisionId required"),
-  status: z.enum(["pending", "approved", "rejected", "completed"]),
+  status: z.enum(["approved", "rejected"]),
   notes: z.string().optional(),
 });
 

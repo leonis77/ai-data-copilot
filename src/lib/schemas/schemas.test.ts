@@ -182,6 +182,16 @@ describe("validateLoopPostAction", () => {
     expect((result as any).status).toBe("approved");
   });
 
+  it("客户端不能直接把决策标记为 completed", () => {
+    expect(function () {
+      validateLoopPostAction({
+        action: "update_decision_status",
+        decisionId: "dec_1",
+        status: "completed",
+      });
+    }).toThrow();
+  });
+
   it("未知 action 应抛出", () => {
     expect(function () {
       validateLoopPostAction({ action: "unknown" } as any);

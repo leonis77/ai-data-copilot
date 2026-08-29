@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataset, listDatasets } from "@/lib/db";
+import { getDataset, listDatasets, saveDataset } from "@/lib/db";
 import { getFromServerStore, listFromServerStore } from "@/lib/server-store";
 import { computeStats } from "@/lib/parser";
 import { logger, withRequestId } from "@/lib/logger";
@@ -8,7 +8,6 @@ import { injectKnowledge, injectKnowledgeV3 } from "@/lib/rag";
 import { detectRelations, detectRoles } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic/types";
 import { executeDecisionPipeline } from "@/lib/pipeline/decision-pipeline";
-import type { CrossPlatformComparison } from "@/lib/cross-platform";
 import type { InsufficientDataResult } from "@/lib/pipeline/types";
 import { detectPlatform } from "@/lib/platform/detect";
 import { serializeDecisionChain } from "@/lib/agent/api-types";
@@ -19,6 +18,7 @@ import {
   extractDecisionSummary,
   saveDecision,
   saveActionTask,
+  cleanupAgentPersistence,
 } from "@/lib/loop";
 import { startTimer, endTimer, logPipelineResult, logApiCall } from "@/lib/observability";
 import { applyRateLimitAsync, rateLimitResponse } from "@/lib/rate-limit";
@@ -81,6 +81,42 @@ export async function POST(request: NextRequest) {
 
     const cols: string[] = Array.isArray(fallbackDs.columns) ? fallbackDs.columns : JSON.parse(fallbackDs.columns as string);
     const rows: any[] = Array.isArray(fallbackDs.rows) ? fallbackDs.rows : [];
+
+    // Upload is intentionally resilient to transient database failures. If the
+    // browser still has the rows, restore the dataset root before persisting
+    // the business loop so downstream foreign keys can be created safely.
+    if (!ds && rows.length > 0) {
+      try {
+        const originalName = String(
+          fallbackDs.original_name ||
+          fallbackDs.originalName ||
+          fallbackDs.name ||
+          "dataset"
+        );
+        await saveDataset(userId, {
+          id: datasetId,
+          name: String(fallbackDs.name || originalName),
+          originalName,
+          columns: cols,
+          rows,
+          summary: String(fallbackDs.summary || "Recovered from inline dataset"),
+          platform: fallbackDs.platform || undefined,
+          semanticRoles: fallbackDs.semanticRoles || undefined,
+        });
+        logger.info("Dataset root restored before loop persistence", {
+          requestId: rid,
+          datasetId,
+          rowCount: rows.length,
+        });
+      } catch (restoreError) {
+        logger.warn("Dataset root restore failed; analysis will continue without executable tasks", {
+          requestId: rid,
+          datasetId,
+          message: restoreError instanceof Error ? restoreError.message : String(restoreError),
+        });
+      }
+    }
+
     const stats = computeStats(rows, cols);
 
     let dataSummary = "Dataset: " + (fallbackDs.original_name || fallbackDs.originalName || "") + "\n";
@@ -292,9 +328,12 @@ export async function POST(request: NextRequest) {
         const runId = "run_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
         const chainSnapshot = JSON.parse(JSON.stringify(chain)) as Record<string, unknown>;
 
-        // 非阻塞持久化 AnalysisRun
+        // 非阻塞持久化 AnalysisRun + Decision + ActionTask（带补偿清理）
+        let decisionId: string | null = null;
+        let analysisRunId: string | null = null;
         try {
-          await saveAnalysisRun(userId, {
+          analysisRunId = runId;
+          const analysisSaved = await saveAnalysisRun(userId, {
             id: runId,
             datasetId,
             input: input || "请分析这些数据",
@@ -305,36 +344,37 @@ export async function POST(request: NextRequest) {
             freshnessScore: chain.meta.freshnessScore,
             webSearchTriggered: chain.meta.webSearchTriggered,
           });
-        } catch (persistErr) {
-          logger.warn("AnalysisRun persist failed (non-fatal)", {
-            message: persistErr instanceof Error ? persistErr.message : String(persistErr),
-          });
-        }
+          if (!analysisSaved) {
+            throw new Error("analysis_run_persistence_failed");
+          }
 
-        // 非阻塞持久化 Decision + ActionTask
-        try {
-          const decisionId = "dec_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+          decisionId = "dec_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
           const extracted = extractDecisionSummary(chainSnapshot);
 
-          await saveDecision(userId, {
+          const decisionSaved = await saveDecision(userId, {
             id: decisionId,
             analysisRunId: runId,
             datasetId,
             summary: extracted.summary,
             verdict: extracted.verdict,
             confidence: extracted.confidence,
-            status: "pending",
+            status: "approved",
             productNames: extracted.productNames,
             evidenceCardIndices: extracted.evidenceCardIndices,
             expectedProfitImpact: extracted.expectedProfitImpact,
             riskLevel: extracted.riskLevel,
           });
+          if (!decisionSaved) {
+            throw new Error("decision_persistence_failed");
+          }
 
           const actions = Array.isArray(chainSnapshot.actions) ? chainSnapshot.actions as Record<string, unknown>[] : [];
+          const persistedTaskIds: string[] = [];
+          logger.info("loop:persist:action_tasks:start", { requestId: rid, actionCount: actions.length, userId });
           for (let ai = 0; ai < Math.min(actions.length, 20); ai++) {
             const a = actions[ai];
             const taskId = "task_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8) + "_" + ai;
-            await saveActionTask(userId, {
+            const taskSaved = await saveActionTask(userId, {
               id: taskId,
               decisionId,
               title: String(a.title || a.action || "未命名行动"),
@@ -345,34 +385,44 @@ export async function POST(request: NextRequest) {
               expectedProfitImpact: Number(a.expectedProfitImpact) || 0,
               riskLevel: (a.riskLevel as "low" | "medium" | "high") || "medium",
             });
-            // ⭐ 把持久化的 actionTaskId 回写到 chain snapshot，供前端执行/结果录入使用
-            actions[ai] = Object.assign({}, a, { actionTaskId: taskId });
+            logger.info("loop:persist:action_task", { requestId: rid, index: ai, taskId, taskSaved });
+            if (!taskSaved) {
+              throw new Error("action_task_persistence_failed");
+            }
+            persistedTaskIds.push(taskId);
           }
 
-          const response = serializeDecisionChain(chain);
+          // Publish executable IDs only after every task is safely persisted.
+          for (let ai = 0; ai < persistedTaskIds.length; ai++) {
+            actions[ai] = Object.assign({}, actions[ai], {
+              actionTaskId: persistedTaskIds[ai],
+            });
+          }
+
+          const response = serializeDecisionChain(chainSnapshot as any);
           const responseAny = response as unknown as Record<string, unknown>;
           responseAny.decisionId = decisionId;
           responseAny.analysisRunId = runId;
-          logger.info("Decision pipeline executed and persisted", {
-            requestId: rid,
-            datasetId,
-            evidenceCards: chain.evidenceCards.length,
-            actions: chain.actions.length,
-            decisionId,
-            analysisRunId: runId,
-            pipelineLatency: chain.meta.pipelineLatency,
-          });
-          logPipelineResult("decision_chain", chain.meta.pipelineLatency, { datasetId, evidenceCards: chain.evidenceCards.length, actions: chain.actions.length });
+          var responseActionIds = (responseAny.actions as any[])?.map(function(a: any) { return a.actionTaskId; }) || [];
+          logger.info("loop:persist:response", { requestId: rid, actionCount: (responseAny.actions as any[])?.length, actionTaskIds: responseActionIds, decisionId, analysisRunId: runId });
           logApiCall("/api/agent", true, { pipelineLatency: chain.meta.pipelineLatency });
           endTimer(timerId, "info");
-          return NextResponse.json(responseAny);
+          return NextResponse.json(responseAny, {
+            headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+          });
         } catch (loopErr) {
-          logger.warn("Business loop persist failed, returning chain without loop IDs", {
+          logger.warn("Business loop persist failed, running compensating cleanup", {
+            requestId: rid,
             message: loopErr instanceof Error ? loopErr.message : String(loopErr),
           });
-          logApiCall("/api/agent", true, { pipelineLatency: 0, warning: "loop_persist_failed" });
+          await cleanupAgentPersistence(userId, analysisRunId || undefined, decisionId || undefined);
+          var fallbackActionIds = (chainSnapshot.actions as any[])?.map(function(a: any) { return a.actionTaskId; }) || [];
+          logger.warn("loop:persist:fallback_response", { requestId: rid, actionCount: (chainSnapshot.actions as any[])?.length, actionTaskIds: fallbackActionIds });
+          logApiCall("/api/agent", true, { pipelineLatency: 0, warning: "loop_persist_failed_and_cleaned" });
           endTimer(timerId, "warn");
-          return NextResponse.json(serializeDecisionChain(chain));
+          return NextResponse.json(serializeDecisionChain(chainSnapshot as any), {
+            headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+          });
         }
       }
     } catch (pipelineErr) {
@@ -395,15 +445,16 @@ export async function POST(request: NextRequest) {
     // 规范化为 { type: "decision_chain" }，使 Dashboard 能正确识别并渲染回退分析结果。
     // 若 pipeline 部分成功产生了 chain，保留其结构；否则以 agent 结果的内容作为摘要。
     var fallbackContent = result.content || "分析完成（降级模式）";
-    var fallbackCrossPlatform: CrossPlatformComparison[] = [];
     var fallbackResponse: any;
     try {
       var serialized = serializeDecisionChain(chain);
-      fallbackResponse = Object.assign({}, serialized, { content: fallbackContent, crossPlatform: fallbackCrossPlatform, degraded: true, fallbackReason: "decision_pipeline_unavailable" });
+      fallbackResponse = Object.assign({}, serialized, { content: fallbackContent, crossPlatform: [], degraded: true, fallbackReason: "decision_pipeline_unavailable" });
     } catch {
-      fallbackResponse = { type: "decision_chain", content: fallbackContent, crossPlatform: fallbackCrossPlatform, degraded: true, fallbackReason: "decision_pipeline_unavailable" };
+      fallbackResponse = { type: "decision_chain", content: fallbackContent, crossPlatform: [], degraded: true, fallbackReason: "decision_pipeline_unavailable" };
     }
-    return NextResponse.json(fallbackResponse);
+    return NextResponse.json(fallbackResponse, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Agent API failed", { requestId: rid, message });

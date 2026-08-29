@@ -68,6 +68,35 @@ export async function saveDataset(
     if (data.semanticRoles) payload.semantic_roles = data.semanticRoles;
     const { error } = await client.from("datasets").upsert(payload);
     if (error) {
+      const message = String(error.message || "");
+      const details = String(error.details || "");
+      const semanticRolesMissing =
+        Boolean(data.semanticRoles) &&
+        (error.code === "PGRST204" ||
+          message.includes("semantic_roles") ||
+          details.includes("semantic_roles"));
+
+      if (semanticRolesMissing) {
+        // semantic_roles is optional metadata. Older production schemas may not
+        // have the column yet, so preserve the dataset root record without it.
+        const { semantic_roles: _ignored, ...fallbackPayload } = payload;
+        const { error: fallbackError } = await client
+          .from("datasets")
+          .upsert(fallbackPayload);
+        if (!fallbackError) {
+          logger.warn("saveDataset retried without semantic_roles", {
+            code: error.code,
+            message: error.message,
+          });
+          await cleanup(userId);
+          return;
+        }
+        logger.error("saveDataset fallback failed", {
+          code: fallbackError.code,
+          message: fallbackError.message,
+        });
+      }
+
       logger.error("saveDataset failed", { code: error.code, message: error.message });
       throw new Error("Supabase: " + error.message);
     }

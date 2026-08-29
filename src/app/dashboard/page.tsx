@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { motion, useInView } from "framer-motion";
 import Link from "next/link";
-import { Upload, ArrowRight, Sparkles, BarChart3, AlertCircle } from "lucide-react";
+import {
+  Upload, ArrowRight, Sparkles, BarChart3,
+  ChevronRight,
+} from "lucide-react";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset, computeStatsCached, clearStatsCache } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
-import { ProcurementPanel } from "@/components/procurement";
 import { detectRelations } from "@/lib/semantic";
 import type { DatasetRelation } from "@/lib/semantic";
 import { GenericOverview } from "@/components/insights/generic-overview";
@@ -15,639 +17,562 @@ import CrossPlatformView from "@/components/insights/cross-platform";
 import { ProfitBar } from "@/components/dashboard/profit-bar";
 import { ProfitRanking } from "@/components/dashboard/profit-ranking";
 import { CostStructure } from "@/components/dashboard/cost-structure";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { EvidenceCardView } from "@/components/insights/evidence-card-view";
-import ExecutionTracker from "@/components/insights/execution-tracker";
 import LoopReviewBoard from "@/components/insights/loop-review-board";
 import ScenarioPanel from "@/components/insights/scenario-panel";
-import { logger } from "@/lib/logger";
 import type { DecisionChainResponse, InsufficientDataResponse } from "@/lib/agent/api-types";
+import type { PrioritizedAction } from "@/lib/pipeline/types";
 import type { CrossPlatformComparison } from "@/lib/cross-platform";
-import type { Execution, Outcome } from "@/lib/loop/types";
-import { fetchLoopHistory } from "@/lib/loop/client";
 import { getPlatformLabel } from "@/lib/platform/detect";
-import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
 import { RequireAuth } from "@/hooks/use-auth-guard";
-import { authFetch } from "@/lib/auth-fetch";
-import { useDataFetch } from "@/hooks/use-data-fetch";
+import { DataProvider } from "@/contexts/data-context";
+import { useActiveDataset, useAnalysisData, useLoopData } from "@/hooks/use-unified-data";
 import { DashboardSkeleton } from "@/components/app/skeleton/dashboard-skeleton";
 
-export default function DashboardPage() {
-  const obs = useObservability();
+// ═══════════════════════════════════════════════
+// Animation utilities
+// ═══════════════════════════════════════════════
+
+function Reveal({ children, delay = 0, y = 16, x = 0, scale = false, className = "" }: {
+  children: React.ReactNode;
+  delay?: number;
+  y?: number;
+  x?: number;
+  scale?: boolean;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y, x, scale: scale ? 0.97 : 1 }}
+      animate={inView ? { opacity: 1, y: 0, x: 0, scale: 1 } : { opacity: 0, y, x, scale: scale ? 0.97 : 1 }}
+      transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// Inner component (consumes DataContext)
+// ═══════════════════════════════════════════════
+
+function DashboardInner() {
   const { user } = useAuth();
+  const userId = user?.id || "";
+  const dataset = useActiveDataset();
+  const analysis = useAnalysisData(userId);
+  const loop = useLoopData(userId, dataset.activeDatasetId);
 
-  // Data fetch
-  var initialDsId = "";
-  try { initialDsId = getStore(user?.id || "").activeId || ""; } catch {}
-  const [datasetId, setDatasetId] = useState(initialDsId);
-  const { data: rawData, loading: dataLoading, error: dataError, refetch: refetchRawData } = useDataFetch(
-    ["dashboard", user?.id, datasetId].join(":"),
-    (signal: AbortSignal) => fetchRawData(signal, user?.id as string, datasetId),
-    [user?.id, datasetId],
-    { enabled: !!user?.id }
-  );
+  const activeDatasetId = dataset.activeDatasetId;
+  const activeDataset = dataset.activeDataset;
+  const datasets = dataset.datasets;
+  const activeRows = dataset.activeRows;
+  const setActiveDataset = dataset.setActiveDataset;
+  const rawData = analysis.rawData;
+  const decisionChain = analysis.decisionChain;
+  const insufficientData = analysis.insufficientData;
+  const agentLoading = analysis.agentLoading;
+  const pipelineError = analysis.pipelineError;
+  const degradedResponse = analysis.degradedResponse;
+  const fetchAnalysis = analysis.fetchAnalysis;
+  const loopRows = loop.rows;
+  const loopLoading = loop.loopLoading;
+  const loopError = loop.loopError;
+  const refreshLoopData = loop.refreshLoopData;
+  const totalDecisions = loop.totalDecisions;
+  const totalActionTasks = loop.totalActionTasks;
+  const executedTasks = loop.executedTasks;
+  const completedTasks = loop.completedTasks;
+  const failedTasks = loop.failedTasks;
+  const totalOutcomes = loop.totalOutcomes;
+  const verifiedProfit = loop.verifiedProfit;
+  const expectedProfit = loop.expectedProfit;
+  const positiveOutcomes = loop.positiveOutcomes;
+  const completionRate = loop.completionRate;
+  const positiveRate = loop.positiveRate;
 
-  // Derived state
-  const [stats, setStats] = useState<ReturnType<typeof import("@/lib/store").computeStatsCached> | null>(null);
-  const [datasetName, setDatasetName] = useState("");
-  const [hasData, setHasData] = useState(false);
-  const [datasetData, setDatasetData] = useState<{ columns: string[]; rows: Record<string, unknown>[]; original_name: string } | null>(null);
-  const [decisionChain, setDecisionChain] = useState<DecisionChainResponse | null>(null);
-  const [insufficientData, setInsufficientData] = useState<InsufficientDataResponse | null>(null);
-  const [pipelineError, setPipelineError] = useState("");
-  const [degradedResponse, setDegradedResponse] = useState(false);
-  const [agentLoading, setAgentLoading] = useState(false);
 
-  // Loop history data (single source of truth for ExecutionTracker + LoopReviewBoard)
-  const { data: loopData, loading: loopLoading, error: loopError, refetch: refetchLoopRaw } = useDataFetch(
-    ["loop", user?.id, datasetId].join(":"),
-    (signal: AbortSignal) => fetchLoopHistory(datasetId, user?.id || undefined, signal),
-    [user?.id, datasetId],
-    { enabled: !!user?.id && !!datasetId }
-  );
-  const refetchLoop = useCallback(function() { void refetchLoopRaw(); }, [refetchLoopRaw]);
+  // Dataset metadata
+  const datasetData = useMemo(() => {
+    if (!rawData) return null;
+    return {
+      columns: rawData.columns,
+      rows: rawData.rows,
+      original_name: rawData.original_name || "",
+    };
+  }, [rawData]);
 
-  // Derived loop maps (no setState needed — derived from loopData)
-  var loopExecutions: Record<string, Execution[]> = {};
-  var loopOutcomes: Record<string, Outcome[]> = {};
-  if (loopData?.decisions) {
-    for (const dd of loopData.decisions) {
-      for (const t of (dd.actionTasks || [])) {
-        if (dd.executions && dd.executions[t.id]) loopExecutions[t.id] = dd.executions[t.id];
-        if (dd.outcomes && dd.outcomes[t.id]) loopOutcomes[t.id] = dd.outcomes[t.id];
-      }
-    }
-  }
+  const dataProfile = activeDataset?.profile || "unknown";
+  const currentPlatform = activeDataset?.platform || "";
 
-  // Resolve datasetId from localStorage once on mount (separate from stats to prevent cascade)
-  useEffect(function () {
-    if (datasetId) return;
+  // Relations
+  const relations: DatasetRelation[] = useMemo(() => {
     try {
-      var saved = getStore(user?.id || "");
-      var activeId = saved.activeId || "";
-      if (activeId) setDatasetId(activeId);
-    } catch {}
-  }, [user?.id]);
-
-  // Compute stats when rawData changes (datasetId intentionally excluded to prevent cascade)
-  useEffect(function () {
-    if (!rawData) return;
-    var parsed = computeStatsCached(rawData.rows, rawData.columns);
-    setStats(parsed);
-    var resolvedDsId = datasetId;
-    if (!resolvedDsId) {
-      try { resolvedDsId = getStore(user?.id || "").activeId || ""; } catch {}
+      return detectRelations(
+        datasets.map((d: any) => ({
+          id: d.id,
+          originalName: d.originalName,
+          semanticRoles: d.semanticRoles ?? null,
+        }))
+      );
+    } catch {
+      return [];
     }
-    setDatasetName(rawData.original_name || getStore(user?.id || "").datasets.find(function (d: any) { return d.id === (resolvedDsId || ""); })?.originalName || "");
-    setHasData(true);
-    setDatasetData(rawData);
-  }, [rawData, user?.id]);
+  }, [datasets]);
 
-  // Fetch agent analysis when data changes
-  useEffect(function () {
-    if (!rawData || !user?.id || !datasetId) return;
-    var cancelled = false;
-    setAgentLoading(true);
-    setDecisionChain(null);
-    setInsufficientData(null);
-    setPipelineError("");
-
-    (async function (): Promise<void> {
-      try {
-        var storeData = getStore(user?.id || "");
-        var relatedIds: string[] = storeData.datasets.filter(function (d: any) { return d.id !== datasetId; }).map(function (d: any) { return d.id; });
-
-        var inlineDatasets: Record<string, any> = {};
-        var activeRows = getDatasetRows(datasetId);
-        if (activeRows && activeRows.rows.length > 0) {
-          var activeMeta = storeData.datasets.find(function (d: any) { return d.id === datasetId; });
-          if (activeMeta) inlineDatasets[datasetId] = buildInlineDataset(activeMeta, activeRows.rows, 500);
-        }
-        for (var ri = 0; ri < relatedIds.length; ri++) {
-          var relRows = getDatasetRows(relatedIds[ri]);
-          if (relRows && relRows.rows.length > 0) {
-            var relMeta = storeData.datasets.find(function (d: any) { return d.id === relatedIds[ri]; });
-            if (relMeta) inlineDatasets[relatedIds[ri]] = buildInlineDataset(relMeta, relRows.rows, 200);
-          }
-        }
-
-        var agentStart = Date.now();
-        var chainRes = await authFetch("/api/agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ input: "分析经营状况，给出决策建议", datasetId: datasetId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }),
-        });
-
-        if (cancelled) return;
-
-        var chainData = await chainRes.json().catch(function () { return null; });
-        obs.trackApiCall("/api/agent", Date.now() - agentStart, chainRes.ok, { datasetId: datasetId, type: chainData?.type });
-
-        if (!chainRes.ok || !chainData) {
-          var apiErr = chainData ? parseApiError(chainData) : null;
-          setPipelineError(apiErr ? apiErr.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
-          setAgentLoading(false);
-          return;
-        }
-
-        if (chainData.type === "decision_chain") {
-          setDecisionChain(chainData as DecisionChainResponse);
-          setInsufficientData(null);
-          setPipelineError("");
-          setDegradedResponse(!!(chainData as any).degraded);
-        } else if (chainData.type === "insufficient_data") {
-          setDecisionChain(null);
-          setInsufficientData(chainData as InsufficientDataResponse);
-          setPipelineError("");
-          setDegradedResponse(false);
-        } else if ((chainData as any).degraded) {
-          // routeAgent 降级响应：pipeline 失败但 routeAgent 返回了有效分析
-          // 归一化为 decision_chain 以正常渲染，顶部显示降级提示
-          var normalized: any = Object.assign({ type: "decision_chain" }, chainData);
-          setDecisionChain(normalized as DecisionChainResponse);
-          setInsufficientData(null);
-          setPipelineError("");
-          setDegradedResponse(true);
-        } else {
-          var err = chainData ? parseApiError(chainData) : null;
-          setPipelineError(err ? err.message : (chainData?.content || "Pipeline 执行失败，请稍后重试。"));
-          setDegradedResponse(false);
-        }
-        setAgentLoading(false);
-      } catch (e) {
-        if (cancelled) return;
-        setPipelineError(e instanceof Error ? e.message : "AI 服务暂时不可用，请稍后重试。");
-        setAgentLoading(false);
-      }
-    })();
-
-    return function () { cancelled = true; };
-  }, [rawData, user?.id, datasetId, obs]);
-
-
-
-  // Track page view
-  useEffect(function () {
-    if (hasData) obs.trackPageView("dashboard", { datasetId: datasetId || "none" });
-  }, [hasData, datasetId, obs]);
-
-  // Handle dataset selection
-  function handleSelect(newId: string) {
-    setDatasetId(newId);
-    clearStatsCache();
-  }
-
-  // Loading/error states
-  if (dataLoading) return <DashboardSkeleton />;
-  if (dataError) {
-    return (
-      <div className="min-h-screen pt-16 flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md px-6">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-50 flex items-center justify-center mb-6">
-            <AlertCircle className="w-8 h-8 text-red-400" />
-          </div>
-          <h2 className="text-title mb-4">数据加载失败</h2>
-          <p className="text-body mb-8">{dataError.message}</p>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={refetchRawData} className="btn-primary">重试</motion.button>
-        </motion.div>
-      </div>
-    );
-  }
-  if (!rawData) {
-    return (
-      <div className="min-h-screen pt-16 flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="text-center max-w-md px-6">
-          <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative">
-            <div className="absolute inset-0 rounded-3xl bg-blue-50" />
-            <BarChart3 className="w-10 h-10 text-brand relative z-10" />
-          </motion.div>
-          <h2 className="text-title text-balance mb-4">数据不足，无法生成诊断</h2>
-          <p className="text-body mb-10 leading-relaxed">请先上传销售数据，AI 才能为你生成经营诊断报告</p>
-          <Link href="/upload">
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="btn-primary text-lg px-8 py-4 rounded-2xl flex items-center gap-2">
-              <Upload className="w-5 h-5" />上传数据
-              <ArrowRight className="w-5 h-5" />
-            </motion.button>
-          </Link>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Derived data
-  var storeData = getStore(user?.id || "");
-  var dataProfile = storeData.datasets.find(function(d) { return d.id === datasetId; })?.profile || "unknown";
-  var currentPlatform = storeData.datasets.find(function(d) { return d.id === datasetId; })?.platform || "";
-  var relations: DatasetRelation[] = [];
-  try { relations = detectRelations(storeData.datasets.map(function(d: any) { return { id: d.id, originalName: d.originalName, semanticRoles: d.semanticRoles || null }; })); } catch(e) {}
-  var allPlatforms: string[] = storeData.datasets.map(function(d) { return d.platform || ""; }).filter(function(p) { return p !== ""; });
-  var hasMultiPlatform = new Set(allPlatforms).size >= 2;
+  const allPlatforms = useMemo(
+    () => datasets.map((d: any) => d.platform || "").filter((p: string) => p !== ""),
+    [datasets]
+  );
+  const hasMultiPlatform = new Set(allPlatforms).size >= 2;
 
   // Pipeline data
-  var evidenceCards = decisionChain?.evidenceCards || [];
-  var diagnoses = decisionChain?.diagnoses || [];
-  var actions = decisionChain?.actions || [];
-  var aiSummary = decisionChain?.content || "";
-  var scenarios = decisionChain?.scenarios;
-  var hasScenarios = scenarios && scenarios.scenarios && scenarios.scenarios.length > 0;
-  var crossPlatform: CrossPlatformComparison[] = decisionChain?.crossPlatform || [];
+  const evidenceCards = decisionChain?.evidenceCards || [];
+  const diagnoses = decisionChain?.diagnoses || [];
+  const actions = decisionChain?.actions || [];
+  const aiSummary = decisionChain?.content || "";
+  const scenarios = decisionChain?.scenarios;
+  const hasScenarios = scenarios && scenarios.scenarios && scenarios.scenarios.length > 0;
+  const crossPlatform: CrossPlatformComparison[] = decisionChain?.crossPlatform || [];
 
-  // Unknown data
-  if (dataProfile === "unknown") {
-    return (
-      <div className="min-h-screen pt-16">
-        <div className="section-container py-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
-            <div className="flex items-center gap-4 mb-2">
-              <div>
-                <h1 className="text-title text-primary">数据画像</h1>
-                {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
-              </div>
-              <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
-            </div>
-          </motion.div>
-          {datasetData ? <GenericOverview columns={datasetData.columns} rows={datasetData.rows} datasetName={datasetName} /> : null}
-        </div>
-      </div>
-    );
-  }
+  // Diagnosis counts
+  const criticalDiagnoses = diagnoses.filter((d: any) => d.level === "critical");
+  const warningDiagnoses = diagnoses.filter((d: any) => d.level === "warning");
+  const opportunityDiagnoses = diagnoses.filter((d: any) => d.level === "opportunity");
 
-  // Supply data
-  if (dataProfile === "supply") {
+  // Handlers
+  const handleSelect = useCallback(
+    (newId: string) => {
+      setActiveDataset(newId);
+    },
+    [setActiveDataset]
+  );
+
+  // Decision status changes are handled internally by LoopReviewBoard via DataContext
+
+  // ═══════════════════════════════════════════════
+  // Loading / Error / Empty States
+  // ═══════════════════════════════════════════════
+
+  if (!rawData) {
     return (
-      <div className="min-h-screen pt-16">
-        <div className="section-container py-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{duration:0.6}} className="mb-8">
-            <div className="flex items-center gap-4 mb-2">
-              <div>
-                <h1 className="text-title text-primary">供货分析</h1>
-                {datasetName && <p className="text-caption mt-1">{datasetName}</p>}
-              </div>
-              <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
+      <RequireAuth>
+        <div className="min-h-screen pt-20 flex items-center justify-center" style={{ background: "var(--color-bg-root)" }}>
+          <Reveal>
+            <div className="text-center max-w-sm px-8">
+              <motion.div animate={{ y: [0, -14, 0], rotate: [0, 4, -4, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 rounded-3xl" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.06) 0%, rgba(14,165,233,0.04) 100%)" }} />
+                <BarChart3 className="w-10 h-10 text-brand relative z-10" />
+              </motion.div>
+              <h2 className="text-2xl font-bold text-primary mb-3 tracking-tight">数据不足，无法生成诊断</h2>
+              <p className="text-body mb-10">请先上传销售数据，AI 才能为你生成经营诊断报告</p>
+              <Link href="/upload">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="px-10 py-4 rounded-2xl text-white font-bold text-base flex items-center gap-2.5 mx-auto transition-all" style={{ background: "linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)", boxShadow: "0 4px 16px rgba(79, 70, 229, 0.25)" }}>
+                  <Upload className="w-5 h-5" />上传数据 <ArrowRight className="w-5 h-5" />
+                </motion.button>
+              </Link>
             </div>
-          </motion.div>
-          <ProcurementPanel datasetData={datasetData} datasetName={datasetName} />
+          </Reveal>
         </div>
-      </div>
+      </RequireAuth>
     );
   }
 
   // ═══════════════════════════════════════════════
-  // Main Dashboard
+  // Main Render
   // ═══════════════════════════════════════════════
-
-  var criticalDiagnoses = diagnoses.filter(function(d: any) { return d.level === "critical"; });
-  var warningDiagnoses = diagnoses.filter(function(d: any) { return d.level === "warning"; });
-  var opportunityDiagnoses = diagnoses.filter(function(d: any) { return d.level === "opportunity"; });
 
   return (
     <RequireAuth>
-      <div className="min-h-screen pt-16">
-        <div className="section-container py-8 md:py-12">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: "easeOut" }} className="page-header">
-          <div className="flex items-center gap-4 mb-2">
-            <div>
-              <h1 className="text-title text-primary">经营诊断</h1>
-              {datasetName && <p className="text-caption mt-1.5 truncate max-w-[200px] md:max-w-none">{datasetName}</p>}
-            </div>
-            <TableSelector onSelect={handleSelect} userId={user?.id} className="ml-auto" />
-          </div>
-          {relations.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="mt-4 p-4 rounded-xl border border-blue-100 bg-blue-50/50 flex items-center gap-3 hover-lift">
-              <div className="icon-box bg-blue-100 shrink-0"><Sparkles className="w-4 h-4 text-brand" /></div>
-              <span className="text-sm text-secondary">
-                检测到 {relations.length} 组数据关联关系：{relations[0].description}
-              </span>
-              <Link href="/chat?auto=compare" className="ml-auto text-xs text-brand hover:text-brand-dark transition-colors duration-200 shrink-0 font-medium">
-                AI 跨平台分析 →
-              </Link>
-            </motion.div>
-          )}
-        </motion.div>
+      <ErrorBoundary>
+        <div className="min-h-screen pt-20" style={{ background: "var(--color-bg-root)" }}>
+          <div className="max-w-6xl mx-auto px-6 py-10 md:py-14">
 
-        {/* Row 1: Profit KPI Bar */}
-        {evidenceCards.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="section-gap">
-            <ProfitBar evidenceCards={evidenceCards} />
-          </motion.div>
-        )}
-
-        {/* Row 2: Profit Ranking + Cost Structure */}
-        {evidenceCards.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 section-gap">
-            <div className="md:col-span-3">
-              <ProfitRanking evidenceCards={evidenceCards} />
-            </div>
-            <div className="md:col-span-2">
-              <CostStructure evidenceCards={evidenceCards} />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Row 3: Diagnoses Feed */}
-        {diagnoses.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="section-gap">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-heading">经营诊断</span>
-              <span className="text-caption">
-                {criticalDiagnoses.length > 0 ? "🔴 " + criticalDiagnoses.length + " 紧急 " : ""}
-                {warningDiagnoses.length > 0 ? "🟡 " + warningDiagnoses.length + " 警告 " : ""}
-                {opportunityDiagnoses.length > 0 ? "🟢 " + opportunityDiagnoses.length + " 机会" : ""}
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {criticalDiagnoses.map(function(d: any, i: number) {
-                var linkedCards = evidenceCards.filter(function(c: any) {
-                  return d.products && d.products.some(function(p: string) { return c.productName === p || (typeof p === "string" && p.includes(c.productName)); });
-                });
-                return (
-                  <motion.div key={"crit-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.4, ease: "easeOut" }}
-                    className="rounded-xl p-4 border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.06] transition-colors duration-200">
-                    <div className="flex items-start gap-3">
-                      <span className="text-red-400 text-sm mt-0.5">❌</span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-red-300/90">{d.title}</h4>
-                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-brand/80 mt-2 font-medium">→ {d.action}</p>}
-                        {d.impact && <p className="text-xs text-emerald-500/60 mt-1.5">预期: {d.impact}</p>}
-                        {d.reference && <p className="text-caption mt-1.5">📎 {d.reference}</p>}
-                        {d.products && d.products.length > 0 && (
-                          <div className="flex items-center gap-1.5 mt-3">
-                            {d.products.map(function(p: string, pi: number) {
-                              var cardIdx = evidenceCards.findIndex(function(c: any) { return c.productName === p; });
-                              return (
-                                <span key={pi} className="text-caption px-2 py-0.5 rounded bg-gray-100 text-faint font-mono">
-                                  {p}{cardIdx >= 0 ? " · #" + cardIdx : ""}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-              {warningDiagnoses.map(function(d: any, i: number) {
-                return (
-                  <motion.div key={"warn-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.15, duration: 0.4, ease: "easeOut" }}
-                    className="rounded-xl p-4 border border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.05] transition-colors duration-200">
-                    <div className="flex items-start gap-3">
-                      <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-amber-300/80">{d.title}</h4>
-                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-brand/70 mt-2 font-medium">→ {d.action}</p>}
-                        {d.reference && <p className="text-caption mt-1.5">📎 {d.reference}</p>}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-              {opportunityDiagnoses.map(function(d: any, i: number) {
-                return (
-                  <motion.div key={"opp-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.3, duration: 0.4, ease: "easeOut" }}
-                    className="rounded-xl p-4 border border-emerald-500/10 bg-emerald-500/[0.02] hover:bg-emerald-500/[0.04] transition-colors duration-200">
-                    <div className="flex items-start gap-3">
-                      <span className="text-emerald-400 text-sm mt-0.5">💡</span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-emerald-300/70">{d.title}</h4>
-                        <p className="text-body mt-1.5 leading-relaxed">{d.detail}</p>
-                        {d.action && <p className="text-sm text-brand/70 mt-2 font-medium">→ {d.action}</p>}
-                        {d.impact && <p className="text-xs text-emerald-400/50 mt-1.5">预期: {d.impact}</p>}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Empty diagnosis state */}
-        {diagnoses.length === 0 && evidenceCards.length === 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }} className="section-gap p-8 rounded-2xl border border-gray-100 text-center card">
-            <div className="icon-box bg-blue-50 mx-auto mb-3"><Sparkles className="w-5 h-5 text-brand" /></div>
-            <p className="text-body">AI 正在分析您的经营数据...</p>
-            <p className="text-caption mt-2">若持续未显示，请确认数据中包含价格和商品名称字段</p>
-          </motion.div>
-        )}
-
-        {/* Row 4: Actions + Cross-platform */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 section-gap">
-          {actions.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.5, ease: "easeOut" }}>
-              <div className="flex items-center gap-2.5 mb-4">
-                <span className="text-heading">行动建议</span>
-                <span className="text-caption">{actions.length} 条</span>
+            {/* ═══ Header ═══ */}
+            <Reveal>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-2">
+                <div className="min-w-0">
+                  <h1 className="text-3xl md:text-4xl font-extrabold text-primary tracking-tight">经营诊断</h1>
+                  {activeDataset?.originalName && (
+                    <p className="text-sm text-tertiary mt-2 font-medium truncate">{activeDataset.originalName}</p>
+                  )}
+                </div>
+                <TableSelector onSelect={handleSelect} userId={userId} className="sm:ml-auto shrink-0" />
               </div>
-              <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
-                {actions.map(function(act, ai) {
-                  return (
-                    <div key={ai} className="space-y-2">
-                      <ActionCardView action={act} index={ai} />
-                      {act.actionTaskId && (
-                        <ExecutionTracker
-                          actionTaskId={act.actionTaskId}
-                          title={act.title || act.action}
-                          description={act.description || act.reason}
-                          priority={act.priority}
-                          riskLevel={act.riskLevel}
-                          expectedProfitImpact={act.expectedProfitImpact}
-                          executions={loopExecutions[act.actionTaskId] || []}
-                          outcomes={loopOutcomes[act.actionTaskId] || []}
-                          onRefresh={refetchLoop}
-                        />
+            </Reveal>
+
+            {/* Data relation banner */}
+            {relations.length > 0 && (
+              <Reveal delay={0.15}>
+                <div className="mt-5 mb-8 p-4 rounded-2xl border flex flex-wrap items-center gap-3" style={{ background: "linear-gradient(135deg, var(--color-semantic-info) 0%, var(--color-bg-surface) 100%)", borderColor: "var(--color-border-default)" }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(14,165,233,0.05) 100%)" }}>
+                    <Sparkles className="w-4 h-4 text-brand" />
+                  </div>
+                  <span className="text-sm text-secondary leading-relaxed">
+                    检测到 <strong className="text-primary">{relations.length}</strong> 组数据关联关系：{relations[0].description}
+                  </span>
+                  <Link href="/chat?auto=compare" className="ml-auto text-xs font-bold text-brand hover:text-brand-dark transition-colors shrink-0 flex items-center gap-1">
+                    AI 跨平台分析 <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 1: Profit KPI Bar ═══ */}
+            {evidenceCards.length > 0 && (
+              <Reveal delay={0.1}>
+                <div className="mb-6 md:mb-8">
+                  <ProfitBar evidenceCards={evidenceCards} />
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 2: Profit Ranking + Cost Structure ═══ */}
+            {evidenceCards.length > 0 && (
+              <Reveal delay={0.15}>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
+                  <div className="lg:col-span-3">
+                    <ProfitRanking evidenceCards={evidenceCards} />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <CostStructure evidenceCards={evidenceCards} />
+                  </div>
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 3: Diagnoses Feed ═══ */}
+            {diagnoses.length > 0 && (
+              <Reveal delay={0.2}>
+                <div className="mb-6 md:mb-8">
+                  <div className="flex flex-wrap items-center gap-3 mb-5">
+                    <h2 className="text-xl font-bold text-primary tracking-tight">经营诊断</h2>
+                    <div className="flex items-center gap-3 text-xs font-medium">
+                      {criticalDiagnoses.length > 0 && <span className="flex items-center gap-1.5" style={{ color: "var(--color-semantic-danger-text)" }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-semantic-danger-text)" }} />{criticalDiagnoses.length} 紧急</span>}
+                      {warningDiagnoses.length > 0 && <span className="flex items-center gap-1.5" style={{ color: "var(--color-semantic-warning-text)" }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-semantic-warning-text)" }} />{warningDiagnoses.length} 警告</span>}
+                      {opportunityDiagnoses.length > 0 && <span className="flex items-center gap-1.5" style={{ color: "var(--color-semantic-success-text)" }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-semantic-success-text)" }} />{opportunityDiagnoses.length} 机会</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {criticalDiagnoses.map((d: any, i: number) => (
+                      <motion.div key={"crit-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="rounded-2xl p-5 border transition-all duration-200 hover:shadow-sm"
+                        style={{ background: "linear-gradient(135deg, var(--color-semantic-danger) 0%, var(--color-bg-surface) 60%)", borderColor: "rgba(220,38,38,0.08)" }}>
+                        <div className="flex items-start gap-3.5">
+                          <span className="text-sm mt-0.5 shrink-0">❌</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold" style={{ color: "var(--color-semantic-danger-text)" }}>{d.title}</h4>
+                            <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{d.detail}</p>
+                            {d.action && <p className="text-sm font-bold mt-3" style={{ color: "var(--color-semantic-info-text)" }}>→ {d.action}</p>}
+                            {d.impact && <p className="text-xs mt-2" style={{ color: "var(--color-semantic-success-text)", opacity: 0.7 }}>预期: {d.impact}</p>}
+                            {d.reference && <p className="text-xs mt-2 font-mono" style={{ color: "var(--color-text-faint)" }}>{d.reference}</p>}
+                            {d.products && d.products.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                                {d.products.map((p: string, pi: number) => {
+                                  const cardIdx = evidenceCards.findIndex((c: any) => c.productName === p);
+                                  return (
+                                    <span key={pi} className="text-xs px-2.5 py-1 rounded-lg font-mono font-medium" style={{ background: "var(--color-bg-subtle)", color: "var(--color-text-tertiary)" }}>
+                                      {p}{cardIdx >= 0 ? " · #" + cardIdx : ""}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {warningDiagnoses.map((d: any, i: number) => (
+                      <motion.div key={"warn-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="rounded-2xl p-5 border transition-all duration-200 hover:shadow-sm"
+                        style={{ background: "linear-gradient(135deg, var(--color-semantic-warning) 0%, var(--color-bg-surface) 60%)", borderColor: "rgba(180,83,9,0.06)" }}>
+                        <div className="flex items-start gap-3.5">
+                          <span className="text-sm mt-0.5 shrink-0">⚠️</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold" style={{ color: "var(--color-semantic-warning-text)" }}>{d.title}</h4>
+                            <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{d.detail}</p>
+                            {d.action && <p className="text-sm font-bold mt-3" style={{ color: "var(--color-semantic-info-text)" }}>→ {d.action}</p>}
+                            {d.reference && <p className="text-xs mt-2 font-mono" style={{ color: "var(--color-text-faint)" }}>{d.reference}</p>}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {opportunityDiagnoses.map((d: any, i: number) => (
+                      <motion.div key={"opp-" + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 + 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="rounded-2xl p-5 border transition-all duration-200 hover:shadow-sm"
+                        style={{ background: "linear-gradient(135deg, var(--color-semantic-success) 0%, var(--color-bg-surface) 60%)", borderColor: "rgba(5,150,105,0.06)" }}>
+                        <div className="flex items-start gap-3.5">
+                          <span className="text-sm mt-0.5 shrink-0">💡</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold" style={{ color: "var(--color-semantic-success-text)" }}>{d.title}</h4>
+                            <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{d.detail}</p>
+                            {d.action && <p className="text-sm font-bold mt-3" style={{ color: "var(--color-semantic-info-text)" }}>→ {d.action}</p>}
+                            {d.impact && <p className="text-xs mt-2" style={{ color: "var(--color-semantic-success-text)", opacity: 0.7 }}>预期: {d.impact}</p>}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            )}
+
+            {/* Empty diagnosis state */}
+            {diagnoses.length === 0 && evidenceCards.length === 0 && (
+              <Reveal delay={0.3}>
+                <div className="mb-6 md:mb-8 p-8 rounded-2xl border border-dashed text-center" style={{ borderColor: "var(--color-border-default)", background: "var(--color-bg-surface)" }}>
+                  <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.06) 0%, rgba(14,165,233,0.04) 100%)" }}>
+                    <Sparkles className="w-5 h-5 text-brand" />
+                  </div>
+                  <p className="text-sm text-secondary font-medium">AI 正在分析您的经营数据...</p>
+                  <p className="text-xs text-tertiary mt-2">若持续未显示，请确认数据中包含价格和商品名称字段</p>
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 4: Actions + Cross-platform ═══ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+              {actions.length > 0 && (
+                <Reveal delay={0.25}>
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <h2 className="text-xl font-bold text-primary tracking-tight">行动建议</h2>
+                      <span className="text-xs text-tertiary font-medium">{actions.length} 条</span>
+                    </div>
+                    <div className="space-y-2.5 max-h-[28rem] overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
+                      {actions.map((act: any, ai: number) => (
+                        <div key={ai} className="space-y-2.5">
+                          <ActionCardView action={act} index={ai} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Reveal>
+              )}
+
+              {hasMultiPlatform && (
+                <Reveal delay={0.3}>
+                  <CrossPlatformView
+                    comparisons={crossPlatform}
+                    coveredPlatforms={
+                      crossPlatform.length > 0
+                        ? Array.from(new Set(
+                            crossPlatform.flatMap((c) => c.platformResults.map((p) => p.platform))
+                          ))
+                        : Array.from(new Set(allPlatforms))
+                    }
+                  />
+                </Reveal>
+              )}
+
+              {!hasMultiPlatform && currentPlatform && (
+                <Reveal delay={0.3}>
+                  <div className="rounded-2xl p-5 border flex items-center gap-4" style={{ background: "linear-gradient(135deg, var(--color-semantic-info) 0%, var(--color-bg-surface) 100%)", borderColor: "var(--color-border-default)" }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(14,165,233,0.05) 100%)" }}>
+                      <Sparkles className="w-5 h-5 text-brand" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-secondary font-medium">当前仅{getPlatformLabel(currentPlatform)}平台数据</p>
+                      <p className="text-xs text-tertiary mt-1">上传其他平台数据后将自动展示跨平台利润对比</p>
+                    </div>
+                    <Link href="/upload" className="text-xs font-bold text-brand hover:text-brand-dark transition-colors shrink-0 flex items-center gap-1">
+                      上传更多 <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </Reveal>
+              )}
+            </div>
+
+            {/* ═══ Row 4.5: Scenario Simulation ═══ */}
+            {hasScenarios && (
+              <Reveal delay={0.22}>
+                <div className="mb-6 md:mb-8">
+                  <ScenarioPanel scenarios={scenarios!} profitResults={(decisionChain as any)?.metrics?.profit || []} />
+                </div>
+              </Reveal>
+            )}
+
+            {/* Degraded mode banner */}
+            {degradedResponse && decisionChain && (
+              <Reveal delay={0.1}>
+                <div className="mb-6 md:mb-8 rounded-xl p-4 border flex items-center gap-3" style={{ borderColor: "rgba(217,119,6,0.20)", background: "rgba(251,191,36,0.06)" }}>
+                  <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "rgba(217,119,6,0.10)" }}>
+                    <span className="text-sm">⚠️</span>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: "#B45309" }}>
+                    深度分析引擎暂不可用，以下为简化分析结果。部分高级功能（证据卡、利润测算、跨平台对比）可能受限。
+                  </p>
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 4.6: Evidence Cards ═══ */}
+            {evidenceCards.length > 0 && (
+              <Reveal delay={0.2}>
+                <div className="mb-6 md:mb-8">
+                  <div className="flex items-center gap-3 mb-5">
+                    <h2 className="text-xl font-bold text-primary tracking-tight">证据卡</h2>
+                    <span className="text-xs text-tertiary font-medium">{evidenceCards.length} 张</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+                    {evidenceCards.slice(0, 3).map((card: any, ci: number) => (
+                      <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />
+                    ))}
+                  </div>
+                  {evidenceCards.length > 3 && (
+                    <p className="text-xs text-tertiary text-center mt-5 font-medium">
+                      +{evidenceCards.length - 3} 张更多证据卡 · 切换到 Chat 查看全部
+                    </p>
+                  )}
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 5: AI Analysis ═══ */}
+            {aiSummary && (
+              <Reveal delay={0.35}>
+                <div className="mb-6 md:mb-8 rounded-2xl p-6 md:p-8 border transition-all duration-200 hover:shadow-sm" style={{ background: "var(--color-bg-surface)", borderColor: "var(--color-border-default)" }}>
+                  <div className="flex flex-wrap items-center gap-3 mb-6">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(14,165,233,0.05) 100%)" }}>
+                      <Sparkles className="w-4 h-4 text-brand" />
+                    </div>
+                    <h2 className="text-xl font-bold text-primary tracking-tight">AI 综合分析</h2>
+                    {(decisionChain as any)?.aiExplanation?.confidence !== undefined && (
+                      <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{
+                        background: (decisionChain as any).aiExplanation.confidence >= 0.8 ? "var(--color-semantic-success)" :
+                          (decisionChain as any).aiExplanation.confidence >= 0.5 ? "var(--color-semantic-warning)" :
+                          "var(--color-semantic-danger)",
+                        color: (decisionChain as any).aiExplanation.confidence >= 0.8 ? "var(--color-semantic-success-text)" :
+                          (decisionChain as any).aiExplanation.confidence >= 0.5 ? "var(--color-semantic-warning-text)" :
+                          "var(--color-semantic-danger-text)",
+                      }}>
+                        置信度 {Math.round((decisionChain as any).aiExplanation.confidence * 100)}%
+                      </span>
+                    )}
+                    <span className="text-xs text-tertiary ml-auto hidden sm:inline">
+                      基于 {evidenceCards.length} 张证据卡 · {diagnoses.length} 条诊断 · {actions.length} 条建议
+                    </span>
+                  </div>
+                  <div className="markdown-prose text-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                      {aiSummary}
+                    </ReactMarkdown>
+                  </div>
+                  {/* Execution verification bridge */}
+                  {actions.length > 0 && (
+                    <div className="mt-6 pt-5 border-t" style={{ borderColor: "var(--color-border-subtle)" }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "rgba(15,15,18,0.38)" }}>
+                        执行验证
+                      </p>
+                      <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-tertiary)" }}>
+                        以上为 AI 预测分析。实际执行效果请在下方「执行复盘」中追踪验证，或在上方「行动建议」中开始执行。
+                      </p>
+                    </div>
+                  )}
+                  {(decisionChain as any)?.meta && (
+                    <div className="mt-6 pt-5 border-t flex flex-wrap items-center gap-5 text-xs font-medium" style={{ borderColor: "var(--color-border-subtle)", color: "var(--color-text-tertiary)" }}>
+                      <span className="font-mono">行业: {(decisionChain as any).meta.industry?.name || "—"}</span>
+                      {(decisionChain as any).meta.pipelineLatency !== undefined && (
+                        <span className="font-mono">分析耗时: {((decisionChain as any).meta.pipelineLatency / 1000).toFixed(1)}s</span>
+                      )}
+                      {(decisionChain as any).meta.freshnessScore !== undefined && (
+                        <span className="font-mono">知识时效: {Math.round((decisionChain as any).meta.freshnessScore)}%</span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
+                  )}
+                </div>
+              </Reveal>
+            )}
 
-          {hasMultiPlatform && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}>
-              <CrossPlatformView
-                comparisons={crossPlatform}
-                coveredPlatforms={
-                  crossPlatform.length > 0
-                    ? Array.from(new Set(
-                        crossPlatform.flatMap(function(c) {
-                          return c.platformResults.map(function(p) { return p.platform; });
-                        })
-                      ))
-                    : Array.from(new Set(allPlatforms))
-                }
-              />
-            </motion.div>
-          )}
+            {/* Data limitation state */}
+            {insufficientData && !decisionChain && (
+              <Reveal delay={0.4}>
+                <div className="mb-6 md:mb-8 rounded-2xl p-6 border" style={{ background: "var(--color-bg-surface)", borderColor: "var(--color-border-default)" }}>
+                  <p className="text-sm font-bold" style={{ color: "var(--color-semantic-warning-text)" }}>当前数据不足以生成完整经营决策</p>
+                  <p className="text-sm mt-3 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{insufficientData.content}</p>
+                  {insufficientData.limitations.length > 0 && (
+                    <ul className="mt-5 space-y-2.5 list-disc pl-5">
+                      {insufficientData.limitations.map((item: string) => (
+                        <li key={item} className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </Reveal>
+            )}
 
-          {!hasMultiPlatform && currentPlatform && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }}
-              className="rounded-xl p-5 border border-blue-100 bg-blue-50/30 flex items-center gap-3 hover-lift">
-              <div className="icon-box bg-blue-100 shrink-0"><Sparkles className="w-5 h-5 text-brand" /></div>
-              <div>
-                <p className="text-body">
-                  当前仅{getPlatformLabel(currentPlatform)}平台数据
-                </p>
-                <p className="text-caption mt-1">上传其他平台数据后将自动展示跨平台利润对比</p>
-              </div>
-              <Link href="/upload" className="ml-auto text-xs text-brand hover:text-brand-dark transition-colors duration-200 shrink-0 font-medium">
-                上传更多 →
-              </Link>
-            </motion.div>
-          )}
+            {/* Pipeline error state */}
+            {pipelineError && !decisionChain && (
+              <Reveal delay={0.4}>
+                <div className="mb-6 md:mb-8 rounded-2xl p-6 border" style={{ background: "var(--color-bg-surface)", borderColor: "rgba(220,38,38,0.08)" }}>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, rgba(220,38,38,0.06) 0%, rgba(254,202,202,0.4) 100%)" }}>
+                      <span className="text-lg">⚠️</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold" style={{ color: "var(--color-semantic-danger-text)" }}>AI 分析暂时不可用</p>
+                      <p className="text-sm mt-1.5 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{pipelineError}</p>
+                    </div>
+                    <button
+                      onClick={() => { /* TODO: retry */ }}
+                      className="px-5 py-2 rounded-xl text-xs font-bold border transition-all hover:border-gray-300 hover:bg-white/60" style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}>
+                      重试
+                    </button>
+                  </div>
+                </div>
+              </Reveal>
+            )}
+
+            {/* Pipeline loading state */}
+            {agentLoading && !decisionChain && !insufficientData && !pipelineError && (
+              <Reveal delay={0.4}>
+                <div className="mb-6 md:mb-8 rounded-2xl p-6 border border-dashed flex items-center gap-4" style={{ borderColor: "var(--color-border-default)", background: "var(--color-bg-surface)" }}>
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-brand loading-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-brand loading-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-brand loading-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-sm text-secondary font-medium">AI 正在分析经营数据并生成诊断...</span>
+                </div>
+              </Reveal>
+            )}
+
+            {/* ═══ Row 6: Execution/Outcome Review Board ═══ */}
+            {activeDatasetId && (
+              <Reveal delay={0.1}>
+                <div className="mb-10">
+                  <LoopReviewBoard />
+                </div>
+              </Reveal>
+            )}
+          </div>
         </div>
-
-        {/* Row 4.6: Scenario Simulation */}
-        {hasScenarios && (
-          <ScenarioPanel scenarios={scenarios!} profitResults={decisionChain?.metrics?.profit || []} />
-        )}
-
-        {/* Degraded mode banner */}
-        {degradedResponse && decisionChain && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.4 }}
-            className="rounded-xl p-4 border border-amber-200 bg-amber-50/70 flex items-center gap-3">
-            <div className="icon-box bg-amber-100 shrink-0"><span className="text-amber-500 text-sm">⚠️</span></div>
-            <p className="text-sm text-amber-300/90">
-              深度分析引擎暂不可用，以下为简化分析结果。部分高级功能（证据卡、利润测算、跨平台对比）可能受限。
-            </p>
-          </motion.div>
-        )}
-
-        {/* Row 4.5: Evidence Cards */}
-        {evidenceCards.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }} className="section-gap">
-            <div className="flex items-center gap-2.5 mb-4">
-              <span className="text-heading">证据卡</span>
-              <span className="text-caption">{evidenceCards.length} 张</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {evidenceCards.slice(0, 3).map(function(card, ci) {
-                return <EvidenceCardView key={ci} card={card} defaultExpanded={ci === 0} />;
-              })}
-            </div>
-            {evidenceCards.length > 3 && (
-              <p className="text-caption text-center mt-3">
-                +{evidenceCards.length - 3} 张更多证据卡 · 切换到 Chat 查看全部
-              </p>
-            )}
-          </motion.div>
-        )}
-
-        {/* Row 5: AI Analysis */}
-        {aiSummary && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.5, ease: "easeOut" }}
-            className="rounded-2xl p-6 border border-gray-200 card hover-lift">
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="icon-box bg-blue-50"><Sparkles className="w-4 h-4 text-brand" /></div>
-              <h2 className="text-heading">AI 综合分析</h2>
-              {decisionChain?.aiExplanation?.confidence !== undefined && (
-                <span className={"text-caption px-2.5 py-1 rounded-full " + (
-                  decisionChain.aiExplanation.confidence >= 0.8 ? "badge-success" :
-                  decisionChain.aiExplanation.confidence >= 0.5 ? "badge-warning" :
-                  "badge-danger"
-                )}>
-                  置信度 {Math.round(decisionChain.aiExplanation.confidence * 100)}%
-                </span>
-              )}
-              <span className="text-caption ml-auto">
-                基于 {evidenceCards.length} 张证据卡 · {diagnoses.length} 条诊断 · {actions.length} 条建议
-              </span>
-            </div>
-            <div className="prose prose-sm prose-invert max-w-none text-body leading-relaxed whitespace-pre-wrap">
-              {aiSummary}
-            </div>
-            {decisionChain?.meta && (
-              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-4 text-caption">
-                <span className="font-mono">行业: {decisionChain.meta.industry?.name || "—"}</span>
-                {decisionChain.meta.pipelineLatency !== undefined && (
-                  <span className="font-mono">分析耗时: {(decisionChain.meta.pipelineLatency / 1000).toFixed(1)}s</span>
-                )}
-                {decisionChain.meta.freshnessScore !== undefined && (
-                  <span className="font-mono">知识时效: {Math.round(decisionChain.meta.freshnessScore)}%</span>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {/* Data limitation state */}
-        {insufficientData && !decisionChain && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
-            className="rounded-2xl p-6 border border-amber-200 bg-amber-50 card">
-            <p className="text-sm text-amber-300/80 font-medium">当前数据不足以生成完整经营决策</p>
-            <p className="text-body mt-2">{insufficientData.content}</p>
-            {insufficientData.limitations.length > 0 && (
-              <ul className="mt-4 space-y-2 text-body list-disc pl-5">
-                {insufficientData.limitations.map(function(item: string) { return <li key={item}>{item}</li>; })}
-              </ul>
-            )}
-          </motion.div>
-        )}
-
-        {/* Pipeline error state */}
-        {pipelineError && !decisionChain && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
-            className="rounded-2xl p-6 border border-red-200 bg-red-50 card">
-            <div className="flex items-center gap-4">
-              <div className="icon-box bg-red-100 shrink-0"><span className="text-red-400 text-lg">⚠️</span></div>
-              <div className="flex-1">
-                <p className="text-sm text-red-300/80 font-medium">AI 分析暂时不可用</p>
-                <p className="text-body mt-1">{pipelineError}</p>
-              </div>
-              <button
-                onClick={() => { setPipelineError(""); setDecisionChain(null); setInsufficientData(null); setDegradedResponse(false); refetchRawData(); }}
-                className="btn-ghost px-4 py-2 text-sm shrink-0">
-                重试
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Pipeline loading state */}
-        {agentLoading && !decisionChain && !insufficientData && !pipelineError && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
-            className="rounded-2xl p-6 border border-gray-100 card">
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"0ms"}} />
-                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"150ms"}} />
-                <span className="w-2 h-2 rounded-full bg-brand animate-bounce" style={{animationDelay:"300ms"}} />
-              </div>
-              <span className="text-body">AI 正在分析经营数据并生成诊断...</span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Row 6: Execution/Outcome Review Board */}
-        {hasData && datasetId && <LoopReviewBoard datasetId={datasetId} loopData={loopData} loading={loopLoading} error={loopError} onRefresh={refetchLoop} />}
-      </div>
-    </div>
+      </ErrorBoundary>
     </RequireAuth>
   );
 }
 
-// ═══ Data Fetchers ═══
+// ═══════════════════════════════════════════════
+// Export with DataProvider wrapper
+// ═══════════════════════════════════════════════
 
-async function fetchRawData(signal: AbortSignal, userId: string, dsId: string) {
-  if (!dsId) {
-    var saved = getStore(userId);
-    dsId = saved.activeId || "";
-  }
-  if (!dsId) return null;
-
-  var localData = getDatasetRows(dsId);
-  if (localData && localData.rows.length > 0) {
-    return { columns: localData.columns, rows: localData.rows, original_name: "" };
-  }
-
-  var res = await authFetch("/api/upload?id=" + dsId, { signal });
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  var data = await res.json();
-  if (!data || !data.columns) return null;
-  return data;
+export default function DashboardPage() {
+  const { user } = useAuth();
+  return (
+    <DataProvider userId={user?.id || ""}>
+      <DashboardInner />
+    </DataProvider>
+  );
 }

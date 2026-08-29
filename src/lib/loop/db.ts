@@ -4,7 +4,7 @@
  * 所有记录均关联 user_id，确保跨用户数据隔离。
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient, PostgrestError } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 import type { AnalysisRun, Decision, ActionTask, Execution, Outcome } from "./types";
 
@@ -17,6 +17,22 @@ function getClient(): SupabaseClient {
     supabase = createClient(url, key);
   }
   return supabase;
+}
+
+// ═══════════════════════════════════════════════
+// Production now has user_id + RLS on closed-loop tables.
+// Use insertWithUserId to enforce user-scoped writes.
+// ═══════════════════════════════════════════════
+
+async function insertWithUserId(
+  client: SupabaseClient,
+  table: string,
+  payload: Record<string, unknown>,
+  userId: string
+): Promise<PostgrestError | null> {
+  const withUser = Object.assign({}, payload, { user_id: userId });
+  const { error } = await client.from(table).insert(withUser);
+  return error;
 }
 
 // ═══════════════════════════════════════════════
@@ -33,12 +49,11 @@ export async function saveAnalysisRun(userId: string, data: {
   industry: string | null;
   freshnessScore: number;
   webSearchTriggered: boolean;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const client = getClient();
-    const { error } = await client.from("analysis_runs").insert({
+    const payload: Record<string, unknown> = {
       id: data.id,
-      user_id: userId,
       dataset_id: data.datasetId,
       input: data.input,
       chain_snapshot: data.chainSnapshot,
@@ -48,10 +63,13 @@ export async function saveAnalysisRun(userId: string, data: {
       freshness_score: data.freshnessScore,
       web_search_triggered: data.webSearchTriggered,
       created_at: new Date().toISOString(),
-    });
-    if (error) logger.warn("saveAnalysisRun failed", { message: error.message });
+    };
+    const error = await insertWithUserId(client, "analysis_runs", payload, userId);
+    if (error) { logger.warn("saveAnalysisRun failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    return true;
   } catch (e: any) {
     logger.warn("saveAnalysisRun error", { message: e.message });
+    return false;
   }
 }
 
@@ -101,12 +119,11 @@ export async function saveDecision(userId: string, data: {
   expectedProfitImpact: number;
   riskLevel: Decision["riskLevel"];
   notes?: string | null;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const client = getClient();
-    const { error } = await client.from("decisions").insert({
+    const payload: Record<string, unknown> = {
       id: data.id,
-      user_id: userId,
       analysis_run_id: data.analysisRunId,
       dataset_id: data.datasetId,
       summary: data.summary,
@@ -120,22 +137,39 @@ export async function saveDecision(userId: string, data: {
       notes: data.notes || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    });
-    if (error) logger.warn("saveDecision failed", { message: error.message });
+    };
+    const error = await insertWithUserId(client, "decisions", payload, userId);
+    if (error) { logger.warn("saveDecision failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    return true;
   } catch (e: any) {
     logger.warn("saveDecision error", { message: e.message });
+    return false;
   }
 }
 
-export async function updateDecisionStatus(userId: string, id: string, status: Decision["status"], notes?: string | null): Promise<void> {
+export async function updateDecisionStatus(
+  userId: string,
+  id: string,
+  status: Decision["status"],
+  notes?: string | null,
+  expectedStatus?: Decision["status"],
+): Promise<boolean> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     if (notes !== undefined) updates.notes = notes;
-    const { error } = await client.from("decisions").update(updates).eq("id", id).eq("user_id", userId);
-    if (error) logger.warn("updateDecisionStatus failed", { message: error.message });
+    let query = client.from("decisions")
+      .update(updates)
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (expectedStatus) query = query.eq("status", expectedStatus);
+    const { data, error } = await query.select("id");
+    if (error) { logger.warn("updateDecisionStatus failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    if (!data || data.length === 0) return false;
+    return true;
   } catch (e: any) {
     logger.warn("updateDecisionStatus error", { message: e.message });
+    return false;
   }
 }
 
@@ -183,12 +217,11 @@ export async function saveActionTask(userId: string, data: {
   expectedProfitImpact: number;
   riskLevel: ActionTask["riskLevel"];
   notes?: string | null;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const client = getClient();
-    const { error } = await client.from("action_tasks").insert({
+    const payload: Record<string, unknown> = {
       id: data.id,
-      user_id: userId,
       decision_id: data.decisionId,
       title: data.title,
       description: data.description,
@@ -201,22 +234,39 @@ export async function saveActionTask(userId: string, data: {
       notes: data.notes || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    });
-    if (error) logger.warn("saveActionTask failed", { message: error.message });
+    };
+    const error = await insertWithUserId(client, "action_tasks", payload, userId);
+    if (error) { logger.warn("saveActionTask failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    return true;
   } catch (e: any) {
     logger.warn("saveActionTask error", { message: e.message });
+    return false;
   }
 }
 
-export async function updateActionTaskStatus(userId: string, id: string, status: ActionTask["status"], notes?: string | null): Promise<void> {
+export async function updateActionTaskStatus(
+  userId: string,
+  id: string,
+  status: ActionTask["status"],
+  notes?: string | null,
+  expectedStatus?: ActionTask["status"],
+): Promise<boolean> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     if (notes !== undefined) updates.notes = notes;
-    const { error } = await client.from("action_tasks").update(updates).eq("id", id).eq("user_id", userId);
-    if (error) logger.warn("updateActionTaskStatus failed", { message: error.message });
+    let query = client.from("action_tasks")
+      .update(updates)
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (expectedStatus) query = query.eq("status", expectedStatus);
+    const { data, error } = await query.select("id");
+    if (error) { logger.warn("updateActionTaskStatus failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    if (!data || data.length === 0) return false;
+    return true;
   } catch (e: any) {
     logger.warn("updateActionTaskStatus error", { message: e.message });
+    return false;
   }
 }
 
@@ -236,6 +286,70 @@ export async function listActionTasks(userId: string, decisionId: string): Promi
   }
 }
 
+export async function getActionTask(userId: string, id: string): Promise<ActionTask | null> {
+  try {
+    const client = getClient();
+    const { data, error } = await client.from("action_tasks").select("*").eq("user_id", userId).eq("id", id).single();
+    if (error || !data) return null;
+    return mapActionTask(data);
+  } catch (e: unknown) {
+    logger.warn("getActionTask error", { message: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
+}
+
+/** Cancel all still-pending tasks after their decision is rejected. */
+export async function cancelPendingActionTasks(userId: string, decisionId: string): Promise<boolean> {
+  try {
+    const client = getClient();
+    const { error } = await client.from("action_tasks")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("decision_id", decisionId)
+      .eq("user_id", userId)
+      .eq("status", "pending");
+    if (error) {
+      logger.warn("cancelPendingActionTasks failed", { message: error.message, code: error.code, details: error.details, hint: error.hint });
+      return false;
+    }
+    return true;
+  } catch (e: any) {
+    logger.warn("cancelPendingActionTasks error", { message: e.message });
+    return false;
+  }
+}
+
+/** Mark an approved decision completed only when every associated task completed successfully. */
+export async function reconcileDecisionStatus(userId: string, decisionId: string): Promise<boolean> {
+  try {
+    const client = getClient();
+    const taskResult = await client.from("action_tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("decision_id", decisionId)
+      .order("created_at", { ascending: true });
+    if (taskResult.error || !taskResult.data || taskResult.data.length === 0) {
+      if (taskResult.error) logger.warn("reconcileDecisionStatus task query failed", { message: taskResult.error.message, code: taskResult.error.code });
+      return false;
+    }
+    const tasks = taskResult.data.map(mapActionTask);
+    if (!tasks.every(function (task) { return task.status === "completed"; })) return true;
+
+    const decision = await getDecision(userId, decisionId);
+    if (!decision) return false;
+    if (decision.status === "completed") return true;
+    // Never resurrect a rejected decision or complete an unapproved one.
+    if (decision.status !== "approved") return true;
+
+    const updated = await updateDecisionStatus(userId, decisionId, "completed", undefined, "approved");
+    if (updated) return true;
+    const current = await getDecision(userId, decisionId);
+    return current?.status === "completed" || current?.status === "rejected";
+  } catch (e: any) {
+    logger.warn("reconcileDecisionStatus error", { message: e.message });
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════════
 // Execution CRUD
 // ═══════════════════════════════════════════════
@@ -246,35 +360,51 @@ export async function saveExecution(userId: string, data: {
   status: Execution["status"];
   result?: string | null;
   executedBy?: string | null;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const client = getClient();
-    const { error } = await client.from("executions").insert({
+    const payload: Record<string, unknown> = {
       id: data.id,
-      user_id: userId,
       action_task_id: data.actionTaskId,
       status: data.status,
       result: data.result || null,
       executed_by: data.executedBy || null,
       executed_at: data.status === "completed" || data.status === "failed" ? new Date().toISOString() : null,
       created_at: new Date().toISOString(),
-    });
-    if (error) logger.warn("saveExecution failed", { message: error.message });
+    };
+    const error = await insertWithUserId(client, "executions", payload, userId);
+    if (error) { logger.warn("saveExecution failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    return true;
   } catch (e: any) {
     logger.warn("saveExecution error", { message: e.message });
+    return false;
   }
 }
 
-export async function updateExecutionStatus(userId: string, id: string, status: Execution["status"], result?: string | null): Promise<void> {
+export async function updateExecutionStatus(
+  userId: string,
+  id: string,
+  status: Execution["status"],
+  result?: string | null,
+  expectedStatus?: Execution["status"],
+): Promise<boolean> {
   try {
     const client = getClient();
     const updates: Record<string, unknown> = { status };
     if (result !== undefined) updates.result = result;
     if (status === "completed" || status === "failed") updates.executed_at = new Date().toISOString();
-    const { error } = await client.from("executions").update(updates).eq("id", id).eq("user_id", userId);
-    if (error) logger.warn("updateExecutionStatus failed", { message: error.message });
+    let query = client.from("executions")
+      .update(updates)
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (expectedStatus) query = query.eq("status", expectedStatus);
+    const { data, error } = await query.select("id");
+    if (error) { logger.warn("updateExecutionStatus failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    if (!data || data.length === 0) return false;
+    return true;
   } catch (e: any) {
     logger.warn("updateExecutionStatus error", { message: e.message });
+    return false;
   }
 }
 
@@ -318,12 +448,16 @@ export async function saveOutcome(userId: string, data: {
   afterValue: number;
   improvement: number;
   improvementPercent: number;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
+    const execution = await getExecution(userId, data.executionId);
+    if (!execution || execution.status !== "completed") {
+      logger.warn("saveOutcome rejected: execution is not completed", { userId, executionId: data.executionId, status: execution?.status });
+      return false;
+    }
     const client = getClient();
-    const { error } = await client.from("outcomes").insert({
+    const payload: Record<string, unknown> = {
       id: data.id,
-      user_id: userId,
       execution_id: data.executionId,
       metric: data.metric,
       before_value: data.beforeValue,
@@ -331,10 +465,13 @@ export async function saveOutcome(userId: string, data: {
       improvement: data.improvement,
       improvement_percent: data.improvementPercent,
       verified_at: new Date().toISOString(),
-    });
-    if (error) logger.warn("saveOutcome failed", { message: error.message });
+    };
+    const error = await insertWithUserId(client, "outcomes", payload, userId);
+    if (error) { logger.warn("saveOutcome failed", { message: error.message, code: error.code, details: error.details, hint: error.hint }); return false; }
+    return true;
   } catch (e: any) {
     logger.warn("saveOutcome error", { message: e.message });
+    return false;
   }
 }
 
@@ -352,6 +489,150 @@ export async function listOutcomes(userId: string, executionId: string): Promise
     logger.warn("listOutcomes error", { message: e instanceof Error ? e.message : String(e) });
     return [];
   }
+}
+
+// ═══════════════════════════════════════════════
+// Compensating Cleanup
+// ═══════════════════════════════════════════════
+
+export async function cleanupAgentPersistence(
+  userId: string,
+  analysisRunId?: string,
+  decisionId?: string,
+): Promise<void> {
+  try {
+    const client = getClient();
+    if (decisionId) {
+      // Cascade: delete outcomes → executions → action_tasks → decision
+      const tasks = await client.from("action_tasks").select("id").eq("decision_id", decisionId).eq("user_id", userId);
+      if (!tasks.error && tasks.data) {
+        const taskIds = tasks.data.map(function(t: { id: string }) { return t.id; });
+        if (taskIds.length > 0) {
+          const execs = await client.from("executions").select("id").in("action_task_id", taskIds);
+          if (!execs.error && execs.data) {
+            const execIds = execs.data.map(function(e: { id: string }) { return e.id; });
+            if (execIds.length > 0) {
+              await client.from("outcomes").delete().in("execution_id", execIds).eq("user_id", userId);
+            }
+          }
+          await client.from("executions").delete().in("action_task_id", taskIds).eq("user_id", userId);
+        }
+      }
+      await client.from("action_tasks").delete().eq("decision_id", decisionId).eq("user_id", userId);
+      await client.from("decisions").delete().eq("id", decisionId).eq("user_id", userId);
+    }
+    if (analysisRunId) {
+      await client.from("analysis_runs").delete().eq("id", analysisRunId).eq("user_id", userId);
+    }
+  } catch (e: any) {
+    logger.warn("cleanupAgentPersistence error", { message: e.message });
+  }
+}
+
+// ═══════════════════════════════════════════════
+// Batch Queries (eliminate N+1 cascade)
+// ═══════════════════════════════════════════════
+
+const BATCH_CHUNK_SIZE = 10_000; // Postgres parameter limit safety (65,535 max)
+
+function chunkIds<T>(ids: T[]): T[][] {
+  if (ids.length <= BATCH_CHUNK_SIZE) return [ids];
+  const chunks: T[][] = [];
+  for (let i = 0; i < ids.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
+function validateUserId(userId: string): boolean {
+  return typeof userId === "string" && userId.trim().length > 0;
+}
+
+export async function listActionTasksBatch(
+  userId: string,
+  decisionIds: string[]
+): Promise<Record<string, ActionTask[]>> {
+  const result: Record<string, ActionTask[]> = {};
+  if (!validateUserId(userId) || decisionIds.length === 0) return result;
+  try {
+    const client = getClient();
+    const chunks = chunkIds(decisionIds);
+    for (const chunk of chunks) {
+      const { data, error } = await client
+        .from("action_tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .in("decision_id", chunk)
+        .order("created_at", { ascending: true });
+      if (error || !data) continue;
+      for (const row of data) {
+        const mapped = mapActionTask(row);
+        if (!result[mapped.decisionId]) result[mapped.decisionId] = [];
+        result[mapped.decisionId].push(mapped);
+      }
+    }
+  } catch (e) {
+    logger.warn("listActionTasksBatch error", { message: e instanceof Error ? e.message : String(e) });
+  }
+  return result;
+}
+
+export async function listExecutionsBatch(
+  userId: string,
+  actionTaskIds: string[]
+): Promise<Record<string, Execution[]>> {
+  const result: Record<string, Execution[]> = {};
+  if (!validateUserId(userId) || actionTaskIds.length === 0) return result;
+  try {
+    const client = getClient();
+    const chunks = chunkIds(actionTaskIds);
+    for (const chunk of chunks) {
+      const { data, error } = await client
+        .from("executions")
+        .select("*")
+        .eq("user_id", userId)
+        .in("action_task_id", chunk)
+        .order("created_at", { ascending: false });
+      if (error || !data) continue;
+      for (const row of data) {
+        const mapped = mapExecution(row);
+        if (!result[mapped.actionTaskId]) result[mapped.actionTaskId] = [];
+        result[mapped.actionTaskId].push(mapped);
+      }
+    }
+  } catch (e) {
+    logger.warn("listExecutionsBatch error", { message: e instanceof Error ? e.message : String(e) });
+  }
+  return result;
+}
+
+export async function listOutcomesBatch(
+  userId: string,
+  executionIds: string[]
+): Promise<Record<string, Outcome[]>> {
+  const result: Record<string, Outcome[]> = {};
+  if (!validateUserId(userId) || executionIds.length === 0) return result;
+  try {
+    const client = getClient();
+    const chunks = chunkIds(executionIds);
+    for (const chunk of chunks) {
+      const { data, error } = await client
+        .from("outcomes")
+        .select("*")
+        .eq("user_id", userId)
+        .in("execution_id", chunk)
+        .order("verified_at", { ascending: false });
+      if (error || !data) continue;
+      for (const row of data) {
+        const mapped = mapOutcome(row);
+        if (!result[mapped.executionId]) result[mapped.executionId] = [];
+        result[mapped.executionId].push(mapped);
+      }
+    }
+  } catch (e) {
+    logger.warn("listOutcomesBatch error", { message: e instanceof Error ? e.message : String(e) });
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════

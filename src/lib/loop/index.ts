@@ -32,4 +32,5 @@ export {
   listExecutions,
   saveOutcome,
   listOutcomes,
+  cleanupAgentPersistence,
 } from "./db";

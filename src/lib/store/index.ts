@@ -4,7 +4,20 @@ import { computeStats as computeStatsInner } from "@/lib/parser";
 
 const MAIN_KEY = "aicopilot";
 const MAX_STORE_SIZE = 4 * 1024 * 1024; // 4MB warning threshold
-const ANALYSIS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 分钟
+const ANALYSIS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 小时（数据版本变更时由 dataVersion 负责失效，TTL 仅作兜底）
+/** Dashboard cache context. Bump when cached responses may contain invalid loop IDs. */
+export const DASHBOARD_ANALYSIS_CONTEXT = "dashboard-v2";
+
+// ═══ Data Versioning ═══
+
+/** 基于列名和行数的稳定哈希，同一份数据始终产出同一版本号 */
+export function computeDataVersion(columns: string[], rowCount: number): string {
+  var h1 = 2166136261;
+  for (var i = 0; i < columns.length; i++) { h1 ^= columns[i].charCodeAt(0); h1 = Math.imul(h1, 16777619); }
+  var h2 = 2166136261 ^ (rowCount & 0xFFFF);
+  h2 = Math.imul(h2, 16777619);
+  return "v" + ((h1 >>> 0).toString(36)) + "_" + ((h2 >>> 0).toString(36));
+}
 
 // ═══ M3: Shared frontend dataset contract ═══
 
@@ -19,6 +32,8 @@ export interface LocalDatasetMeta {
   profile?: string;
   semanticRoles?: SemanticProfile | null;
   platform?: string;
+  /** 数据版本号（列名+行数哈希），用于分析缓存失效 */
+  dataVersion?: string;
 }
 
 /** Raw rows persisted separately to avoid bloating the main store */
@@ -43,6 +58,8 @@ export interface AnalysisCacheEntry {
   datasetId: string;
   cachedAt: number;
   data: unknown;
+  /** 写入时的 dataVersion，用于校验数据是否变更 */
+  dataVersion?: string;
 }
 
 export interface AppStore {
@@ -104,6 +121,7 @@ export function getStore(userId: string): AppStore {
       datasets: Array.isArray(parsed.datasets) ? parsed.datasets.slice(0, 5) : [],
       columnConfig: parsed.columnConfig || null,
       auth: parsed.auth || undefined,
+      analysisCache: parsed.analysisCache || undefined,
     };
   } catch (e) {
     logger.error("getStore parse failed", { message: e instanceof Error ? e.message : String(e) });
@@ -153,6 +171,7 @@ export function addDataset(
       profile: profile || "unknown",
       semanticRoles: semanticRoles || null,
       platform: platform || undefined,
+      dataVersion: computeDataVersion(columns, rowCount),
     });
     if (s.datasets.length > 5) s.datasets = s.datasets.slice(0, 5);
     s.activeId = id;
@@ -185,6 +204,10 @@ export function removeDataset(userId: string, id: string): AppStore {
 export function saveColumnConfig(userId: string, config: AppStore["columnConfig"]) {
   try {
     setStore(userId, { columnConfig: config });
+    // 列配置变更可能影响分析结果，清除该数据集的分析缓存
+    if (config?.datasetId) {
+      clearAnalysisCache(userId, config.datasetId);
+    }
   } catch (e) {
     logger.error("saveColumnConfig failed", { message: e instanceof Error ? e.message : String(e) });
   }
@@ -226,14 +249,26 @@ export function removeDatasetRows(id: string): void {
 
 // ═══ Analysis Cache ═══
 
-export function getAnalysisCache(userId: string, datasetId: string, context: string = "dashboard"): AnalysisCacheEntry | null {
+export function getAnalysisCache(userId: string, datasetId: string, context: string = "dashboard", dataVersion?: string): AnalysisCacheEntry | null {
   try {
     const s = getStore(userId);
     if (!s.analysisCache) return null;
-    const key = datasetId + ":" + context;
-    const entry = s.analysisCache[key];
+    // 优先用带 dataVersion 的精确 key，回退到旧格式（兼容升级前缓存）
+    var primaryKey = dataVersion ? datasetId + ":" + context + ":" + dataVersion : datasetId + ":" + context;
+    var fallbackKey = dataVersion ? datasetId + ":" + context : null;
+    var entry = s.analysisCache[primaryKey] || (fallbackKey ? s.analysisCache[fallbackKey] : null);
     if (!entry) return null;
+    // TTL 兜底：即使 dataVersion 匹配，超时后仍失效
     if (Date.now() - entry.cachedAt > ANALYSIS_CACHE_TTL_MS) {
+      delete s.analysisCache[primaryKey];
+      if (fallbackKey && s.analysisCache[fallbackKey]) delete s.analysisCache[fallbackKey];
+      setStore(userId, { analysisCache: s.analysisCache });
+      return null;
+    }
+    // dataVersion 校验：如果 entry 里的版本和当前不匹配，说明数据已变更
+    if (dataVersion && entry.dataVersion && entry.dataVersion !== dataVersion) {
+      delete s.analysisCache[primaryKey];
+      setStore(userId, { analysisCache: s.analysisCache });
       return null;
     }
     return entry;
@@ -242,24 +277,33 @@ export function getAnalysisCache(userId: string, datasetId: string, context: str
   }
 }
 
-export function setAnalysisCache(userId: string, datasetId: string, data: unknown, context: string = "dashboard"): void {
+export function setAnalysisCache(userId: string, datasetId: string, data: unknown, context: string = "dashboard", dataVersion?: string): void {
   try {
     const s = getStore(userId);
     if (!s.analysisCache) s.analysisCache = {};
-    const key = datasetId + ":" + context;
-    s.analysisCache[key] = {
+    var cache = s.analysisCache;
+    const key = dataVersion ? datasetId + ":" + context + ":" + dataVersion : datasetId + ":" + context;
+    // 新 key 写入时，清理同数据集的旧版本缓存（避免泄漏）
+    if (dataVersion) {
+      var prefix = datasetId + ":" + context + ":";
+      Object.keys(cache).forEach(function(k) {
+        if (k.startsWith(prefix)) delete cache[k];
+      });
+    }
+    cache[key] = {
       datasetId,
       cachedAt: Date.now(),
       data,
+      dataVersion,
     };
-    var keys = Object.keys(s.analysisCache);
+    var keys = Object.keys(cache);
     if (keys.length > 5) {
       var oldestKey = keys.sort(function (a, b) {
-        return (s.analysisCache![a]?.cachedAt || 0) - (s.analysisCache![b]?.cachedAt || 0);
+        return (cache[a]?.cachedAt || 0) - (cache[b]?.cachedAt || 0);
       })[0];
-      delete s.analysisCache[oldestKey];
+      delete cache[oldestKey];
     }
-    setStore(userId, { analysisCache: s.analysisCache });
+    setStore(userId, { analysisCache: cache });
   } catch (e) {
     logger.warn("setAnalysisCache failed", { message: e instanceof Error ? e.message : String(e) });
   }
@@ -269,21 +313,25 @@ export function clearAnalysisCache(userId: string, datasetId?: string, context?:
   try {
     const s = getStore(userId);
     if (!s.analysisCache) return;
+    var cache = s.analysisCache;
     if (datasetId) {
       if (context) {
-        delete s.analysisCache[datasetId + ":" + context];
+        // 清除该数据集+context 的所有版本缓存（含旧格式和带 dataVersion 的新格式）
+        var ctxPrefix = datasetId + ":" + context;
+        Object.keys(cache).forEach(function(k) {
+          if (k === ctxPrefix || k.startsWith(ctxPrefix + ":")) delete cache[k];
+        });
       } else {
         // 清除该数据集所有 context 的缓存
         var prefix = datasetId + ":";
-        var cache = s.analysisCache;
         Object.keys(cache).forEach(function(k) {
           if (k.startsWith(prefix)) delete cache[k];
         });
       }
     } else {
-      s.analysisCache = {};
+      cache = {};
     }
-    setStore(userId, { analysisCache: s.analysisCache });
+    setStore(userId, { analysisCache: cache });
   } catch (e) {
     logger.warn("clearAnalysisCache failed", { message: e instanceof Error ? e.message : String(e) });
   }

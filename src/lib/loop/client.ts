@@ -90,16 +90,25 @@ export interface LoopApiError {
   error: string;
 }
 
-function ensureOk(res: Response): void {
+async function ensureOk(res: Response): Promise<void> {
   if (!res.ok) {
-    throw new Error("Loop API error: " + res.status + " " + res.statusText);
+    let detail = "";
+    try {
+      const body = await res.clone().json();
+      if (body?.error?.message) detail = ": " + String(body.error.message);
+      else if (typeof body?.error === "string") detail = ": " + body.error;
+      else if (body?.message) detail = ": " + String(body.message);
+    } catch {
+      // Keep the HTTP status when the response is not JSON.
+    }
+    throw new Error("Loop API error: " + res.status + " " + res.statusText + detail);
   }
 }
 
-export async function fetchLoopHistory(datasetId: string, userId?: string, signal?: AbortSignal): Promise<LoopHistory> {
+export async function fetchLoopHistory(datasetId: string, userId?: string): Promise<LoopHistory> {
   const url = "/api/loop?datasetId=" + encodeURIComponent(datasetId) + (userId ? "&userId=" + encodeURIComponent(userId) : "");
-  const res = await authFetch(url, { signal });
-  ensureOk(res);
+  const res = await authFetch(url);
+  await ensureOk(res);
   return await res.json();
 }
 
@@ -113,7 +122,7 @@ export async function startExecution(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "start_execution", ...params }),
   });
-  ensureOk(res);
+  await ensureOk(res);
   return await res.json();
 }
 
@@ -127,7 +136,7 @@ export async function completeExecution(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "complete_execution", ...params }),
   });
-  ensureOk(res);
+  await ensureOk(res);
   return await res.json();
 }
 
@@ -155,13 +164,13 @@ export async function saveOutcome(params: {
       improvementPercent,
     }),
   });
-  ensureOk(res);
+  await ensureOk(res);
   return await res.json();
 }
 
 export async function updateDecisionStatus(params: {
   decisionId: string;
-  status: Decision["status"];
+  status: "approved" | "rejected";
   notes?: string;
 }): Promise<{ ok: boolean; decisionId: string; status: string }> {
   const res = await authFetch("/api/loop", {
@@ -174,25 +183,6 @@ export async function updateDecisionStatus(params: {
       notes: params.notes,
     }),
   });
-  ensureOk(res);
-  return await res.json();
-}
-
-export async function updateActionTaskStatus(params: {
-  taskId: string;
-  status: ActionTask["status"];
-  notes?: string;
-}): Promise<{ ok: boolean; taskId: string; status: string }> {
-  const res = await authFetch("/api/loop", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "update_action_task_status",
-      taskId: params.taskId,
-      status: params.status,
-      notes: params.notes,
-    }),
-  });
-  ensureOk(res);
+  await ensureOk(res);
   return await res.json();
 }

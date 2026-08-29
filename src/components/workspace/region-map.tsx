@@ -1,7 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { ModuleShell } from "./module-shell";
 import { BarChart } from "@/components/charts";
+import { useChartBridge, createChartClickHandler } from "@/hooks/use-chart-bridge";
+import type { EvidenceCard } from "@/lib/pipeline/types";
+import type { PrioritizedAction } from "@/lib/pipeline/types";
 import { t } from "@/lib/i18n";
 
 const PROVINCES = ["Beijing","Tianjin","Shanghai","Chongqing","Hebei","Shanxi","Liaoning","Jilin","Heilongjiang","Jiangsu","Zhejiang","Anhui","Fujian","Jiangxi","Shandong","Henan","Hubei","Hunan","Guangdong","Guangxi","Hainan","Sichuan","Guizhou","Yunnan","Tibet","Shaanxi","Gansu","Qinghai","Ningxia","Xinjiang","Inner Mongolia","Hong Kong","Macau","Taiwan"];
@@ -27,11 +31,18 @@ function rankByProvince(rows: any[], addrField: string, valField: string, limit:
   return Object.entries(map).sort((a,b)=>b[1].value-a[1].value).slice(0,limit).map(e=>({name:e[0],value:Math.round(e[1].value),count:e[1].count}));
 }
 
-export function RegionMap({ rows, addressField, amountField, aiSummary }: { rows: any[]; addressField: string; amountField: string; aiSummary?: string }) {
+export function RegionMap({ rows, addressField, amountField, aiSummary, evidenceCards, actions, onNavigateToAction }: { rows: any[]; addressField: string; amountField: string; aiSummary?: string; evidenceCards?: EvidenceCard[]; actions?: PrioritizedAction[]; onNavigateToAction?: (action: PrioritizedAction) => void }) {
   const data = rankByProvince(rows, addressField, amountField, 10);
+  const bridge = useChartBridge();
+  const cards = evidenceCards || [];
+  const acts = actions || [];
+  const clickHandler = useMemo(function() {
+    return createChartClickHandler("region", bridge, cards, acts);
+  }, [bridge, cards, acts]);
+
   return (
     <ModuleShell title={t.workspace.regionMap} aiSummary={aiSummary}>
-      {data.length > 0 ? <BarChart title={t.workspace.top10Regions} data={data} height={300} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noAddressData}</p>}
+      {data.length > 0 ? <BarChart title={t.workspace.top10Regions} data={data} height={300} onClick={clickHandler} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noAddressData}</p>}
     </ModuleShell>
   );
 }

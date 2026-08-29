@@ -3,6 +3,9 @@
 import { useMemo } from "react";
 import { ModuleShell } from "./module-shell";
 import { PieChart } from "@/components/charts";
+import { useChartBridge, createChartClickHandler } from "@/hooks/use-chart-bridge";
+import type { EvidenceCard } from "@/lib/pipeline/types";
+import type { PrioritizedAction } from "@/lib/pipeline/types";
 import { t } from "@/lib/i18n";
 
 function aggregateByCategory(rows: any[], catField: string, amountField: string): { name: string; value: number }[] {
@@ -23,9 +26,15 @@ function computeConcentration(data: { name: string; value: number }[]): number {
   return Math.round((top3 / total) * 100);
 }
 
-export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary }: { rows: any[]; categoryField: string; amountField: string; aiSummary?: string }) {
+export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary, evidenceCards, actions, onNavigateToAction }: { rows: any[]; categoryField: string; amountField: string; aiSummary?: string; evidenceCards?: EvidenceCard[]; actions?: PrioritizedAction[]; onNavigateToAction?: (action: PrioritizedAction) => void }) {
   const data = useMemo(() => aggregateByCategory(rows, categoryField, amountField), [rows, categoryField, amountField]);
   const concentration = computeConcentration(data);
+  const bridge = useChartBridge();
+  const cards = evidenceCards || [];
+  const acts = actions || [];
+  const clickHandler = useMemo(function() {
+    return createChartClickHandler("category", bridge, cards, acts);
+  }, [bridge, cards, acts]);
 
   return (
     <ModuleShell title={t.workspace.categoryBreakdown} aiSummary={aiSummary}>
@@ -39,7 +48,7 @@ export function CategoryBreakdown({ rows, categoryField, amountField, aiSummary 
           <p className="text-xs text-tertiary">{t.workspace.top3Concentration}</p>
         </div>
       </div>
-      {data.length > 0 ? <PieChart title={t.workspace.categoryShare} data={data} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noCategoryData}</p>}
+      {data.length > 0 ? <PieChart title={t.workspace.categoryShare} data={data} onClick={clickHandler} /> : <p className="text-sm text-faint text-center py-8">{t.workspace.noCategoryData}</p>}
     </ModuleShell>
   );
 }

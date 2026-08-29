@@ -13,6 +13,7 @@ interface ChartProps {
   data: { name: string; value: number }[];
   className?: string;
   height?: number;
+  onClick?: (params: any) => void;
 }
 
 const darkTheme = {
@@ -20,7 +21,7 @@ const darkTheme = {
   legend: { textStyle: { color: "#64748B" } },
 };
 
-export function PieChart({ title, data, className, height = 220 }: ChartProps) {
+export function PieChart({ title, data, className, height = 220, onClick }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
@@ -67,12 +68,18 @@ export function PieChart({ title, data, className, height = 220 }: ChartProps) {
   return (
     <div className={className}>
       <h3 className="text-heading mb-4">{title}</h3>
-      <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
+      <ReactEChartsCore
+        echarts={echarts}
+        option={option}
+        style={{ height }}
+        theme="dark"
+        onEvents={onClick ? { click: onClick } : undefined}
+      />
     </div>
   );
 }
 
-export function BarChart({ title, data, className, height = 220 }: ChartProps) {
+export function BarChart({ title, data, className, height = 220, onClick }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "axis" },
@@ -109,12 +116,18 @@ export function BarChart({ title, data, className, height = 220 }: ChartProps) {
   return (
     <div className={className}>
       <h3 className="text-heading mb-4">{title}</h3>
-      <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
+      <ReactEChartsCore
+        echarts={echarts}
+        option={option}
+        style={{ height }}
+        theme="dark"
+        onEvents={onClick ? { click: onClick } : undefined}
+      />
     </div>
   );
 }
 
-export function LineChart({ title, data, className, height = 220 }: ChartProps) {
+export function LineChart({ title, data, className, height = 220, onClick }: ChartProps) {
   const option = {
     ...darkTheme,
     tooltip: { trigger: "axis" },
@@ -152,7 +165,13 @@ export function LineChart({ title, data, className, height = 220 }: ChartProps) 
   return (
     <div className={className}>
       <h3 className="text-heading mb-4">{title}</h3>
-      <ReactEChartsCore echarts={echarts} option={option} style={{ height }} theme="dark" />
+      <ReactEChartsCore
+        echarts={echarts}
+        option={option}
+        style={{ height }}
+        theme="dark"
+        onEvents={onClick ? { click: onClick } : undefined}
+      />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MessageSquare, Upload, ArrowRight, Sparkles, Search, FileText, Lightbulb } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TableSelector } from "@/components/ui/table-selector";
-import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache } from "@/lib/store";
+import { getStore, getDatasetRows, buildInlineDataset, getAnalysisCache, setAnalysisCache, computeDataVersion } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
 import { logger } from "@/lib/logger";
 import ReactMarkdown from "react-markdown";
@@ -18,7 +18,6 @@ import { EvidenceCardView } from "@/components/insights/evidence-card-view";
 import { ActionCardView } from "@/components/insights/action-card-view";
 import { CrossDatasetView } from "@/components/insights/cross-dataset-view";
 import CrossPlatformView from "@/components/insights/cross-platform";
-import ExecutionTracker from "@/components/insights/execution-tracker";
 import type { AgentApiResponse, DecisionChainResponse } from "@/lib/agent/api-types";
 import type { Execution, Outcome } from "@/lib/loop/types";
 import { fetchLoopHistory } from "@/lib/loop/client";
@@ -26,7 +25,9 @@ import { parseApiError } from "@/lib/errors";
 import { useObservability } from "@/hooks/use-observability";
 import { authFetch } from "@/lib/auth-fetch";
 import { RequireAuth } from "@/hooks/use-auth-guard";
+import { DataProvider } from "@/contexts/data-context";
 import { ChatSkeleton } from "@/components/app/skeleton/chat-skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 var AI: Record<string, any> = { query: Search, report: FileText, interpret: Lightbulb, general: Sparkles };
 var AC: Record<string, string> = { query: "text-brand", report: "text-primary", interpret: "text-brand", general: "text-tertiary" };
@@ -44,7 +45,7 @@ interface Msg {
   aiConfidence?: number;
 }
 
-export default function ChatPage() {
+function ChatPageInner() {
   const obs = useObservability();
   const { user } = useAuth();
   var [msgs, setMsgs] = useState<Msg[]>([]);
@@ -135,48 +136,78 @@ export default function ChatPage() {
         }
         return { executions: execs, outcomes: outs };
       })();
-      var res = await authFetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
-      var agentStart = Date.now();
-      var data = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
-      obs.trackApiCall("/api/agent", Date.now() - agentStart, res.ok, { type: data?.type || "none" });
-      if (!res.ok || !data) {
-        var apiErr = data ? parseApiError(data) : null;
-        var errorMessage = apiErr ? apiErr.message : "AI 服务暂时不可用，请稍后重试。";
-        throw new Error(errorMessage);
-      }
-      // 缓存分析结果（chat context），避免与 dashboard 缓存互相覆盖
-      if (dsId) {
-        setAnalysisCache(user?.id || "", dsId, data, "chat");
-      }
-      // Await loop history in parallel — it's likely already resolved by now.
-      var loopResult = await loopPromise;
-      setLoopExecutions(function(p) { return Object.assign({}, p, loopResult.executions); });
-      setLoopOutcomes(function(p) { return Object.assign({}, p, loopResult.outcomes); });
-      var responseData: AgentApiResponse = data;
-      var isDecisionChain = responseData.type === "decision_chain";
-      var decisionData: DecisionChainResponse | null = isDecisionChain ? responseData as DecisionChainResponse : null;
-      var legacyData = responseData.type === "query" || responseData.type === "report" || responseData.type === "interpret" || responseData.type === "general" ? responseData : null;
-      var content = responseData.content;
-      if (responseData.type === "insufficient_data" && responseData.limitations.length > 0) {
-        content += "\n\n**需要补充：**\n" + responseData.limitations.map(function(item) { return "- " + item; }).join("\n");
-      }
+      // 优先使用缓存的分析结果（数据未变化时跳过 agent 调用，节省 LLM 资源）
+      var savedForCache = getStore(user?.id || "");
+      var chatDsMeta = savedForCache.datasets.find(function(d: any) { return d.id === dsId; });
+      var chatDataVersion = chatDsMeta?.dataVersion || "";
+      var cachedChatAnalysis = chatDataVersion ? getAnalysisCache(user?.id || "", dsId, "chat", chatDataVersion) : null;
+      var useCachedAnalysis = !!(cachedChatAnalysis && cachedChatAnalysis.data && typeof cachedChatAnalysis.data === "object" && (cachedChatAnalysis.data as any).type === "decision_chain");
 
-      setMsgs(function(p: Msg[]) { return [...p, {
-        role: "assistant",
-        content: content || "",
-        agentType: responseData.type,
-        chart: legacyData?.chart,
-        table: legacyData?.table,
-        suggestions: legacyData?.followUp,
-        evidenceCards: decisionData?.evidenceCards,
-        actions: decisionData?.actions,
-        crossDataset: decisionData?.crossDataset,
-        crossPlatform: decisionData?.crossPlatform,
-        reasoningChain: decisionData?.aiExplanation.reasoningChain,
-        applicableRules: decisionData?.applicableRules,
-        meta: decisionData?.meta,
-        aiConfidence: decisionData?.aiExplanation.confidence,
-      }]; });
+      if (useCachedAnalysis) {
+        // 命中缓存：直接使用已有分析结果，不调用 agent
+        var cachedData3 = cachedChatAnalysis!.data as any;
+        var cachedDecision3: DecisionChainResponse | null = cachedData3.type === "decision_chain" ? cachedData3 : null;
+        var loopResult5 = await loopPromise;
+        setLoopExecutions(function(p) { return Object.assign({}, p, loopResult5.executions); });
+        setLoopOutcomes(function(p) { return Object.assign({}, p, loopResult5.outcomes); });
+        setMsgs(function(p: Msg[]) { return [...p, {
+          role: "assistant",
+          content: cachedDecision3?.content || cachedData3.content || "",
+          agentType: "decision_chain",
+          evidenceCards: cachedDecision3?.evidenceCards,
+          actions: cachedDecision3?.actions,
+          crossDataset: cachedDecision3?.crossDataset,
+          crossPlatform: cachedDecision3?.crossPlatform,
+          reasoningChain: cachedDecision3?.aiExplanation?.reasoningChain,
+          applicableRules: cachedDecision3?.applicableRules,
+          meta: cachedDecision3?.meta,
+          aiConfidence: cachedDecision3?.aiExplanation?.confidence,
+        }]; });
+      } else {
+        // 缓存未命中：调用 agent 进行分析
+        var res = await authFetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: msg, datasetId: dsId, relatedDatasetIds: relatedIds, inlineDatasets: inlineDatasets }) });
+        var agentStart = Date.now();
+        var data4 = await res.json().catch(function() { return null; }) as AgentApiResponse | null;
+        obs.trackApiCall("/api/agent", Date.now() - agentStart, res.ok, { type: data4?.type || "none" });
+        if (!res.ok || !data4) {
+          var apiErr3 = data4 ? parseApiError(data4) : null;
+          var errorMessage3 = apiErr3 ? apiErr3.message : "AI 服务暂时不可用，请稍后重试。";
+          throw new Error(errorMessage3);
+        }
+        // 缓存分析结果（chat context），避免与 dashboard 缓存互相覆盖
+        if (dsId && data4.type === "decision_chain") {
+          var chatDsMeta4 = getStore(user?.id || "").datasets.find(function(d: any) { return d.id === dsId; });
+          var chatDataVersion4 = chatDsMeta4?.dataVersion || "";
+          setAnalysisCache(user?.id || "", dsId, data4, "chat", chatDataVersion4 || undefined);
+        }
+        var loopResult6 = await loopPromise;
+        setLoopExecutions(function(p) { return Object.assign({}, p, loopResult6.executions); });
+        setLoopOutcomes(function(p) { return Object.assign({}, p, loopResult6.outcomes); });
+        var responseData2: AgentApiResponse = data4;
+        var isDecisionChain2 = responseData2.type === "decision_chain";
+        var decisionData4: DecisionChainResponse | null = isDecisionChain2 ? responseData2 as DecisionChainResponse : null;
+        var legacyData3 = responseData2.type === "query" || responseData2.type === "report" || responseData2.type === "interpret" || responseData2.type === "general" ? responseData2 : null;
+        var content3 = responseData2.content;
+        if (responseData2.type === "insufficient_data" && responseData2.limitations.length > 0) {
+          content3 += "\n\n**需要补充：**\n" + responseData2.limitations.map(function(item) { return "- " + item; }).join("\n");
+        }
+        setMsgs(function(p: Msg[]) { return [...p, {
+          role: "assistant",
+          content: content3 || "",
+          agentType: responseData2.type,
+          chart: legacyData3?.chart,
+          table: legacyData3?.table,
+          suggestions: legacyData3?.followUp,
+          evidenceCards: decisionData4?.evidenceCards,
+          actions: decisionData4?.actions,
+          crossDataset: decisionData4?.crossDataset,
+          crossPlatform: decisionData4?.crossPlatform,
+          reasoningChain: decisionData4?.aiExplanation.reasoningChain,
+          applicableRules: decisionData4?.applicableRules,
+          meta: decisionData4?.meta,
+          aiConfidence: decisionData4?.aiExplanation.confidence,
+        }]; });
+      }
     } catch(e) {
       setMsgs(function(p: Msg[]) { return [...p, { role: "assistant", content: e instanceof Error ? e.message : "抱歉，AI 服务暂时不可用，请稍后重试。" }]; });
     } finally { setLoading(false); }
@@ -186,7 +217,8 @@ export default function ChatPage() {
 
   return (
     <RequireAuth>
-      <div className="min-h-screen pt-16">
+      <ErrorBoundary>
+        <div className="min-h-screen pt-16">
         <div className="section-container py-10">
         {!hasData ? (
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.7, ease: "easeOut"}} className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -269,34 +301,6 @@ export default function ChatPage() {
                             return (
                               <div key={ai} className="space-y-2">
                                 <ActionCardView action={act} index={ai} />
-                                {act.actionTaskId && (
-                                  <ExecutionTracker
-                                    actionTaskId={act.actionTaskId}
-                                    title={act.title || act.action}
-                                    description={act.description || act.reason}
-                                    priority={act.priority}
-                                    riskLevel={act.riskLevel}
-                                    expectedProfitImpact={act.expectedProfitImpact}
-                                    executions={loopExecutions[act.actionTaskId] || []}
-                                    outcomes={loopOutcomes[act.actionTaskId] || []}
-                                    onRefresh={function() {
-                                      if (!chatDsId) return;
-                                      fetchLoopHistory(chatDsId).then(function(data) {
-                                        var execMap: Record<string, Execution[]> = {};
-                                        var outcomeMap: Record<string, Outcome[]> = {};
-                                        for (const dd of data.decisions) {
-                                          for (const t of (dd.actionTasks || [])) {
-                                            if (dd.executions && dd.executions[t.id]) execMap[t.id] = dd.executions[t.id];
-                                            if (dd.outcomes && dd.outcomes[t.id]) outcomeMap[t.id] = dd.outcomes[t.id];
-                                          }
-                                        }
-                                        setLoopExecutions(function(p) { return Object.assign({}, p, execMap); });
-                                        setLoopOutcomes(function(p) { return Object.assign({}, p, outcomeMap); });
-                                      }).catch(function() {});
-                                    }}
-                                    compact
-                                  />
-                                )}
                               </div>
                             );
                           })}
@@ -347,6 +351,20 @@ export default function ChatPage() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
     </RequireAuth>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// Export with DataProvider wrapper
+// ═══════════════════════════════════════════════
+
+export default function ChatPage() {
+  const { user } = useAuth();
+  return (
+    <DataProvider userId={user?.id || ""}>
+      <ChatPageInner />
+    </DataProvider>
   );
 }
