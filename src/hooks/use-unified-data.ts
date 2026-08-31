@@ -143,7 +143,7 @@ export function useAnalysisData(userId: string, datasetId: string | null) {
           dispatch({ type: "SET_INSUFFICIENT_DATA", payload: null });
           dispatch({ type: "SET_PIPELINE_ERROR", payload: null });
           dispatch({ type: "SET_DEGRADED_RESPONSE", payload: true });
-          eventBus.emit("analysis:completed", { datasetId, data: normalized });
+          eventBus.emit("analysis:completed", { datasetId: targetId, data: normalized });
         } else {
           const err = parseApiError(chainData);
           dispatch({ type: "SET_DECISION_CHAIN", payload: null });
