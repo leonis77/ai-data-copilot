@@ -69,7 +69,7 @@ function DashboardInner() {
   const { user } = useAuth();
   const userId = user?.id || "";
   const dataset = useActiveDataset();
-  const analysis = useAnalysisData(userId);
+  const analysis = useAnalysisData(userId, dataset.activeDatasetId);
   const loop = useLoopData(userId, dataset.activeDatasetId);
 
   const activeDatasetId = dataset.activeDatasetId;

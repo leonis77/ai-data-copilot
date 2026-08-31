@@ -52,14 +52,14 @@ export function useActiveDataset() {
 // useAnalysisData
 // ═══════════════════════════════════════════════
 
-export function useAnalysisData(userId: string) {
+export function useAnalysisData(userId: string, datasetId: string | null) {
   const { state, dispatch, eventBus } = useDataContext();
   const { rawData, decisionChain, insufficientData, stats, agentLoading, pipelineError, degradedResponse } =
     state.analysis;
 
   const fetchAnalysis = useCallback(
-    async (datasetId: string, signal?: AbortSignal) => {
-      if (!userId || !datasetId) return;
+    async (targetId: string, signal?: AbortSignal) => {
+      if (!userId || !targetId) return;
 
       dispatch({ type: "SET_AGENT_LOADING", payload: true });
       dispatch({ type: "SET_PIPELINE_ERROR", payload: null });
@@ -69,25 +69,25 @@ export function useAnalysisData(userId: string) {
 
       try {
         const storeData = getStore(userId);
-        const dsMeta = storeData.datasets.find((d: any) => d.id === datasetId);
+        const dsMeta = storeData.datasets.find((d: any) => d.id === targetId);
         const dataVersion = dsMeta?.dataVersion || "";
 
         // Try cache first
-        const cacheKey = `${datasetId}:${DASHBOARD_ANALYSIS_CONTEXT}:${dataVersion || "legacy"}`;
+        const cacheKey = `${targetId}:${DASHBOARD_ANALYSIS_CONTEXT}:${dataVersion || "legacy"}`;
         const cached = dataManager.fetch(
           cacheKey,
           async () => {
             // Cache miss: fetch from API
             const relatedIds = storeData.datasets
-              .filter((d: any) => d.id !== datasetId)
+              .filter((d: any) => d.id !== targetId)
               .map((d: any) => d.id);
 
             const inlineDatasets: Record<string, any> = {};
-            const activeRows = getDatasetRows(datasetId);
+            const activeRows = getDatasetRows(targetId);
             if (activeRows && activeRows.rows.length > 0) {
-              const activeMeta = storeData.datasets.find((d: any) => d.id === datasetId);
+              const activeMeta = storeData.datasets.find((d: any) => d.id === targetId);
               if (activeMeta) {
-                inlineDatasets[datasetId] = buildInlineDataset(activeMeta, activeRows.rows, 500);
+                inlineDatasets[targetId] = buildInlineDataset(activeMeta, activeRows.rows, 500);
               }
             }
             for (const relId of relatedIds) {
@@ -132,7 +132,7 @@ export function useAnalysisData(userId: string) {
           dispatch({ type: "SET_INSUFFICIENT_DATA", payload: null });
           dispatch({ type: "SET_PIPELINE_ERROR", payload: null });
           dispatch({ type: "SET_DEGRADED_RESPONSE", payload: !!(chainData as any).degraded });
-          eventBus.emit("analysis:completed", { datasetId, data: chainData });
+          eventBus.emit("analysis:completed", { datasetId: targetId, data: chainData });
         } else if (chainData.type === "insufficient_data") {
           dispatch({ type: "SET_DECISION_CHAIN", payload: null });
           dispatch({ type: "SET_INSUFFICIENT_DATA", payload: chainData as InsufficientDataResponse });
@@ -148,13 +148,13 @@ export function useAnalysisData(userId: string) {
           const err = parseApiError(chainData);
           dispatch({ type: "SET_DECISION_CHAIN", payload: null });
           dispatch({ type: "SET_PIPELINE_ERROR", payload: err?.message || "分析失败" });
-          eventBus.emit("analysis:error", { datasetId, error: err?.message });
+          eventBus.emit("analysis:error", { datasetId: targetId, error: err?.message });
         }
       } catch (e) {
         if (signal?.aborted) return;
         const msg = e instanceof Error ? e.message : "AI 服务暂时不可用";
         dispatch({ type: "SET_PIPELINE_ERROR", payload: msg });
-        eventBus.emit("analysis:error", { datasetId, error: msg });
+        eventBus.emit("analysis:error", { datasetId: targetId, error: msg });
       } finally {
         dispatch({ type: "SET_AGENT_LOADING", payload: false });
       }
@@ -163,17 +163,25 @@ export function useAnalysisData(userId: string) {
   );
 
   const refetchAnalysis = useCallback(
-    async (datasetId: string) => {
+    async (targetId: string) => {
       // Invalidate cache and refetch
       const storeData = getStore(userId);
-      const dsMeta = storeData.datasets.find((d: any) => d.id === datasetId);
+      const dsMeta = storeData.datasets.find((d: any) => d.id === targetId);
       const dataVersion = dsMeta?.dataVersion || "";
-      const cacheKey = `${datasetId}:${DASHBOARD_ANALYSIS_CONTEXT}:${dataVersion || "legacy"}`;
+      const cacheKey = `${targetId}:${DASHBOARD_ANALYSIS_CONTEXT}:${dataVersion || "legacy"}`;
       dataManager.invalidate(cacheKey);
-      await fetchAnalysis(datasetId);
+      await fetchAnalysis(targetId);
     },
     [userId, fetchAnalysis]
   );
+
+  // Auto-fetch analysis when dataset changes
+  useEffect(function() {
+    if (!datasetId) return;
+    let cancelled = false;
+    void fetchAnalysis(datasetId);
+    return function() { cancelled = true; };
+  }, [datasetId, fetchAnalysis]);
 
   return {
     rawData,
@@ -342,7 +350,7 @@ export function useLoopData(userId: string, datasetId: string | null) {
 
 export function useUnifiedData(userId: string) {
   const dataset = useActiveDataset();
-  const analysis = useAnalysisData(userId);
+  const analysis = useAnalysisData(userId, dataset.activeDatasetId);
   const loop = useLoopData(userId, dataset.activeDatasetId);
 
   return {
