@@ -72,6 +72,19 @@ export function useAnalysisData(userId: string, datasetId: string | null) {
         const dsMeta = storeData.datasets.find((d: any) => d.id === targetId);
         const dataVersion = dsMeta?.dataVersion || "";
 
+        // Load raw data from localStorage (stored separately from metadata)
+        const rawRows = getDatasetRows(targetId);
+        if (rawRows) {
+          dispatch({
+            type: "SET_RAW_DATA",
+            payload: {
+              columns: rawRows.columns,
+              rows: rawRows.rows,
+              original_name: dsMeta?.originalName || "",
+            },
+          });
+        }
+
         // Try cache first
         const cacheKey = `${targetId}:${DASHBOARD_ANALYSIS_CONTEXT}:${dataVersion || "legacy"}`;
         const cached = dataManager.fetch(
