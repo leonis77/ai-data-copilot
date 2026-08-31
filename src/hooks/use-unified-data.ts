@@ -105,7 +105,7 @@ export function useAnalysisData(userId: string, datasetId: string | null) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 input: "分析经营状况，给出决策建议",
-                datasetId,
+                datasetId: targetId,
                 relatedDatasetIds: relatedIds,
                 inlineDatasets,
               }),
