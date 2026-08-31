@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { dataManager } from "@/lib/data-manager";
 
 export function useDataFetch<T>(
@@ -41,6 +41,11 @@ export function useDataFetch<T>(
   // 正确做法: effect 仅依赖 [...deps]，refetch 直接调用 fetcher + setState，
   // 绕过 effect 依赖数组。这样 refetch 不会触发 effect 重新执行。
 
+  // ⚠️ 关键修复：调用方传入的 deps 数组每次 render 都是新引用，
+  // 直接展开进 useEffect 依赖数组会导致 effect 持续重新执行 → 无限级联。
+  // 用 useMemo 按值比较稳定化依赖数组，仅当元素实际变化时才改变引用。
+  var stableDeps = useMemo(function() { return deps; }, deps);
+
   useEffect(function () {
     mountedRef.current = true;
     keyRef.current = currentKey;
@@ -81,7 +86,7 @@ export function useDataFetch<T>(
       mountedRef.current = false;
       dataManager.cancel(currentKey);
     };
-  }, [...deps]);
+  }, stableDeps);
 
   const refetch = useCallback(function () {
     dataManager.invalidate(keyRef.current);

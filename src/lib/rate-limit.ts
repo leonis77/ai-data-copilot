@@ -37,9 +37,10 @@ export interface RateLimitConfig {
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { windowMs: 60_000, maxRequests: 60 },
-  agent: { windowMs: 60_000, maxRequests: 10 },
-  auth: { windowMs: 60_000, maxRequests: 5 },
-  upload: { windowMs: 60_000, maxRequests: 3 },
+  agent:   { windowMs: 60_000, maxRequests: 10 },
+  auth:    { windowMs: 60_000, maxRequests: 5 },
+  upload:  { windowMs: 60_000, maxRequests: 3 },
+  loop:    { windowMs: 60_000, maxRequests: 20 },
 };
 
 // ═══ In-Memory Fallback ═══
@@ -190,6 +191,9 @@ export function applyRateLimit(
 ): RateLimitResult {
   const strategy = options.strategy || "default";
   const config = options.config || RATE_LIMITS[strategy];
+  if (!config) {
+    return { allowed: true, remaining: RATE_LIMITS.default.maxRequests, resetAt: Date.now() + RATE_LIMITS.default.windowMs };
+  }
   const ip = getClientIp(request);
   return checkRateLimitSync(ip, config);
 }
@@ -204,6 +208,10 @@ export async function applyRateLimitAsync(
 ): Promise<RateLimitResult> {
   const strategy = options.strategy || "default";
   const config = options.config || RATE_LIMITS[strategy];
+  // Defensive: if strategy is unknown and no explicit config provided, fall back to default
+  if (!config) {
+    return { allowed: true, remaining: RATE_LIMITS.default.maxRequests, resetAt: Date.now() + RATE_LIMITS.default.windowMs };
+  }
   const ip = getClientIp(request);
   return checkRateLimit(ip, config);
 }

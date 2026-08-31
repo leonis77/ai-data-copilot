@@ -88,12 +88,13 @@ describe("checkRateLimit (async)", () => {
 });
 
 describe("RATE_LIMITS", () => {
-  it("应包含 4 种策略", () => {
-    expect(Object.keys(RATE_LIMITS)).toHaveLength(4);
+  it("应包含 5 种策略", () => {
+    expect(Object.keys(RATE_LIMITS)).toHaveLength(5);
     expect(RATE_LIMITS.default).toBeDefined();
     expect(RATE_LIMITS.agent).toBeDefined();
     expect(RATE_LIMITS.auth).toBeDefined();
     expect(RATE_LIMITS.upload).toBeDefined();
+    expect(RATE_LIMITS.loop).toBeDefined();
   });
 
   it("agent 策略应更严格", () => {

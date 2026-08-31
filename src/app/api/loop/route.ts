@@ -27,8 +27,11 @@ import { applyRateLimitAsync, rateLimitResponse } from "@/lib/rate-limit";
 // ═══ GET /api/loop?datasetId=... ═══
 
 export async function GET(request: NextRequest) {
+  const rid = "req_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+  let authResult: { ok: boolean; user?: { id: string } } = { ok: false };
+  let datasetId: string | null = null;
   try {
-    const authResult = await authenticateRequest(request.headers.get("authorization"));
+    authResult = await authenticateRequest(request.headers.get("authorization"));
     if (!authResult.ok) {
       return NextResponse.json(apiError(ApiErrorCode.AUTH_FAILED, "未授权访问"), { status: 401 });
     }
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     const url = new URL(request.url);
-    const datasetId = url.searchParams.get("datasetId");
+    datasetId = url.searchParams.get("datasetId");
     if (!datasetId) {
       return NextResponse.json({ error: "missing datasetId" }, { status: 400 });
     }
@@ -86,8 +89,11 @@ export async function GET(request: NextRequest) {
       decisions: tasksByDecisionArray,
     });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    logger.error("Loop API GET failed", { requestId: rid, userId: authResult.user?.id, datasetId, message: msg, stack });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      { error: msg, recoverable: true },
       { status: 500 }
     );
   }

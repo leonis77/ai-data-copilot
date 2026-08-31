@@ -62,8 +62,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
     }
 
-    // Get initial session (10s timeout prevents permanent blank screen)
-    withTimeout(supabase.auth.getSession(), 10_000, "[AuthProvider] getSession")
+    // Get initial session
+    // Guard: if Supabase is not configured, skip getSession to avoid 10s+ hang
+    var supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+    if (!supabaseUrl) {
+      logger.warn("[AuthProvider] Supabase URL not configured, skipping getSession");
+      if (!mounted) return;
+      setState(function (prev) {
+        return { user: null, session: null, loading: false, initialized: true };
+      });
+      return;
+    }
+
+    withTimeout(supabase.auth.getSession(), 30_000, "[AuthProvider] getSession")
       .then(function ({ data: { session } }) {
         if (!mounted) return;
         logger.info("[AuthProvider] getSession resolved", { hasSession: !!session });

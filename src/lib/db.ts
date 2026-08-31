@@ -180,10 +180,13 @@ export async function listDatasets(userId: string): Promise<DatasetMeta[]> {
 export async function deleteDataset(userId: string, id: string): Promise<void> {
   try {
     const client = getClient();
+    // Cascade delete: chat_history has FK to datasets, must delete first
+    await client.from("chat_history").delete().eq("dataset_id", id).eq("user_id", userId);
     await client.from("analysis_results").delete().eq("dataset_id", id).eq("user_id", userId);
     await client.from("datasets").delete().eq("id", id).eq("user_id", userId);
   } catch (e: any) {
-    logger.warn("deleteDataset error", { message: e.message });
+    logger.error("deleteDataset error", { message: e.message, code: e.code, details: e.details, hint: e.hint });
+    throw e;
   }
 }
 
